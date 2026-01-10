@@ -31,4 +31,26 @@
     </None>
   </ItemGroup>
 
+	<ItemGroup>
+		<Compile Update="Tree.Variables.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.Window.vb">
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.Helpers.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.API.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.Builder.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
 </Project>
