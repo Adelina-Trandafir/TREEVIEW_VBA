@@ -18,4 +18,7 @@
 
     Private DEBUG_MODE As Boolean = True
     Private _manual_params As Boolean = False
+
+    Private Shared ReadOnly inCommandSeparator As String() = New String() {"||"}
+
 End Class

@@ -117,6 +117,11 @@ Public Class AdvancedTreeControl
     Public Event NodeMouseUp(pNode As TreeItem, e As MouseEventArgs)
     Public Event NodeDoubleClicked(pNode As TreeItem, e As MouseEventArgs)
 
+    ' Timer pentru a diferenția Click de DoubleClick
+    Private WithEvents _clickDelayTimer As New Timer()
+    Private _pendingClickItem As TreeItem = Nothing
+
+    Private _pendingMouseArgs As MouseEventArgs = Nothing
     ' ======================================================
     ' 5. INIȚIALIZARE
     ' ======================================================
@@ -132,11 +137,26 @@ Public Class AdvancedTreeControl
         AddHandler pTooltipTimer.Tick, AddressOf TooltipTimerTick
 
         RecalculateItemHeight()
+
+        _clickDelayTimer.Interval = SystemInformation.DoubleClickTime
     End Sub
 
     Protected Overrides Sub OnFontChanged(e As EventArgs)
         MyBase.OnFontChanged(e)
         RecalculateItemHeight()
+    End Sub
+
+    Private Sub OnClickDelayTimerTick(sender As Object, e As EventArgs) Handles _clickDelayTimer.Tick
+        _clickDelayTimer.Stop()
+
+        ' Dacă timer-ul a expirat, înseamnă că nu a urmat un al doilea click.
+        ' Putem trimite evenimentul de Click (MouseUp) acum.
+        If _pendingClickItem IsNot Nothing AndAlso _pendingMouseArgs IsNot Nothing Then
+            RaiseEvent NodeMouseUp(_pendingClickItem, _pendingMouseArgs)
+        End If
+
+        _pendingClickItem = Nothing
+        _pendingMouseArgs = Nothing
     End Sub
 
     Private Sub RecalculateItemHeight()
@@ -314,9 +334,16 @@ Public Class AdvancedTreeControl
 
     Protected Overrides Sub OnMouseUp(e As MouseEventArgs)
         MyBase.OnMouseUp(e)
+
         Dim it = HitTestItem(e.Location)
         If it IsNot Nothing Then
-            RaiseEvent NodeMouseUp(it, e)
+            ' NU trimitem evenimentul imediat. Îl salvăm pentru mai târziu.
+            _pendingClickItem = it
+            _pendingMouseArgs = e
+
+            ' Pornim cronometrul. Dacă utilizatorul dă al doilea click repede, 
+            ' acest timer va fi oprit în OnMouseDoubleClick înainte să apuce să ticăie.
+            _clickDelayTimer.Start()
         End If
     End Sub
 
@@ -454,10 +481,17 @@ Public Class AdvancedTreeControl
         Return it
     End Function
 
-    Public ReadOnly Property SelectedNode As TreeItem
+    Public Property SelectedNode As TreeItem
         Get
             Return pSelectedItem
         End Get
+        Set(value As TreeItem)
+            If pSelectedItem IsNot value Then
+                pSelectedItem = value
+                ' Invalidate to trigger redraw and show the new selection
+                Me.Invalidate()
+            End If
+        End Set
     End Property
 
     Public Sub Clear()

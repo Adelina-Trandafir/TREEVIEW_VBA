@@ -2,6 +2,7 @@
 Imports System.Globalization
 Imports System.IO
 Imports System.Runtime.InteropServices
+Imports System.Text.Json
 Imports System.Xml
 
 ' Asumăm că AdvancedTreeControl este definit în proiect
@@ -75,12 +76,11 @@ Partial Public Class Tree
 
 #If DEBUG Then
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
-                MsgBox("AICI")
                 _manual_params = True
-                _formHwnd = New IntPtr(2099834)
-                _mainAccessHwnd = New IntPtr(132806)
+                _formHwnd = New IntPtr(35327376)
+                _mainAccessHwnd = New IntPtr(788406)
                 _idTree = "Clasificatii"
-                _fisier = "C:\AVACONT\RES\Tree_Clasificatii.xml"
+                _fisier = "C:\AVACONT\RES\Tree_Clasificatii.txt"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -94,7 +94,7 @@ Partial Public Class Tree
                 Environment.Exit(-1)
             End If
 
-            'ConecteazaLaAccess(_mainAccessHwnd)
+            ConecteazaLaAccess(_mainAccessHwnd)
             Dim spHwnd As IntPtr = SetParent(Me.Handle, _formHwnd)
             'SetParent returneaza HWND-ul anterior al ferestrei copil daca reuseste, sau NULL daca esueaza
             If spHwnd = IntPtr.Zero Then
@@ -109,13 +109,17 @@ Partial Public Class Tree
 
             If Not String.IsNullOrEmpty(_fisier) Then
                 If LoadXmlData(_fisier) Then
+#If DEBUG Then
+#Else
                     File.Delete(_fisier)
+#End If
                 End If
             Else
                 MsgBox("ERROR: Nu s-a putut încărca structura arborelui din Access.", vbOKOnly + vbCritical, "Tree_Load")
                 Environment.Exit(0)
             End If
 
+            _accessApp.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
         Catch ex As Exception
             MsgBox($"ERROR: {ex.Message}", vbOKOnly + vbCritical, "Tree_Load")
         End Try
@@ -126,14 +130,14 @@ Partial Public Class Tree
     ' =============================================================
     Private Sub MyTree_NodeMouseUp(pItem As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeMouseUp
         If e.Button = MouseButtons.Left Then
-            TrimiteMesajAccess(pItem)
+            TrimiteMesajAccess("MouseUp", pItem)
         End If
 
         If e.Button = MouseButtons.Right Then
             If Not String.IsNullOrEmpty(_RightClickFunc) AndAlso _accessApp IsNot Nothing Then
                 Try
                     Dim nodeId As String = If(pItem.Tag IsNot Nothing, pItem.Tag.ToString(), "")
-                    _accessApp.Run(_RightClickFunc, _idTree, nodeId)
+                    _accessApp.Run("OnTreeEvent", _idTree, "RightClick", nodeId, pItem.Text, Nothing)
                 Catch ex As Exception
                     MsgBox($"ERROR: {ex.Message}", vbOKOnly + vbCritical, "NodeMouseUp")
                 End Try
