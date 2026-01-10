@@ -1,4 +1,4 @@
-﻿Imports System.Runtime.InteropServices
+﻿'Imports System.Runtime.InteropServices
 
 Partial Public Class Tree
     Private Sub MonitorTimerHandle()
@@ -23,28 +23,28 @@ Partial Public Class Tree
         End If
     End Sub
 
-    Private Sub ConecteazaLaAccess(hwndAccess As IntPtr)
-        Dim guidIDispatch As New Guid("{00020400-0000-0000-C000-000000000046}") ' IID_IDispatch
-        Dim obj As Object = Nothing
+    'Private Sub ConecteazaLaAccess(hwndAccess As IntPtr)
+    '    Dim guidIDispatch As New Guid("{00020400-0000-0000-C000-000000000046}") ' IID_IDispatch
+    '    Dim obj As Object = Nothing
 
-        ' Această funcție returnează obiectul "Window" din modelul de obiecte Access
-        Dim hr As Integer = AccessibleObjectFromWindow(hwndAccess, OBJID_NATIVEOM, guidIDispatch, obj)
+    '    ' Această funcție returnează obiectul "Window" din modelul de obiecte Access
+    '    Dim hr As Integer = AccessibleObjectFromWindow(hwndAccess, OBJID_NATIVEOM, guidIDispatch, obj)
 
-        If hr >= 0 AndAlso obj IsNot Nothing Then
-            Try
-                ' Din obiectul Window, urcăm la Application
-                Dim windowObj As Object = obj
-                _accessApp = windowObj.Application
-                'txtLog.AppendText("Conexiune COM reușită la instanța Access specifică!" & vbCrLf)
-            Catch ex As Exception
-                MsgBox("Eroare la obținerea Application din Window: " & ex.Message)
-                Application.Exit()
-            End Try
-        Else
-            MsgBox("Nu s-a putut obține obiectul COM din HWND.")
-            Application.Exit()
-        End If
-    End Sub
+    '    If hr >= 0 AndAlso obj IsNot Nothing Then
+    '        Try
+    '            ' Din obiectul Window, urcăm la Application
+    '            Dim windowObj As Object = obj
+    '            _accessApp = windowObj.Application
+    '            'txtLog.AppendText("Conexiune COM reușită la instanța Access specifică!" & vbCrLf)
+    '        Catch ex As Exception
+    '            MsgBox("Eroare la obținerea Application din Window: " & ex.Message)
+    '            Application.Exit()
+    '        End Try
+    '    Else
+    '        MsgBox("Nu s-a putut obține obiectul COM din HWND.")
+    '        Application.Exit()
+    '    End If
+    'End Sub
 
     Private Function GetValoareLocala(numeControl As String) As String
         ' 1. Găsim formularul de care suntem lipiți (ParentHwnd)
@@ -73,32 +73,39 @@ Partial Public Class Tree
         _cleaningDone = True
 
         ' 1. Oprire Timer
-        If _MonitorTimer IsNot Nothing Then
-            _MonitorTimer.Stop()
-        End If
+        _MonitorTimer?.Stop()
 
         ' 2. Eliberare Access COM (foarte important cu Try/Catch)
-        If _accessApp IsNot Nothing Then
-            Try
-                ' Eliberam referinta COM
-                Marshal.ReleaseComObject(_accessApp)
-            Catch ex As Exception
-                ' Aceasta eroare e normala daca Access s-a inchis deja (RPC unavailable)
-                'Log("COM Cleanup Info (Access probabil inchis deja): " & ex.Message)
-            End Try
-            _accessApp = Nothing
-        End If
+        'If _accessApp IsNot Nothing Then
+        '    Try
+        '        ' Eliberam referinta COM
+        '        Marshal.ReleaseComObject(_accessApp)
+        '    Catch ex As Exception
+        '        ' Aceasta eroare e normala daca Access s-a inchis deja (RPC unavailable)
+        '        'Log("COM Cleanup Info (Access probabil inchis deja): " & ex.Message)
+        '    End Try
+        '    _accessApp = Nothing
+        'End If
     End Sub
 
     Private Sub TrimiteMesajAccess(pItem As AdvancedTreeControl.TreeItem)
-        If _accessApp IsNot Nothing Then
-            Try
-                Dim nodeId As String = If(pItem.Tag IsNot Nothing, pItem.Tag.ToString(), "")
-                _accessApp.Run("OnTreeEvent", _idTree, nodeId, pItem.Text)
-            Catch ex As Exception
-                MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
-            End Try
+        ' Construiește un string pe care Access să îl poată parsa
+        ' Format propus: "EVENT|ID_TREE|NODE_ID|TEXT"
+        Dim nodeId As String = If(pItem.Tag IsNot Nothing, pItem.Tag.ToString(), "")
+        Dim payload As String = $"ON_CLICK|{_idTree}|{nodeId}|{pItem.Text}"
+
+        If _formHwnd <> IntPtr.Zero Then
+            ' Trimitem mesajul direct în fereastra din Access
+            SendMessage(_formHwnd, WM_SETTEXT, IntPtr.Zero, payload)
         End If
+        'If _accessApp IsNot Nothing Then
+        '    Try
+        '        Dim nodeId As String = If(pItem.Tag IsNot Nothing, pItem.Tag.ToString(), "")
+        '        _accessApp.Run("OnTreeEvent", _idTree, nodeId, pItem.Text)
+        '    Catch ex As Exception
+        '        MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
+        '    End Try
+        'End If
     End Sub
 
     ' =============================================================

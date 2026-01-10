@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <StartupObject>Sub Main</StartupObject>
+    <StartupObject>TREEVIEW_VBA.My.MyApplication</StartupObject>
     <UseWindowsForms>true</UseWindowsForms>
     <MyType>WindowsForms</MyType>
     <Platforms>AnyCPU;x64;x86</Platforms>

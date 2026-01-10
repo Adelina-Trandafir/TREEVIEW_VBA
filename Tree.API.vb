@@ -45,6 +45,10 @@ Partial Public Class Tree
     Private Shared Function AccessibleObjectFromWindow(ByVal hwnd As IntPtr, ByVal dwId As UInteger, ByRef riid As Guid, <MarshalAs(UnmanagedType.IDispatch)> ByRef ppvObject As Object) As Integer
     End Function
 
+    <DllImport("user32.dll", CharSet:=CharSet.Auto)>
+    Private Shared Function SendMessage(ByVal hWnd As IntPtr, ByVal Msg As Integer, ByVal wParam As IntPtr, ByVal lParam As String) As IntPtr
+    End Function
+
     Private Delegate Function EnumChildProcDelegate(hWnd As IntPtr, lParam As IntPtr) As Boolean
 
     <StructLayout(LayoutKind.Sequential)>
@@ -59,6 +63,7 @@ Partial Public Class Tree
         Public Left, Top, Right, Bottom As Integer
     End Structure
 
+    Private Const WM_SETTEXT As Integer = &HC
     Private Const GCL_HBRBACKGROUND As Integer = -10
     Private Const OBJID_NATIVEOM As UInteger = &HFFFFFFF0&
     Private Const acSubform As Integer = 112

@@ -15,7 +15,7 @@ Partial Public Class Tree
 #If DEBUG Then
         DEBUG_MODE = True
 #End If
-        ' InitializeComponent()
+        InitializeComponent()
 
         Try
             ' Configurare Formă Gazdă
@@ -68,42 +68,49 @@ Partial Public Class Tree
                     _mainAccessHwnd = New IntPtr(Long.Parse(arg.Substring(5)))
                 ElseIf lowerArg.StartsWith("/idt:") Then
                     _idTree = arg.Substring(5)
+                ElseIf lowerArg.StartsWith("/fis:") Then
+                    _fisier = arg.Substring(5)
                 End If
             Next
 
-            If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero AndAlso DEBUG_MODE Then
+#If DEBUG Then
+            If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
+                MsgBox("AICI")
                 _manual_params = True
-                _formHwnd = New IntPtr(3345700)
+                _formHwnd = New IntPtr(2099834)
                 _mainAccessHwnd = New IntPtr(132806)
                 _idTree = "Clasificatii"
+                _fisier = "C:\AVACONT\RES\Tree_Clasificatii.xml"
             End If
-
+#Else
+            If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
+                MsgBox("EROARE: Parametrii de lansare invalizi!", vbCritical + vbOKOnly, "Tree_Load")
+                Environment.Exit(-1)
+            End If
+#End If
             ' Conectare COM
             If Not IsWindow(_mainAccessHwnd) Then
                 MsgBox("EROARE: Fereastra Access invalida in DEBUG MODE!", vbCritical + vbOKOnly, "Tree_Load")
                 Environment.Exit(-1)
             End If
 
-            ConecteazaLaAccess(_mainAccessHwnd)
-
-            If _formHwnd <> IntPtr.Zero Then
-                Dim spHwnd As IntPtr = SetParent(Me.Handle, _formHwnd)
-                'SetParent returneaza HWND-ul anterior al ferestrei copil daca reuseste, sau NULL daca esueaza
-                If spHwnd = IntPtr.Zero Then
-                    Marshal.GetLastWin32Error()
-                    Dim dllErrInt As Integer = Marshal.GetLastWin32Error()
-                    Dim dllErr As String = New Win32Exception(dllErrInt).Message
-                    MsgBox("EROARE: Formularul ACCESS nu este valid!" & vbCrLf & dllErr & vbCrLf & $"Form Handle:{_formHwnd}", vbOKOnly + vbCritical, "Tree_Load")
-                    Application.Exit()
-                End If
-                PositioneazaInParent()
+            'ConecteazaLaAccess(_mainAccessHwnd)
+            Dim spHwnd As IntPtr = SetParent(Me.Handle, _formHwnd)
+            'SetParent returneaza HWND-ul anterior al ferestrei copil daca reuseste, sau NULL daca esueaza
+            If spHwnd = IntPtr.Zero Then
+                Marshal.GetLastWin32Error()
+                Dim dllErrInt As Integer = Marshal.GetLastWin32Error()
+                Dim dllErr As String = New Win32Exception(dllErrInt).Message
+                MsgBox("EROARE: Formularul ACCESS nu este valid!" & vbCrLf & dllErr & vbCrLf & $"Form Handle:{_formHwnd}", vbOKOnly + vbCritical, "Tree_Load")
+                Application.Exit()
             End If
 
-            ' Încărcare date
-            Dim xmlContent As String = GetValoareLocala("TreeXML")
+            PositioneazaInParent()
 
-            If Not String.IsNullOrEmpty(xmlContent) Then
-                LoadXmlDataFromString(xmlContent)
+            If Not String.IsNullOrEmpty(_fisier) Then
+                If LoadXmlData(_fisier) Then
+                    File.Delete(_fisier)
+                End If
             Else
                 MsgBox("ERROR: Nu s-a putut încărca structura arborelui din Access.", vbOKOnly + vbCritical, "Tree_Load")
                 Environment.Exit(0)

@@ -4,8 +4,50 @@ Imports System.Xml
 
 Partial Public Class Tree
     ' =============================================================
-    ' ÎNCĂRCARE XML + CONFIGURARE
+    ' ÎNCĂRCARE XML + CONFIGURARE (CORECTAT)
     ' =============================================================
+    Private Function LoadXmlData(filePath As String) As Boolean
+        If Not File.Exists(filePath) Then Return False
+
+        Try
+            Dim xDoc As New XmlDocument()
+            xDoc.Load(filePath)
+
+            MyTree.SuspendLayout()
+            MyTree.Items.Clear()
+            _imageCache.Clear()
+
+            ' 1. CONFIGURARE 
+            Dim configNode As XmlNode = xDoc.SelectSingleNode("/Tree/Config")
+            If configNode IsNot Nothing Then
+                AplicareConfigurare(configNode)
+            End If
+
+            ' 2. INCARCARE IMAGINI
+            Dim imgListNode As XmlNode = xDoc.SelectSingleNode("/Tree/Images")
+            If imgListNode IsNot Nothing Then
+                LoadImagesToCache(imgListNode)
+            End If
+
+            ' 3. POPULARE NODURI
+            Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
+
+            For Each xNode As XmlNode In nodesRoot
+                AddXmlNodeToTree(xNode, Nothing)
+            Next
+
+            MyTree.Invalidate()
+            Return True
+
+        Catch ex As Exception
+            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "LoadXmlDataFromString")
+            Return False
+
+        Finally
+            MyTree.ResumeLayout()
+        End Try
+    End Function
+
     Private Sub LoadXmlDataFromString(xmlContent As String)
         Try
             Dim xDoc As New XmlDocument()
