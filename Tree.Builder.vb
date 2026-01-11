@@ -100,6 +100,23 @@ Partial Public Class Tree
                 End Try
             End If
 
+            ' --- ForeColor ---
+            If cfg.Attributes("ForeColor") IsNot Nothing Then
+                Try
+                    Dim c As Color = ColorTranslator.FromHtml(cfg.Attributes("ForeColor").Value)
+                    MyTree.ForeColor = c
+                Catch ex As Exception
+                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
+                End Try
+            End If
+
+            ' --- Checkboxex ---
+            If cfg.Attributes("CheckBoxes") IsNot Nothing Then
+                Dim v As Integer = 0
+                Dim parsed = Integer.TryParse(cfg.Attributes("CheckBoxes").Value, v)
+                If parsed Then MyTree.CheckBoxes = v = 1
+            End If
+
             ' --- Font ---
             Dim fName As String = "Segoe UI"
             Dim fSize As Single = 9.0F
@@ -123,6 +140,27 @@ Partial Public Class Tree
                 If ih > 0 Then MyTree.ItemHeight = ih
             End If
 
+            ' === LeftIconHeight ===
+            If cfg.Attributes("LeftIconHeight") IsNot Nothing Then
+                Dim lih As Integer = 16
+                Dim v = Integer.TryParse(cfg.Attributes("LeftIconHeight").Value, lih)
+                If lih > 0 Then MyTree.LeftIconSize = New Size(lih, lih)
+            End If
+
+            ' === RightIconHeight ===
+            If cfg.Attributes("RightIconHeight") IsNot Nothing Then
+                Dim rih As Integer = 16
+                Dim v = Integer.TryParse(cfg.Attributes("RightIconHeight").Value, rih)
+                If rih > 0 Then MyTree.RightIconSize = New Size(rih, rih)
+            End If
+
+            ' --- CheckboxSize ---
+            If cfg.Attributes("CheckboxSize") IsNot Nothing Then
+                Dim cs As Integer = 16
+                Dim v = Integer.TryParse(cfg.Attributes("CheckboxSize").Value, cs)
+                If cs > 0 Then MyTree.CheckBoxSize = cs
+            End If
+
         Catch ex As Exception
             MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
         End Try
@@ -134,36 +172,62 @@ Partial Public Class Tree
     Private Sub AddXmlNodeToTree(xNode As XmlNode, parentItem As AdvancedTreeControl.TreeItem)
         Try
             ' 1. Citim atributele
-            Dim text As String = ""
-            If xNode.Attributes("Text") IsNot Nothing Then text = xNode.Attributes("Text").Value
+            Dim nodeCaption As String = ""
+            If xNode.Attributes("Caption") IsNot Nothing Then nodeCaption = xNode.Attributes("Caption").Value
 
-            Dim nodeId As String = ""
-            If xNode.Attributes("ID") IsNot Nothing Then nodeId = xNode.Attributes("ID").Value
+            Dim nodeKey As String = ""
+            If xNode.Attributes("Key") IsNot Nothing Then nodeKey = xNode.Attributes("Key").Value
 
-            ' 2. Gestionare Iconiță
-            Dim iconName As String = ""
-            If xNode.Attributes("IconClosed") IsNot Nothing Then iconName = xNode.Attributes("IconClosed").Value
-            If String.IsNullOrEmpty(iconName) AndAlso xNode.Attributes("IconOpen") IsNot Nothing Then
-                iconName = xNode.Attributes("IconOpen").Value
+            Dim nodeTag As String = ""
+            If xNode.Attributes("Tag") IsNot Nothing Then nodeTag = xNode.Attributes("Tag").Value
+
+            ' 2. Gestionare Iconițe
+            Dim nodeIconNameClosed As String = ""
+            Dim nodeIconNameOpen As String = ""
+            Dim nodeIconRight As String = ""
+
+            If xNode.Attributes("IconClosed") IsNot Nothing Then nodeIconNameClosed = xNode.Attributes("IconClosed").Value
+            If xNode.Attributes("IconOpen") IsNot Nothing Then nodeIconNameOpen = xNode.Attributes("IconOpen").Value
+            If xNode.Attributes("IconRight") IsNot Nothing Then nodeIconRight = xNode.Attributes("IconRight").Value
+
+            ' 2.1 Dacă nu s-au specificat ambele, le setăm la fel
+            If String.IsNullOrEmpty(nodeIconNameOpen) AndAlso nodeIconNameClosed <> "" Then
+                nodeIconNameOpen = nodeIconNameClosed
             End If
 
-            Dim iconImg As Image = Nothing
-            If Not String.IsNullOrEmpty(iconName) Then
+            If nodeIconNameOpen <> "" AndAlso String.IsNullOrEmpty(nodeIconNameClosed) Then
+                nodeIconNameClosed = nodeIconNameOpen
+            End If
+
+            Dim iconImgClosed As Image = Nothing
+            Dim iconImgOpen As Image = Nothing
+            Dim iconImgRight As Image = Nothing
+
+            If Not String.IsNullOrEmpty(nodeIconNameClosed) Then
                 Dim value As Image = Nothing
-                If _imageCache.TryGetValue(iconName, value) Then iconImg = value
+                If _imageCache.TryGetValue(nodeIconNameClosed, value) Then iconImgClosed = value
             End If
 
-            ' 3. Adăugăm Itemul
-            Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(text, parentItem, iconImg)
-            newItem.Tag = nodeId
+            If Not String.IsNullOrEmpty(nodeIconNameOpen) Then
+                Dim value As Image = Nothing
+                If _imageCache.TryGetValue(nodeIconNameOpen, value) Then iconImgOpen = value
+            End If
 
-            ' 4. Setări Stare (Expanded)
-            Dim iExpanded As Boolean = False
+            If Not String.IsNullOrEmpty(nodeIconRight) Then
+                Dim value As Image = Nothing
+                If _imageCache.TryGetValue(nodeIconRight, value) Then iconImgRight = value
+            End If
+
+            ' 3. Setări Stare (Expanded)
+            Dim iconExpanded As Boolean = False
             If xNode.Attributes("Expanded") IsNot Nothing Then
-                Dim v = Boolean.TryParse(xNode.Attributes("Expanded").Value, iExpanded)
-                If Not v Then iExpanded = False
+                Dim v = Boolean.TryParse(xNode.Attributes("Expanded").Value, iconExpanded)
+                If Not v Then iconExpanded = False
             End If
-            newItem.Expanded = iExpanded
+
+            ' 4. Adăugăm Itemul
+            Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(nodeKey, nodeCaption, parentItem, iconImgClosed, iconImgOpen, iconImgRight, nodeTag, iconExpanded)
+            newItem.Key = nodeKey
 
             ' 5. Recursivitate
             For Each childNode As XmlNode In xNode.SelectNodes("Node")

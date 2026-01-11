@@ -1,4 +1,6 @@
-﻿Imports System.Runtime.InteropServices
+﻿Imports System.Reflection
+Imports System.Runtime.InteropServices
+Imports TREEVIEW_VBA.AdvancedTreeControl
 
 Partial Public Class Tree
     Private Sub MonitorTimerHandle()
@@ -92,12 +94,12 @@ Partial Public Class Tree
     End Sub
 
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        Dim nodeId As String = If(pItem.Tag IsNot Nothing, pItem.Tag.ToString(), "")
+        Dim nodeId As String = If(pItem.Key IsNot Nothing, pItem.Key.ToString(), "")
         If _accessApp IsNot Nothing Then
             Try
                 Me.BeginInvoke(Sub()
                                    If _formHwnd <> IntPtr.Zero Then
-                                       _accessApp.Run("OnTreeEvent", _idTree, "MouseUp", nodeId, pItem.Text, ExtraInfo)
+                                       _accessApp.Run("OnTreeEvent", _idTree, Action, nodeId, pItem.Caption, ExtraInfo)
                                    End If
                                End Sub)
             Catch ex As Exception
@@ -118,7 +120,7 @@ Partial Public Class Tree
 
             Select Case parts(0).ToUpper()
                 Case "FIND_NODE"
-                    ' Format: FIND_NODE||Text||MatchExact(1/0)||Scroll(1/0)||Click(1/0)
+                    ' Format: FIND_NODE||Caption||MatchExact(1/0)||Scroll(1/0)||Click(1/0)
                     If parts.Length >= 5 Then
                         Dim textToFind As String = parts(1)
                         Dim matchExact As Boolean = (parts(2) = "1")
@@ -128,7 +130,7 @@ Partial Public Class Tree
                         FindAndSelectNode(textToFind, matchExact, scrollToView, raiseClick)
                     End If
                 Case "ADD_NODE"
-                    ' Format: ADD_NODE||ParentID||NewNodeID||Text||IconKey
+                    ' Format: ADD_NODE||ParentID||NewNodeID||Caption||IconKey
                     Dim iconKey As String = ""
                     If parts.Length > 4 Then iconKey = parts(4)
                     ExecuteAddNode(parts(1), parts(2), parts(3), iconKey)
@@ -136,6 +138,19 @@ Partial Public Class Tree
                 Case "REMOVE_NODE"
                     ' Format: REMOVE_NODE||NodeID
                     ExecuteRemoveNode(parts(1))
+
+                Case "GET_PROPERTY"
+                    ' Format: GET_PROPERTY||PropertyName||[Optional:NodeID]
+                    Dim propValue As String = MyTree.ProcessPropertyRequest(cmd)
+                    ' Trimitem inapoi la Access prin Run (sau altă metodă, depinde de implementare)
+                    If _accessApp IsNot Nothing Then
+                        Me.BeginInvoke(Sub()
+                                           If _formHwnd <> IntPtr.Zero Then
+                                               _accessApp.Run("OnTreeEvent", _idTree, "PropertyValue", "", "", propValue)
+                                           End If
+                                       End Sub)
+                    End If
+
             End Select
 
         Catch ex As Exception
@@ -151,9 +166,10 @@ Partial Public Class Tree
         Dim parentNode As AdvancedTreeControl.TreeItem = Nothing
         Dim iconImg As Image = Nothing
 
+        Dim value As Image = Nothing
         ' 1. Găsim imaginea (dacă există cheie)
-        If Not String.IsNullOrEmpty(iconKey) AndAlso _imageCache.ContainsKey(iconKey) Then
-            iconImg = _imageCache(iconKey)
+        If Not String.IsNullOrEmpty(iconKey) AndAlso _imageCache.TryGetValue(iconKey, value) Then
+            iconImg = value
         End If
 
         ' 2. Determinăm Părintele
@@ -162,7 +178,7 @@ Partial Public Class Tree
             For Each root In MyTree.Items
                 parentNode = SearchNodeRecursive(root, parentId, True) ' Căutare după ID (presupunem că SearchNodeRecursive caută după text sau ID? Vezi nota de jos*)
                 ' *NOTA: Funcția ta SearchNodeRecursive caută după TEXT. 
-                ' Trebuie o funcție mică de căutare după ID (Tag). O scriu mai jos (FindNodeById).
+                ' Trebuie o funcție mică de căutare după ID (_tag). O scriu mai jos (FindNodeById).
 
                 parentNode = FindNodeByIdRecursive(root, parentId)
                 If parentNode IsNot Nothing Then Exit For
@@ -176,11 +192,12 @@ Partial Public Class Tree
         End If
 
         ' 3. Creăm și adăugăm nodul
-        Dim newItem As New AdvancedTreeControl.TreeItem()
-        newItem.Text = text
-        newItem.Tag = newId
-        newItem.LeftIcon = iconImg
-        newItem.Expanded = True ' Implicit expandat
+        Dim newItem As New AdvancedTreeControl.TreeItem With {
+            .Caption = text,
+            .Key = newId,
+            .LeftIconClosed = iconImg,
+            .Expanded = True ' Implicit expandat
+            }
 
         If parentNode Is Nothing Then
             ' Adăugare ca ROOT
@@ -202,7 +219,7 @@ Partial Public Class Tree
     ' 2. LOGICA ȘTERGERE NOD
     ' =============================================================
     Private Sub ExecuteRemoveNode(nodeId As String)
-        Dim removed As Boolean = False
+        Dim removed As Boolean
 
         ' Încercăm să ștergem din rădăcini
         removed = RemoveNodeFromList(MyTree.Items, nodeId)
@@ -221,8 +238,8 @@ Partial Public Class Tree
         For i As Integer = list.Count - 1 To 0 Step -1
             Dim it = list(i)
 
-            ' Verificăm ID-ul (Tag)
-            Dim currentId As String = If(it.Tag IsNot Nothing, it.Tag.ToString(), "")
+            ' Verificăm ID-ul (_tag)
+            Dim currentId As String = If(it.Key IsNot Nothing, it.Key.ToString(), "")
 
             If currentId = targetId Then
                 ' Am găsit nodul, îl ștergem (dispare el și toți copiii)
@@ -240,9 +257,8 @@ Partial Public Class Tree
         Return False
     End Function
 
-    ' Helper recursiv pentru găsire după ID (Tag)
     Private Function FindNodeByIdRecursive(item As AdvancedTreeControl.TreeItem, targetId As String) As AdvancedTreeControl.TreeItem
-        Dim currentId As String = If(item.Tag IsNot Nothing, item.Tag.ToString(), "")
+        Dim currentId As String = If(item.Key IsNot Nothing, item.Key.ToString(), "")
         If currentId = targetId Then Return item
 
         For Each child In item.Children
@@ -295,11 +311,11 @@ Partial Public Class Tree
 
     Private Function SearchNodeRecursive(item As AdvancedTreeControl.TreeItem, text As String, exact As Boolean) As AdvancedTreeControl.TreeItem
         ' Verificare curentă
-        Dim isMatch As Boolean = False
+        Dim isMatch As Boolean
         If exact Then
-            isMatch = (String.Compare(item.Text, text, True) = 0)
+            isMatch = (String.Compare(item.Caption, text, True) = 0)
         Else
-            isMatch = (item.Text.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
+            isMatch = (item.Caption.Contains(text, StringComparison.OrdinalIgnoreCase))
         End If
 
         If isMatch Then Return item
