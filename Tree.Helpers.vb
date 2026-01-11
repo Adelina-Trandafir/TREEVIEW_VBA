@@ -146,11 +146,67 @@ Partial Public Class Tree
                     If _accessApp IsNot Nothing Then
                         Me.BeginInvoke(Sub()
                                            If _formHwnd <> IntPtr.Zero Then
-                                               _accessApp.Run("OnTreeEvent", _idTree, "PropertyValue", "", "", propValue)
+                                               TrimiteMesajAccess("PropertyValue", Nothing, propValue)
+                                               '_accessApp.Run("OnTreeEvent", _idTree, "PropertyValue", "", "", propValue)
                                            End If
                                        End Sub)
                     End If
 
+                Case "SELECT_NODE"
+                    ' Format: SELECT_NODE||NodeID
+                    ' Selectează vizual nodul pe baza cheii unice (Key)
+                    If parts.Length >= 2 Then
+                        Dim nodeId As String = parts(1)
+                        Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
+
+                        ' Cautam nodul in toata ierarhia
+                        For Each root In MyTree.Items
+                            foundNode = FindNodeByIdRecursive(root, nodeId)
+                            If foundNode IsNot Nothing Then Exit For
+                        Next
+
+                        If foundNode IsNot Nothing Then
+                            ' Selectam
+                            MyTree.SelectedNode = foundNode
+                            ' Expandam parintii sa se vada
+                            Dim parent As AdvancedTreeControl.TreeItem = foundNode.Parent
+                            While parent IsNot Nothing
+                                parent.Expanded = True
+                                parent = parent.Parent
+                            End While
+                            ' Scroll la el
+                            ScrollToNode(foundNode)
+                            MyTree.Invalidate()
+
+                            TrimiteMesajAccess("Click", foundNode)
+                        End If
+                    End If
+
+                Case "SET_CHECKBOX"
+                    ' Format: SET_CHECKBOX||NodeID||State(0/1)
+                    If parts.Length >= 3 Then
+                        Dim nodeId As String = parts(1)
+                        Dim stateInt As Integer = 0
+                        Dim v = Integer.TryParse(parts(2), stateInt) ' 0 = Unchecked, 1 = Checked
+
+                        Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
+                        For Each root In MyTree.Items
+                            foundNode = FindNodeByIdRecursive(root, nodeId)
+                            If foundNode IsNot Nothing Then Exit For
+                        Next
+
+                        If foundNode IsNot Nothing Then
+                            Dim newState As AdvancedTreeControl.TreeCheckState
+                            If stateInt = 1 Then
+                                newState = AdvancedTreeControl.TreeCheckState.Checked
+                            Else
+                                newState = AdvancedTreeControl.TreeCheckState.Unchecked
+                            End If
+
+                            ' Apelam metoda publica creata la Pasul 1
+                            MyTree.SetItemCheckState(foundNode, newState)
+                        End If
+                    End If
             End Select
 
         Catch ex As Exception

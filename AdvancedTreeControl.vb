@@ -126,6 +126,17 @@ Public Class AdvancedTreeControl
         End Set
     End Property
 
+    Private _rightClickFunc As String = ""
+    Public Property RightClickFunction As String
+        Get
+            Return _rightClickFunc
+        End Get
+        Set(value As String)
+            _rightClickFunc = value
+            Me.Invalidate()
+        End Set
+    End Property
+
     ' Culori
     Public LineColor As Color = Color.FromArgb(160, 160, 160)
     Public HoverBackColor As Color = Color.FromArgb(230, 240, 255)
@@ -140,6 +151,7 @@ Public Class AdvancedTreeControl
     ' ======================================================
     Private pHoveredItem As TreeItem = Nothing
     Private pSelectedItem As TreeItem = Nothing
+    Private pOldSelectedItem As TreeItem = Nothing
 
     Private ReadOnly pToolTip As New ToolTip()
     Private ReadOnly pTooltipTimer As New Timer()
@@ -189,12 +201,16 @@ Public Class AdvancedTreeControl
         ' Putem trimite evenimentul de Click (MouseUp) acum.
         If _pendingClickItem IsNot Nothing AndAlso _pendingMouseArgs IsNot Nothing Then
             RaiseEvent NodeMouseUp(_pendingClickItem, _pendingMouseArgs)
+            pOldSelectedItem = pSelectedItem
         End If
 
         _pendingClickItem = Nothing
         _pendingMouseArgs = Nothing
     End Sub
 
+    ' ======================================================
+    ' LAYOUT & REFRESH
+    ' ======================================================
     Private Sub RecalculateItemHeight()
         ' Înălțimea = Maximul dintre Font și Iconițe + Padding
         Dim hFont As Integer = CInt(Me.Font.Height)
@@ -220,6 +236,7 @@ Public Class AdvancedTreeControl
 
     ' Spațiu între Iconiță (stânga) și Text
     Private Const PADDING_ICON_GAP As Integer = 4
+
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
         MyBase.OnPaint(e)
 
@@ -248,81 +265,67 @@ Public Class AdvancedTreeControl
             it.Expanded = True
         End If
 
-        ' -- COORDONATE DE BAZĂ --
-        ' xBase este punctul unde începe zona nodului (după indentare)
-        Dim leftMargin As Integer = Indent + 5
-        Dim xBase As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
+        ' -- [COORDONATE RECALCULATE CU CONSTANTE] --
 
-        ' Centrul expanderului pe axa X
-        Dim expanderCenterX As Integer = xBase - Indent + (Indent \ 2)
+        ' 1. Punctul de start al grilei pentru nivelul curent (linia din stânga a nivelului)
+        Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+
+        ' 2. Expander-ul este centrat în coloana de indentare
+        Dim expanderCenterX As Integer = gridLeft + (Indent \ 2)
         Dim midY As Integer = y + (ItemHeight \ 2)
         Dim expanderRect As New Rectangle(expanderCenterX - (ExpanderSize \ 2), midY - (ExpanderSize \ 2), ExpanderSize, ExpanderSize)
 
-        ' -----------------------------------------------------------------------
-        ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW - LOGICĂ CORECTĂ) --
-        ' Desenăm asta PRIMA DATĂ, ca să fie în spatele tuturor elementelor.
-        ' -----------------------------------------------------------------------
-        ' 1. Calculăm punctul de start logic al acestui nod (include indentarea)
-        '    Adăugăm un mic padding (5px) ca să nu fie lipit de liniile părinților
-        Dim selStartX As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + 5
+        ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
+        ' Aici se aplică distanțarea cerută
+        Dim xBase As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
 
-        ' 2. Calculăm lățimea: De la punctul de start până la marginea dreaptă a ferestrei
+
+        ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
+        ' Calculăm selecția să înceapă de la limita vizuală a nivelului
+        Dim selStartX As Integer = gridLeft + ExpanderSize * 2 + 2 ' +2 ca să nu acoperim linia punctată a părintelui
         Dim selWidth As Integer = Me.ClientSize.Width - selStartX
-
-        ' Protecție: Să nu avem lățime negativă dacă intrăm mult în scroll
         If selWidth < 0 Then selWidth = 0
 
         Dim fullRowRect As New Rectangle(selStartX, y, selWidth, ItemHeight)
 
         If it Is pSelectedItem Then
-            ' Desenăm fundalul selecției
             Using brush As New SolidBrush(SelectedBackColor)
                 g.FillRectangle(brush, fullRowRect)
             End Using
-            ' Desenăm chenarul selecției
             Using pen As New Pen(SelectedBorderColor)
                 Dim borderRect As New Rectangle(selStartX, y, selWidth - 1, ItemHeight - 1)
                 g.DrawRectangle(pen, borderRect)
             End Using
         ElseIf it Is pHoveredItem Then
-            ' Desenăm fundalul de hover
             Using brush As New SolidBrush(HoverBackColor)
                 g.FillRectangle(brush, fullRowRect)
             End Using
         End If
-        ' -----------------------------------------------------------------------
 
         ' -- [PASUL 2] LINII (TREE LINES) --
-        ' Le desenăm ACUM, peste fundalul de selecție
-        DrawTreeLines(g, it, y, expanderCenterX, midY)
+        DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
 
         ' -- [PASUL 3] CHECKBOX MODERN --
         Dim chkRect As Rectangle
         If _checkBoxes Then
             Dim chkSize As Integer = _checkBoxSize
 
-            ' Centrat vertical
             Dim chkY As Integer = midY - (chkSize \ 2)
             chkRect = New Rectangle(xBase, chkY, chkSize, chkSize)
 
-            ' Setări grafice pentru calitate înaltă (AntiAlias)
             Dim oldSmoothing = g.SmoothingMode
             g.SmoothingMode = SmoothingMode.AntiAlias
 
-            ' Culori
             Dim accentColor As Color = Color.DodgerBlue
             Dim borderColor As Color = Color.FromArgb(180, 180, 180)
 
             If it.CheckState = TreeCheckState.Checked Then
-                ' --- STARE BIFATĂ (CHECKED) ---
                 Using brush As New SolidBrush(accentColor)
                     g.FillRectangle(brush, chkRect)
                 End Using
                 Using pen As New Pen(accentColor)
                     g.DrawRectangle(pen, chkRect)
                 End Using
-
-                ' Bifa (v)
                 Using penTick As New Pen(Color.White, 2)
                     Dim p1 As New Point(chkRect.X + 3, chkRect.Y + 8)
                     Dim p2 As New Point(chkRect.X + 6, chkRect.Y + 11)
@@ -331,33 +334,27 @@ Public Class AdvancedTreeControl
                 End Using
 
             ElseIf it.CheckState = TreeCheckState.Indeterminate Then
-                ' --- STARE NEDEFINITĂ (INDETERMINATE) ---
                 Using brush As New SolidBrush(accentColor)
                     g.FillRectangle(brush, chkRect)
                 End Using
                 Using pen As New Pen(accentColor)
                     g.DrawRectangle(pen, chkRect)
                 End Using
-
-                ' Linie orizontală (-) albă la mijloc
                 Using penDash As New Pen(Color.White, 2)
                     Dim yMidLine As Integer = chkRect.Y + (chkRect.Height \ 2)
                     g.DrawLine(penDash, chkRect.X + 3, yMidLine, chkRect.Right - 3, yMidLine)
                 End Using
-
             Else
-                ' --- STARE NEBIFATĂ (UNCHECKED) ---
                 g.FillRectangle(Brushes.White, chkRect)
                 Using pen As New Pen(borderColor, 1)
                     g.DrawRectangle(pen, chkRect)
                 End Using
             End If
 
-            ' Restaurăm setările grafice
             g.SmoothingMode = oldSmoothing
 
-            ' Împingem conținutul (Icon + Caption) mai la dreapta
-            xBase += chkSize + 8
+            ' Avansăm cu lățimea checkbox-ului + PADDING_CHECKBOX_GAP
+            xBase += chkSize + PADDING_CHECKBOX_GAP
         End If
 
         ' -- [PASUL 4] CALCUL CONȚINUT (Icon + Caption) --
@@ -366,24 +363,18 @@ Public Class AdvancedTreeControl
 
         If it.TextWidth = -1 Then it.TextWidth = CInt(g.MeasureString(it.Caption, Me.Font).Width)
 
-        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing, leftIconRect.Right + 4, xBase)
+        ' Calcul poziție text cu PADDING_ICON_GAP
+        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing, leftIconRect.Right + PADDING_ICON_GAP, xBase)
         Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
 
         ' -- [PASUL 5] EXPANDER (+/-) --
         Dim showExpander As Boolean = (it.Children.Count > 0)
-        ' Dacă e Root (Level 0) și am dezactivat RootHasExpander, NU îl afișăm
-        If it.Level = 0 AndAlso Not _rootHasExpander Then
-            showExpander = False
-        End If
+        If it.Level = 0 AndAlso Not _rootHasExpander Then showExpander = False
 
         If showExpander Then
             g.FillRectangle(Brushes.White, expanderRect)
             g.DrawRectangle(New Pen(LineColor), expanderRect)
-
-            ' Linia orizontală (-)
             g.DrawLine(Pens.Black, expanderRect.Left + 2, midY, expanderRect.Right - 2, midY)
-
-            ' Linia verticală (|) -> devine +
             If Not it.Expanded Then
                 g.DrawLine(Pens.Black, expanderCenterX, expanderRect.Top + 2, expanderCenterX, expanderRect.Bottom - 2)
             End If
@@ -392,10 +383,8 @@ Public Class AdvancedTreeControl
         ' -- [PASUL 6] DESENARE CONȚINUT FINAL --
         If it.Expanded Then
             If it.LeftIconOpen IsNot Nothing Then g.DrawImage(it.LeftIconOpen, leftIconRect)
-            Debug.Print("EXP:" & it.Caption)
         Else
             If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
-            Debug.Print("COL:" & it.Caption)
         End If
 
         g.DrawString(it.Caption, Me.Font, Brushes.Black, textX, textY)
@@ -409,44 +398,36 @@ Public Class AdvancedTreeControl
         End If
     End Sub
 
-    Private Sub DrawTreeLines(g As Graphics, it As TreeItem, y As Integer, expCenterX As Integer, midY As Integer)
+    ' Am adăugat parametrul 'gridLeft' pentru a nu-l recalcula degeaba
+    Private Sub DrawTreeLines(g As Graphics, it As TreeItem, y As Integer, expCenterX As Integer, midY As Integer, currentGridLeft As Integer)
         Using p As New Pen(LineColor)
             p.DashStyle = DashStyle.Dot
 
-            ' --- CORECȚIE: Sincronizare margine cu DrawItem ---
-            ' Înainte era hardcodat + 10. Acum trebuie să fie Indent + 5,
-            ' exact cum am definit leftMargin în DrawItem.
-            Dim leftMargin As Integer = Indent + 5
-            ' --------------------------------------------------
-
-            ' 1. Linia Orizontală (de la Expander/Linia Verticală spre Caption)
+            ' 1. Linia Orizontală (Expander -> Conținut)
             Dim startH As Integer = expCenterX + (ExpanderSize \ 2) + 2
-            If it.Children.Count = 0 Then startH = expCenterX ' Dacă n-are expander, linia pleacă din centru
+            If it.Children.Count = 0 Then startH = expCenterX
 
-            ' FIX: Folosim leftMargin în loc de 10 pentru a nimeri exact textul/checkbox-ul
-            Dim endH As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin - 2
+            ' Linia se duce până unde începe conținutul (xBase) minus 2 pixeli
+            Dim endH As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP - 2
             g.DrawLine(p, startH, midY, endH, midY)
 
-            ' 2. Linia Verticală Sus (către Părinte)
+            ' 2. Linia Verticală Sus
             If it.Parent IsNot Nothing Then
                 g.DrawLine(p, expCenterX, y, expCenterX, midY)
             End If
 
-            ' 3. Linia Verticală Jos (către Frate Următor)
-            ' Se desenează DOAR dacă nu sunt ultimul frate
+            ' 3. Linia Verticală Jos
             If it.Parent IsNot Nothing AndAlso Not it.IsLastSibling Then
                 g.DrawLine(p, expCenterX, midY, expCenterX, y + ItemHeight)
             End If
 
-            ' 4. Liniile Verticale ale Strămoșilor (Liniile lungi din stânga)
+            ' 4. Liniile Strămoșilor
             Dim ancestor As TreeItem = it.Parent
             While ancestor IsNot Nothing
-                ' Dacă un strămoș nu e ultimul, linia lui trebuie să continue vizual în jos prin dreptul nostru
                 If ancestor.Parent IsNot Nothing AndAlso Not ancestor.IsLastSibling Then
-
-                    ' FIX: Recalculăm poziția expanderului strămoșului folosind NOUA margine (leftMargin)
-                    ' Formula trebuie să fie identică cu cea din DrawItem pentru a se alinia perfect
-                    Dim ancExpCenterX As Integer = (ancestor.Level * Indent) + Me.AutoScrollPosition.X + leftMargin - Indent + (Indent \ 2)
+                    ' Recalculăm poziția pentru nivelul strămoșului folosind constantele
+                    Dim ancGridLeft As Integer = (ancestor.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+                    Dim ancExpCenterX As Integer = ancGridLeft + (Indent \ 2)
 
                     g.DrawLine(p, ancExpCenterX, y, ancExpCenterX, y + ItemHeight)
                 End If
@@ -477,6 +458,7 @@ Public Class AdvancedTreeControl
                 it = Nothing
             End If
         End If
+
         ' =================================================================
         ' 1. PRIORITATE ZERO: EXPANDER
         ' Dacă am dat click aici, facem Toggle și IEȘIM (Return).
@@ -522,9 +504,8 @@ Public Class AdvancedTreeControl
                 RaiseEvent NodeChecked(it)
                 Me.Invalidate()
 
-                ' CRITIC: Returnăm și aici. 
-                ' De obicei, când bifezi, NU vrei să schimbi și selecția rândului.
-                ' Dacă totuși vrei să se și selecteze rândul când bifezi, șterge linia de mai jos.
+                pSelectedItem = it
+                If pSelectedItem IsNot pOldSelectedItem Then RaiseEvent NodeMouseDown(it, e)
                 Return
             End If
         End If
@@ -533,8 +514,11 @@ Public Class AdvancedTreeControl
         ' 3. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
         ' Ajungem aici DOAR dacă nu s-a dat click pe Expander sau Checkbox
         ' =================================================================
+        'If pSelectedItem IsNot it Then
+
         pSelectedItem = it
         RaiseEvent NodeMouseDown(it, e)
+        'End If
         Me.Invalidate()
     End Sub
 
@@ -557,6 +541,8 @@ Public Class AdvancedTreeControl
         If expRect.Contains(e.Location) AndAlso it.Children.Count > 0 Then
             Return
         End If
+
+        If pSelectedItem Is pOldSelectedItem Then Return
 
         If it IsNot Nothing Then
             ' NU trimitem evenimentul imediat. Îl salvăm pentru mai târziu.
@@ -652,29 +638,34 @@ Public Class AdvancedTreeControl
         Dim y As Integer = GetItemY(it)
         If y = -1 Then Return Rectangle.Empty ' Item invizibil
 
-        ' FIX: Folosim aceeași margine ca la desenare
-        Dim leftMargin As Integer = Indent + 5
-        Dim xBase As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
+        ' --- ACTUALIZARE LOGICĂ POZIȚIONARE ---
+        ' 1. Punctul de start al grilei (același ca la DrawItem)
+        Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+
+        ' 2. Checkbox-ul începe după Indent + PADDING_EXPANDER_GAP
+        Dim xChk As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
 
         Dim midY As Integer = y + (ItemHeight \ 2)
+        Dim chkSize As Integer = _checkBoxSize
 
-        ' FIX: Dimensiune 16 (la fel ca în DrawItem modern)
-        Return New Rectangle(xBase, midY - (_checkBoxSize \ 2), _checkBoxSize, _checkBoxSize)
+        Return New Rectangle(xChk, midY - (chkSize \ 2), chkSize, chkSize)
     End Function
 
     Private Function GetExpanderRect(it As TreeItem) As Rectangle
         Dim y As Integer = GetItemY(it)
-        If y = -1 Then Return Rectangle.Empty ' Protecție extra
+        If y = -1 Then Return Rectangle.Empty
 
-        ' FIX: Folosim aceeași margine
-        Dim leftMargin As Integer = Indent + 5
-        Dim xBase As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
+        ' --- ACTUALIZARE LOGICĂ POZIȚIONARE ---
+        ' 1. Punctul de start al grilei
+        Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
-        Dim cx As Integer = xBase - Indent + (Indent \ 2)
+        ' 2. Centrul expanderului este la jumătatea indentării curente
+        Dim cx As Integer = gridLeft + (Indent \ 2)
         Dim cy As Integer = y + (ItemHeight \ 2)
 
         Return New Rectangle(cx - (ExpanderSize \ 2), cy - (ExpanderSize \ 2), ExpanderSize, ExpanderSize)
     End Function
+
 
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
@@ -727,19 +718,35 @@ Public Class AdvancedTreeControl
         Using g As Graphics = Me.CreateGraphics()
             Dim textSize = g.MeasureString(it.Caption, Me.Font)
 
-            ' FIX: Margine actualizată
-            Dim leftMargin As Integer = Indent + 5
-            Dim xBase As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
+            ' 1. Calculăm punctul de start al grilei (Sincronizat cu DrawItem / Helpers)
+            Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
-            ' Luăm în calcul și lățimea checkbox-ului dacă există
-            Dim chkOffset As Integer = If(_checkBoxes, _checkBoxSize + 8, 0) '+ 8 padding
+            ' 2. Calculăm poziția curentă X (cursorul virtual de desenare)
+            '    Pornim de la zona de după Expander
+            Dim currentX As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
 
-            Dim leftIconW As Integer = If(it.LeftIconClosed IsNot Nothing, LeftIconSize.Width + 4, 0)
+            ' 3. Adăugăm lățimea Checkbox-ului + Spațiul de după el (dacă e activ)
+            If _checkBoxes Then
+                currentX += _checkBoxSize + PADDING_CHECKBOX_GAP
+            End If
 
-            Dim endX As Integer = xBase + chkOffset + leftIconW + CInt(textSize.Width)
+            ' 4. Adăugăm lățimea Iconiței din stânga + Spațiul de după ea
+            '    Verificăm dacă există iconiță (Closed sau Open, dimensiunea e dată de LeftIconSize)
+            If it.LeftIconClosed IsNot Nothing OrElse it.LeftIconOpen IsNot Nothing Then
+                currentX += LeftIconSize.Width + PADDING_ICON_GAP
+            End If
+
+            ' 5. Adăugăm lățimea Textului pentru a afla punctul final
+            Dim endX As Integer = currentX + CInt(textSize.Width)
+
+            ' 6. Calculăm limita vizibilă a ferestrei
+            '    Scădem zona rezervată iconiței din dreapta și o marjă de siguranță (20px)
             Dim visibleWidth As Integer = Me.Width - RightIconSize.Width - 20
+
+            '    Scădem și lățimea barei de scroll vertical dacă este vizibilă
             If Me.VerticalScroll.Visible Then visibleWidth -= SystemInformation.VerticalScrollBarWidth
 
+            ' Verificăm dacă textul încape
             Return endX <= visibleWidth
         End Using
     End Function
@@ -883,8 +890,13 @@ Public Class AdvancedTreeControl
         Return result
     End Function
 
-    ' --- HELPERS ---
+    ' Metodă publică pentru a seta starea checkbox-ului din exterior (VBA) cu propagare
+    Public Sub SetItemCheckState(pItem As TreeItem, pState As TreeCheckState)
+        SetNodeStateWithPropagation(pItem, pState)
+        Me.Invalidate()
+    End Sub
 
+    ' --- HELPERS ---
     ' Funcție recursivă pentru a găsi un nod după ID
     Private Function FindNodeByID(id As String) As TreeItem
         Return FindNodeRecursive(Me.Items, id)

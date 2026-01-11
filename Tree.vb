@@ -78,7 +78,7 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(461370) '################
+                _formHwnd = New IntPtr(3279264) '################
                 '################################################
                 _mainAccessHwnd = New IntPtr(1967774)
                 _idTree = "Clasificatii"
@@ -136,7 +136,7 @@ Partial Public Class Tree
         End If
 
         If e.Button = MouseButtons.Right Then
-            If Not String.IsNullOrEmpty(_RightClickFunc) AndAlso _accessApp IsNot Nothing Then
+            If Not String.IsNullOrEmpty(MyTree.RightClickFunction) AndAlso _accessApp IsNot Nothing Then
                 TrimiteMesajAccess("RightClickFunction", pItem)
             End If
 

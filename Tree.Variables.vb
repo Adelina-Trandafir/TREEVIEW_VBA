@@ -8,7 +8,6 @@
     Private _mainAccessHwnd As IntPtr = IntPtr.Zero ' Handle-ul ferestrei principale Access
     Private _idTree As String = String.Empty
     Private _fisier As String = String.Empty
-    Private _RightClickFunc As String = String.Empty
 
     ' Flag pentru a nu rula curatarea de doua ori
     Private _cleaningDone As Boolean = False

@@ -76,6 +76,7 @@ Partial Public Class Tree
                 AddXmlNodeToTree(xNode, Nothing)
             Next
 
+            'MyTree.RecalculateLayout()
             MyTree.Invalidate()
 
         Catch ex As Exception
@@ -161,6 +162,11 @@ Partial Public Class Tree
                 If cs > 0 Then MyTree.CheckBoxSize = cs
             End If
 
+            ' --- RightClickFunc ---
+            If cfg.Attributes("RightClickFunc") IsNot Nothing Then
+                Dim rcFunc As String = cfg.Attributes("RightClickFunc").Value
+                MyTree.RightClickFunction = rcFunc
+            End If
         Catch ex As Exception
             MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
         End Try
@@ -221,8 +227,13 @@ Partial Public Class Tree
             ' 3. Setări Stare (Expanded)
             Dim iconExpanded As Boolean = False
             If xNode.Attributes("Expanded") IsNot Nothing Then
-                Dim v = Boolean.TryParse(xNode.Attributes("Expanded").Value, iconExpanded)
-                If Not v Then iconExpanded = False
+                Dim valStr As String = xNode.Attributes("Expanded").Value.Trim().ToLower()
+                ' Verificăm manual cazurile comune: "1", "true", "-1"
+                If valStr = "1" OrElse valStr = "-1" OrElse valStr = "true" Then
+                    iconExpanded = True
+                Else
+                    iconExpanded = False
+                End If
             End If
 
             ' 4. Adăugăm Itemul
