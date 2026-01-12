@@ -97,8 +97,4 @@ Partial Public Class AdvancedTreeControl
         pHoveredItem = Nothing
         Me.Invalidate()
     End Sub
-
-    Public Sub RebuildTreeFromFile(xmlFilePath As String)
-        LoadXmlData(xmlFilePath)
-    End Sub
 End Class

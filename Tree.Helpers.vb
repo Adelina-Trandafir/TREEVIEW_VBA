@@ -94,19 +94,33 @@ Partial Public Class Tree
     End Sub
 
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
-        Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
+        If pItem Is Nothing Then
+            If _accessApp IsNot Nothing Then
+                Try
+                    Me.BeginInvoke(Sub()
+                                       If _formHwnd <> IntPtr.Zero Then
+                                           _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
+                                       End If
+                                   End Sub)
+                Catch ex As Exception
+                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
+                End Try
+            End If
+        Else
+            Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
+            Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
 
-        If _accessApp IsNot Nothing Then
-            Try
-                Me.BeginInvoke(Sub()
-                                   If _formHwnd <> IntPtr.Zero Then
-                                       _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
-                                   End If
-                               End Sub)
-            Catch ex As Exception
-                MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
-            End Try
+            If _accessApp IsNot Nothing Then
+                Try
+                    Me.BeginInvoke(Sub()
+                                       If _formHwnd <> IntPtr.Zero Then
+                                           _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
+                                       End If
+                                   End Sub)
+                Catch ex As Exception
+                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
+                End Try
+            End If
         End If
     End Sub
 
@@ -121,6 +135,23 @@ Partial Public Class Tree
             If parts.Length < 1 Then Return
 
             Select Case parts(0).ToUpper()
+                Case "ENABLE"
+                    ' Format: "ENABLE||1/0"
+                    If parts.Length >= 2 Then
+                        Dim enable As Boolean = (parts(1) = "1")
+                        MyTree.Enabled = enable
+                        TrimiteMesajAccess("Enabled", Nothing)
+                    End If
+
+                Case "REFRESH"
+                    ' Format: "REFRES||xml_to_use_in_refresh_path"
+                    If parts.Length >= 2 Then
+                        MyTree.Clear()
+                        If ReLoadXmlData(parts(1)) Then
+                            TrimiteMesajAccess("Refreshed", Nothing)
+                        End If
+                    End If
+
                 Case "CLEAR_NODES"
                     ' Format: CLEAR_NODES
                     MyTree.Clear()

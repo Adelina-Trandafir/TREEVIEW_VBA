@@ -48,19 +48,21 @@ Partial Public Class Tree
         End Try
     End Function
 
-    Private Sub LoadXmlDataFromString(xmlContent As String)
+    Private Function ReLoadXmlData(filePath As String) As Boolean
+        If Not File.Exists(filePath) Then Return False
+
         Try
             Dim xDoc As New XmlDocument()
-            xDoc.LoadXml(xmlContent)
+            xDoc.Load(filePath)
 
             MyTree.SuspendLayout()
-            MyTree.Items.Clear()
-            _imageCache.Clear()
 
             ' 1. CONFIGURARE 
             Dim configNode As XmlNode = xDoc.SelectSingleNode("/Tree/Config")
             If configNode IsNot Nothing Then
-                AplicareConfigurare(configNode)
+                If Not AplicareConfigurare(configNode) Then
+                    Application.Exit()
+                End If
             End If
 
             ' 2. INCARCARE IMAGINI
@@ -71,24 +73,52 @@ Partial Public Class Tree
 
             ' 3. POPULARE NODURI
             Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
+            If nodesRoot IsNot Nothing Then
+                MyTree.Items.Clear()
 
-            For Each xNode As XmlNode In nodesRoot
-                AddXmlNodeToTree(xNode, Nothing)
-            Next
+                For Each xNode As XmlNode In nodesRoot
+                    AddXmlNodeToTree(xNode, Nothing)
+                Next
+            Else
+                MyTree.Refresh()
+            End If
 
-            'MyTree.RecalculateLayout()
             MyTree.Invalidate()
+            Return True
 
         Catch ex As Exception
             MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "LoadXmlDataFromString")
+            Return False
+
         Finally
             MyTree.ResumeLayout()
         End Try
-    End Sub
+    End Function
 
-    Private Sub AplicareConfigurare(cfg As XmlNode)
+    Private Function AplicareConfigurare(cfg As XmlNode, Optional Reload As Boolean = False) As Boolean
         Try
             Dim culture As CultureInfo = CultureInfo.InvariantCulture
+
+            If cfg.Attributes("treeID") IsNot Nothing Then
+                Dim tId As String = cfg.Attributes("treeID").Value
+                If Not String.IsNullOrEmpty(tId) Then
+                    If Reload Then
+                        ' La reload verific daca e acelasi ID. Daca nu, eroare.
+                        If MyTree.treeID <> tId Then
+                            MsgBox("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                            Application.Exit()
+                        End If
+                    Else
+                        MyTree.treeID = tId
+                    End If
+                Else
+                    MsgBox("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                    Application.Exit()
+                End If
+            Else
+                MsgBox("EROARE: Atributul 'treeId' este obligatoriu în configurație.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                Application.Exit()
+            End If
 
             ' --- BackColor ---
             If cfg.Attributes("BackColor") IsNot Nothing Then
@@ -167,10 +197,13 @@ Partial Public Class Tree
                 Dim rcFunc As String = cfg.Attributes("RightClickFunc").Value
                 MyTree.RightClickFunction = rcFunc
             End If
+
+            Return True
         Catch ex As Exception
             MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
+            Return False
         End Try
-    End Sub
+    End Function
 
     ' =============================================================
     ' LOGICA RECURSIVĂ DE ADĂUGARE NODURI
@@ -251,6 +284,8 @@ Partial Public Class Tree
 
     Private Sub LoadImagesToCache(imgRoot As XmlNode)
         Dim count As Integer = 0
+        _imageCache.Clear()
+
         For Each imgNode As XmlNode In imgRoot.SelectNodes("Image")
             Try
                 Dim key As String = imgNode.Attributes("Key").Value

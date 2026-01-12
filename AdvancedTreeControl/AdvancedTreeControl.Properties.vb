@@ -7,6 +7,7 @@
 
     Public Indent As Integer = 20
     Public ExpanderSize As Integer = 12
+    Public treeID As String
 
     ' Nodes
     Public ReadOnly Items As New List(Of TreeItem)

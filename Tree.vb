@@ -3,7 +3,7 @@ Imports System.IO
 Imports System.Runtime.InteropServices
 
 ' Asumăm că AdvancedTreeControl este definit în proiect
-' V.2
+' V.3
 Partial Public Class Tree
     ' =============================================================
     ' INIT
@@ -75,11 +75,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(1904258) '################
+                _formHwnd = New IntPtr(2557886) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(1508852)
-                _idTree = "Clasificatii"
-                _fisier = "C:\AVACONT\RES\Tree_Clasificatii.xml"
+                _mainAccessHwnd = New IntPtr(1967778)
+                _idTree = "AdaugCont"
+                _fisier = "C:\AVACONT\RES\Tree_AdaugCont.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -118,7 +118,8 @@ Partial Public Class Tree
                 Environment.Exit(0)
             End If
 
-            _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
+            TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
+            ' _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
         Catch ex As Exception
             MsgBox($"ERROR: {ex.Message}", vbOKOnly + vbCritical, "Tree_Load")
         End Try

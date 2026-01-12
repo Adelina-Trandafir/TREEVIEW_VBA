@@ -48,7 +48,6 @@
 			<DependentUpon>Tree.vb</DependentUpon>
 		</Compile>
 		<Compile Update="Tree.Builder.vb">
-			<SubType>Code</SubType>
 			<DependentUpon>Tree.vb</DependentUpon>
 		</Compile>
 	</ItemGroup>
