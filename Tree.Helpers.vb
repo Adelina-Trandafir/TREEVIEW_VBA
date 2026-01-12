@@ -94,12 +94,14 @@ Partial Public Class Tree
     End Sub
 
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        Dim nodeId As String = If(pItem.Key IsNot Nothing, pItem.Key.ToString(), "")
+        Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
+        Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
+
         If _accessApp IsNot Nothing Then
             Try
                 Me.BeginInvoke(Sub()
                                    If _formHwnd <> IntPtr.Zero Then
-                                       _accessApp.Run("OnTreeEvent", _idTree, Action, nodeId, pItem.Caption, ExtraInfo)
+                                       _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
                                    End If
                                End Sub)
             Catch ex As Exception
@@ -119,6 +121,10 @@ Partial Public Class Tree
             If parts.Length < 1 Then Return
 
             Select Case parts(0).ToUpper()
+                Case "CLEAR_NODES"
+                    ' Format: CLEAR_NODES
+                    MyTree.Clear()
+
                 Case "FIND_NODE"
                     ' Format: FIND_NODE||Caption||MatchExact(1/0)||Scroll(1/0)||Click(1/0)
                     If parts.Length >= 5 Then
@@ -178,7 +184,7 @@ Partial Public Class Tree
                             ScrollToNode(foundNode)
                             MyTree.Invalidate()
 
-                            TrimiteMesajAccess("Click", foundNode)
+                            'TrimiteMesajAccess("Click", foundNode)
                         End If
                     End If
 
@@ -203,7 +209,6 @@ Partial Public Class Tree
                                 newState = AdvancedTreeControl.TreeCheckState.Unchecked
                             End If
 
-                            ' Apelam metoda publica creata la Pasul 1
                             MyTree.SetItemCheckState(foundNode, newState)
                         End If
                     End If

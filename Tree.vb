@@ -1,12 +1,9 @@
 ﻿Imports System.ComponentModel
-Imports System.Globalization
 Imports System.IO
 Imports System.Runtime.InteropServices
-Imports System.Text.Json
-Imports System.Xml
 
 ' Asumăm că AdvancedTreeControl este definit în proiect
-
+' V.2
 Partial Public Class Tree
     ' =============================================================
     ' INIT
@@ -78,9 +75,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(3279264) '################
+                _formHwnd = New IntPtr(1904258) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(1967774)
+                _mainAccessHwnd = New IntPtr(1508852)
                 _idTree = "Clasificatii"
                 _fisier = "C:\AVACONT\RES\Tree_Clasificatii.xml"
             End If
@@ -142,5 +139,9 @@ Partial Public Class Tree
 
             TrimiteMesajAccess("RightClick", pItem, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
         End If
+    End Sub
+
+    Private Sub MyTree_NodeChecked(pNode As AdvancedTreeControl.TreeItem) Handles MyTree.NodeChecked
+        TrimiteMesajAccess("NodeChecked", pNode, If(pNode.CheckState = CheckState.Checked, 1, 0))
     End Sub
 End Class
