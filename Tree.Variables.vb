@@ -20,4 +20,12 @@
 
     Private Shared ReadOnly inCommandSeparator As String() = New String() {"||"}
 
+    Public Class NodeDto
+        Public Property Key As String
+        Public Property Caption As String
+        Public Property Icon As String
+        Public Property Expanded As Object
+        Public Property Tag As String
+        Public Property Children As List(Of NodeDto)
+    End Class
 End Class

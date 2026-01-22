@@ -75,9 +75,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(2557886) '################
+                _formHwnd = New IntPtr(2230436) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(1967778)
+                _mainAccessHwnd = New IntPtr(854480)
                 _idTree = "AdaugCont"
                 _fisier = "C:\AVACONT\RES\Tree_AdaugCont.xml"
             End If

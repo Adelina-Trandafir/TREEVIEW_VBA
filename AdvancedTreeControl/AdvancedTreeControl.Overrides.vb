@@ -42,49 +42,67 @@ Partial Public Class AdvancedTreeControl
             Return
         End If
 
+        ' --- 1. LOGICĂ ZONĂ MOARTĂ (Folosind constantele din AdvancedTreeControl.vb) ---
         If it IsNot Nothing Then
-            Dim chkWidth As Integer = If(_checkBoxes, _checkBoxSize, 0)
-            Dim leftMargin As Integer = Indent + 5 - chkWidth
-            Dim xStart As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
-            If e.X < xStart Then
+            ' Calculăm punctul de start exact ca în Painting.vb
+            Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+
+            ' Considerăm zona activă începând de la linia expanderului/indentării
+            ' Tot ce e în stânga alinierii nivelului este ignorat
+            If e.X < gridLeft Then
                 it = Nothing
             End If
         End If
+        ' -------------------------------------------------------------------------------
 
         ' =================================================================
-        ' 1. PRIORITATE ZERO: EXPANDER
-        ' Dacă am dat click aici, facem Toggle și IEȘIM (Return).
-        ' Nu vrem să se selecteze rândul.
+        ' 2. PRIORITATE ZERO: EXPANDER (+/-)
         ' =================================================================
+        ' GetExpanderRect folosește deja PADDING_TREE_START intern
         Dim expRect = GetExpanderRect(it)
 
         ' Verificăm dacă click-ul e în zona expanderului (și dacă are copii)
         If expRect.Contains(e.Location) AndAlso it.Children.Count > 0 Then
 
             ' A. Verificare Protecție Root (dacă e activă)
-            ' Dacă e root și nu are expander vizual, ignorăm click-ul AICI.
-            ' Dar punem Return ca să NU ajungă la selecție (zona fiind goală/invizibilă).
             If it.Level = 0 AndAlso Not _rootButton Then
                 Return
             End If
 
-            ' B. Acțiunea propriu-zisă
+            ' B. LOGICĂ LAZY LOAD (Interception)
+            ' Verificăm dacă încercăm să deschidem un nod nescărcat
+            If Not it.Expanded Then
+                Dim isDummy As Boolean = False
+                ' Verificăm primul copil pentru cheia dummy
+                If it.Children.Count > 0 AndAlso it.Children(0).Key.Contains("_DUMMY_") Then
+                    isDummy = True
+                End If
+
+                If isDummy Then
+                    ' STOP! Nu expandăm vizual. 
+                    ' Ridicăm evenimentul și ieșim. VBA va face treaba și va trimite FORCE_EXPAND mai târziu.
+                    RaiseEvent RequestLazyLoad(Me, it)
+                    Return
+                End If
+            End If
+
+            ' C. Acțiunea propriu-zisă (Standard)
             it.Expanded = Not it.Expanded
             Me.Invalidate()
 
-            ' C. CRITIC: Oprim execuția aici! 
-            ' Astfel nu se execută codul de mai jos (selecție/checkbox).
+            ' D. CRITIC: Oprim execuția aici! 
             Return
         End If
 
         ' =================================================================
-        ' 2. PRIORITATE UNU: CHECKBOX (Dacă există)
+        ' 3. PRIORITATE UNU: CHECKBOX (Dacă există)
         ' =================================================================
         If _checkBoxes Then
+            ' GetCheckBoxRect folosește deja PADDING_TREE_START și PADDING_EXPANDER_GAP intern
             Dim chkRect = GetCheckBoxRect(it)
-            If chkRect.Contains(e.Location) Then
 
-                ' Toggle CheckState (Unchecked <-> Checked)
+            If chkRect.Contains(e.Location) Then
+                ' Toggle CheckState
                 Dim newState As TreeCheckState = TreeCheckState.Checked
                 If it.CheckState = TreeCheckState.Checked Then
                     newState = TreeCheckState.Unchecked
@@ -103,14 +121,10 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' =================================================================
-        ' 3. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
-        ' Ajungem aici DOAR dacă nu s-a dat click pe Expander sau Checkbox
+        ' 4. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
         ' =================================================================
-        'If pSelectedItem IsNot it Then
-
         pSelectedItem = it
         RaiseEvent NodeMouseDown(it, e)
-        'End If
         Me.Invalidate()
     End Sub
 
@@ -119,14 +133,14 @@ Partial Public Class AdvancedTreeControl
 
         Dim it = HitTestItem(e.Location)
 
+        ' --- Logică Zonă Moartă ---
         If it IsNot Nothing Then
-            Dim chkWidth As Integer = If(_checkBoxes, _checkBoxSize, 0)
-            Dim leftMargin As Integer = Indent + 5 - chkWidth
-            Dim xStart As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
-            If e.X < xStart Then
+            Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+            If e.X < gridLeft Then
                 it = Nothing
             End If
         End If
+        ' --------------------------
 
         Dim expRect = GetExpanderRect(it)
         If expRect.Contains(e.Location) AndAlso it.Children.Count > 0 Then
@@ -137,12 +151,8 @@ Partial Public Class AdvancedTreeControl
         If pSelectedItem IsNot it AndAlso e.Button = MouseButtons.Right Then Return
 
         If it IsNot Nothing Then
-            ' NU trimitem evenimentul imediat. Îl salvăm pentru mai târziu.
             _pendingClickItem = it
             _pendingMouseArgs = e
-
-            ' Pornim cronometrul. Dacă utilizatorul dă al doilea click repede, 
-            ' acest timer va fi oprit în OnMouseDoubleClick înainte să apuce să ticăie.
             ClickDelayTimer.Start()
         End If
     End Sub
@@ -156,11 +166,23 @@ Partial Public Class AdvancedTreeControl
         If it.Children.Count > 0 Then
 
             ' --- PROTECȚIE ROOT ---
-            ' Dacă e root și nu are expander, NU permitem collapse/expand
             If it.Level = 0 AndAlso Not _rootButton Then
                 Return
             End If
-            ' ----------------------
+
+            ' --- LOGICĂ LAZY LOAD (Interception și la Dublu Click) ---
+            If Not it.Expanded Then
+                Dim isDummy As Boolean = False
+                If it.Children.Count > 0 AndAlso it.Children(0).Key.Contains("_DUMMY_") Then
+                    isDummy = True
+                End If
+
+                If isDummy Then
+                    RaiseEvent RequestLazyLoad(Me, it)
+                    Return ' STOP. Nu expandăm.
+                End If
+            End If
+            ' ---------------------------------------------------------
 
             it.Expanded = Not it.Expanded
             Me.Invalidate()
@@ -171,33 +193,25 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
         MyBase.OnMouseMove(e)
 
-        ' 1. Aflăm nodul de sub cursor (pe axa Y)
         Dim it = HitTestItem(e.Location)
 
-        ' 2. --- LOGICĂ NOUĂ: ZONA MOARTĂ (LINII) ---
+        ' --- Logică Zonă Moartă ---
         If it IsNot Nothing Then
-            ' Recalculăm marginea exact cum am făcut la DrawItem
-            Dim leftMargin As Integer = Indent + 5
+            ' Folosim constanta PADDING_TREE_START definită în AdvancedTreeControl.vb
+            Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
-            ' Calculăm unde începe zona activă a acestui nod specific
-            ' (Tot ce e la stânga lui xStart sunt linii ierarhice sau spațiu gol)
-            Dim xStart As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + leftMargin
+            ' Opțional: Dacă vrei să ignori mouse-over chiar și pe indentare:
+            ' Dim activeAreaStart As Integer = gridLeft ' Sau gridLeft + Indent
 
-            ' Dacă checkbox-urile sunt active, zona activă începe chiar de la checkbox? 
-            ' Sau vrei ca nici checkbox-ul să nu se activeze dacă ești prea în stânga?
-            ' De obicei, xStart definit mai sus e linia de unde începe Checkbox-ul sau Expander-ul.
-
-            ' Dacă mouse-ul este în stânga indentării acestui nivel -> IGNORĂM
-            If e.X < xStart Then
+            If e.X < gridLeft Then
                 it = Nothing
             End If
         End If
-        ' -------------------------------------------
+        ' --------------------------
 
-        ' 3. Gestionarea Hover-ului (Standard)
         If it IsNot pHoveredItem Then
             pHoveredItem = it
-            ResetTooltip(it) ' Resetare tooltip
+            ResetTooltip(it)
             Me.Invalidate()
         End If
     End Sub

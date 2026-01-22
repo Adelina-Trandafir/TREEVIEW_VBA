@@ -1,5 +1,8 @@
-﻿Imports System.Reflection
+﻿Imports System.IO
+Imports System.Reflection
 Imports System.Runtime.InteropServices
+Imports System.Text.Json
+Imports System.Text.Json.Serialization
 Imports TREEVIEW_VBA.AdvancedTreeControl
 
 Partial Public Class Tree
@@ -135,6 +138,36 @@ Partial Public Class Tree
             If parts.Length < 1 Then Return
 
             Select Case parts(0).ToUpper()
+                Case "FORCE_EXPAND"
+                    ' Format: FORCE_EXPAND||NodeID
+                    If parts.Length >= 2 Then
+                        Dim nodeId As String = parts(1)
+                        Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
+
+                        ' Iterăm prin rădăcini pentru a găsi nodul (fix pentru eroarea cu 'root')
+                        For Each rootItem In MyTree.Items
+                            foundNode = FindNodeByIdRecursive(rootItem, nodeId)
+                            If foundNode IsNot Nothing Then Exit For
+                        Next
+
+                        If foundNode IsNot Nothing Then
+                            foundNode.Expanded = True
+                            MyTree.Invalidate()
+                        End If
+                    End If
+
+                Case "ADD_BATCH_JSON"
+                    ' Format: ADD_BATCH_JSON||ParentID||JsonString
+                    If parts.Length >= 3 Then
+                        ExecuteAddBatchJson(parts(1), parts(2))
+                    End If
+
+                Case "ADD_BATCH_FILE"
+                    ' Format: ADD_BATCH_FILE||ParentID||FilePath
+                    If parts.Length >= 3 Then
+                        ExecuteAddBatchFile(parts(1), parts(2))
+                    End If
+
                 Case "ENABLE"
                     ' Format: "ENABLE||1/0"
                     If parts.Length >= 2 Then
@@ -258,53 +291,58 @@ Partial Public Class Tree
         Dim parentNode As AdvancedTreeControl.TreeItem = Nothing
         Dim iconImg As Image = Nothing
 
-        Dim value As Image = Nothing
-        ' 1. Găsim imaginea (dacă există cheie)
-        If Not String.IsNullOrEmpty(iconKey) AndAlso _imageCache.TryGetValue(iconKey, value) Then
-            iconImg = value
+        ' 1. Gestionare Imagine (Robustness: Fallback dacă nu există cheia)
+        If Not String.IsNullOrEmpty(iconKey) Then
+            If Not _imageCache.TryGetValue(iconKey, iconImg) Then
+                ' Opțional: Logare eroare sau folosire imagine default
+                ' iconImg = _defaultImage 
+            End If
         End If
 
         ' 2. Determinăm Părintele
         If Not String.IsNullOrEmpty(parentId) Then
-            ' Căutăm recursiv părintele
+            ' Folosim funcția de căutare după ID, nu Text
             For Each root In MyTree.Items
-                parentNode = SearchNodeRecursive(root, parentId, True) ' Căutare după ID (presupunem că SearchNodeRecursive caută după text sau ID? Vezi nota de jos*)
-                ' *NOTA: Funcția ta SearchNodeRecursive caută după TEXT. 
-                ' Trebuie o funcție mică de căutare după ID (_tag). O scriu mai jos (FindNodeById).
-
                 parentNode = FindNodeByIdRecursive(root, parentId)
                 If parentNode IsNot Nothing Then Exit For
             Next
 
             If parentNode Is Nothing Then
-                ' Dacă s-a cerut părinte dar nu există, ieșim (sau adăugăm ca root, depinde de logică)
-                If DEBUG_MODE Then MsgBox("Parent ID not found: " & parentId)
+                If DEBUG_MODE Then MsgBox($"Parent ID '{parentId}' not found. Cannot add child '{newId}'.")
                 Return
             End If
         End If
 
-        ' 3. Creăm și adăugăm nodul
+        ' 3. Creăm nodul
         Dim newItem As New AdvancedTreeControl.TreeItem With {
-            .Caption = text,
-            .Key = newId,
-            .LeftIconClosed = iconImg,
-            .Expanded = True ' Implicit expandat
-            }
+        .Caption = text,
+        .Key = newId,
+        .LeftIconClosed = iconImg,
+        .LeftIconOpen = iconImg, ' Asigurăm și iconița de Open
+        .Expanded = False ' Implicit collapse la nodurile noi dinamice
+    }
 
         If parentNode Is Nothing Then
-            ' Adăugare ca ROOT
+            ' -- ROOT NODE --
             newItem.Level = 0
             MyTree.Items.Add(newItem)
         Else
-            ' Adăugare ca CHILD
+            ' -- CHILD NODE --
             newItem.Level = parentNode.Level + 1
             newItem.Parent = parentNode
             parentNode.Children.Add(newItem)
-            parentNode.Expanded = True ' Expandăm părintele să se vadă copilul
+
+            ' FOARTE IMPORTANT: Expandăm părintele ca să vedem ce am adăugat
+            parentNode.Expanded = True
         End If
 
-        ' 4. ACTUALIZARE VIZUALĂ
-        MyTree.Refresh()
+        ' 4. ACTUALIZARE VIZUALĂ COMPLETĂ
+        ' Recalculăm scroll-ul și forțăm redesenarea
+        MyTree.SetAutoHeight() ' Sau logica ta de recalculare înălțime totală
+        MyTree.Invalidate()
+
+        ' Opțional: Scroll până la noul element creat (User Experience)
+        ScrollToNode(newItem)
     End Sub
 
     ' =============================================================
@@ -458,6 +496,123 @@ Partial Public Class Tree
                 GetVisibleListRecursive(child, list)
             Next
         End If
+    End Sub
+
+    ' =============================================================
+    ' 4. LOGICA BATCH PROCESSING (NOU)
+    ' =============================================================
+
+    Private Sub ExecuteAddBatchFile(parentID As String, filePath As String)
+        If File.Exists(filePath) Then
+            Try
+                Dim jsonContent As String = File.ReadAllText(filePath)
+                ExecuteAddBatchJson(parentID, jsonContent)
+
+                ' Opțional: curățăm fișierul temporar creat de VBA
+                ' File.Delete(filePath) 
+            Catch ex As Exception
+                MsgBox("Batch File Error: " & ex.Message)
+            End Try
+        End If
+    End Sub
+
+    Private Sub ExecuteAddBatchJson(parentID As String, jsonString As String)
+        Try
+            ' 1. Găsim părintele
+            Dim parentNode As AdvancedTreeControl.TreeItem = Nothing
+
+            If Not String.IsNullOrEmpty(parentID) Then
+                For Each root In MyTree.Items
+                    parentNode = FindNodeByIdRecursive(root, parentID)
+                    If parentNode IsNot Nothing Then Exit For
+                Next
+
+                ' Dacă am cerut un părinte și nu există, ieșim (safety)
+                If parentNode Is Nothing Then
+                    If DEBUG_MODE Then MsgBox("Batch Error: Parent " & parentID & " not found.")
+                    Return
+                End If
+            End If
+
+            ' 2. Deserializare
+            ' Opțiuni pentru a fi permisivi cu JSON-ul (Case Insensitive)
+            Dim options As New JsonSerializerOptions With {
+                .PropertyNameCaseInsensitive = True
+            }
+            Dim newNodes As List(Of NodeDto) = JsonSerializer.Deserialize(Of List(Of NodeDto))(jsonString, options)
+
+            If newNodes Is Nothing OrElse newNodes.Count = 0 Then Return
+
+            ' 3. OPRIM DESENAREA (PERFORMANȚĂ CRITICĂ)
+            MyTree.SuspendLayout()
+
+            ' 4. Adăugare recursivă
+            For Each nodeDto In newNodes
+                AddNodeDtoToTree(nodeDto, parentNode)
+            Next
+
+            ' Dacă am adăugat la un nod existent, îl expandăm
+            If parentNode IsNot Nothing Then parentNode.Expanded = True
+
+        Catch ex As Exception
+            If DEBUG_MODE Then MsgBox("JSON Batch Error: " & ex.Message)
+        Finally
+            ' 5. REPORNIM DESENAREA
+            MyTree.SetAutoHeight()
+            MyTree.ResumeLayout()
+            MyTree.Invalidate()
+        End Try
+    End Sub
+
+    Private Sub AddNodeDtoToTree(dto As NodeDto, parentItem As AdvancedTreeControl.TreeItem)
+        ' Rezolvare imagine
+        Dim iconImg As Image = Nothing
+        If Not String.IsNullOrEmpty(dto.Icon) Then
+            _imageCache.TryGetValue(dto.Icon, iconImg)
+        End If
+
+        ' --- CONVERSIE SIGURĂ BOOLEAN ---
+        ' Verificăm ce am primit în Object și transformăm în Boolean curat
+        Dim isExpanded As Boolean = False
+        If dto.Expanded IsNot Nothing Then
+            Dim s As String = dto.Expanded.ToString().ToLower()
+            ' Acceptăm 1, -1, "1", "true" ca fiind TRUE. Restul e False.
+            isExpanded = (s = "1" OrElse s = "-1" OrElse s = "true")
+        End If
+        ' --------------------------------
+
+        ' Creare Nod UI
+        Dim newItem As New AdvancedTreeControl.TreeItem With {
+            .Key = dto.Key,
+            .Caption = dto.Caption,
+            .LeftIconClosed = iconImg,
+            .LeftIconOpen = iconImg,
+            .Tag = dto.Tag,
+            .Expanded = isExpanded ' <--- Folosim variabila calculată de noi
+        }
+
+        ' Linkare la părinte sau root
+        If parentItem Is Nothing Then
+            newItem.Level = 0
+            MyTree.Items.Add(newItem)
+        Else
+            newItem.Level = parentItem.Level + 1
+            newItem.Parent = parentItem
+            parentItem.Children.Add(newItem)
+        End If
+
+        ' Procesare copii (Recursivitate)
+        If dto.Children IsNot Nothing AndAlso dto.Children.Count > 0 Then
+            For Each childDto In dto.Children
+                AddNodeDtoToTree(childDto, newItem)
+            Next
+        End If
+    End Sub
+
+    ' Aceasta înlocuiește SetupEvents și OnRequestLazyLoad-ul anterior
+    Private Sub MyTree_RequestLazyLoad(sender As Object, item As AdvancedTreeControl.TreeItem) Handles MyTree.RequestLazyLoad
+        ' Trimitem cererea la VBA: "BEFORE_EXPAND||NodeID"
+        TrimiteMesajAccess("BEFORE_EXPAND", item)
     End Sub
 
     ' =============================================================
