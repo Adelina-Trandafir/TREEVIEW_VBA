@@ -3,7 +3,9 @@ Imports System.IO
 Imports System.Runtime.InteropServices
 
 ' Asumăm că AdvancedTreeControl este definit în proiect
-' V.3
+' V.4 - 2024.06.17
+' Adugat LAZY LOADING pentru noduri
+
 Partial Public Class Tree
     ' =============================================================
     ' INIT
@@ -40,7 +42,7 @@ Partial Public Class Tree
             _MonitorTimer = New Timer With {.Interval = 10, .Enabled = False}
 
         Catch ex As Exception
-            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "NEW_TREE")
+            MessageBox.Show(ex.Message, "NEW_TREE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -53,7 +55,7 @@ Partial Public Class Tree
             Dim args As String() = Environment.GetCommandLineArgs()
 
             If args.Length <= 1 And Not DEBUG_MODE Then
-                MsgBox("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", vbOKOnly + vbCritical, "Tree_Load")
+                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
@@ -75,7 +77,7 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(2230436) '################
+                _formHwnd = New IntPtr(3738090) '################
                 '################################################
                 _mainAccessHwnd = New IntPtr(854480)
                 _idTree = "AdaugCont"
@@ -83,13 +85,13 @@ Partial Public Class Tree
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
-                MsgBox("EROARE: Parametrii de lansare invalizi!", vbCritical + vbOKOnly, "Tree_Load")
+                messagebox.show("EROARE: Parametrii de lansare invalizi!",  "Tree_Load", MessageBoxButtons.OK,MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 #End If
             ' Conectare COM
             If Not IsWindow(_mainAccessHwnd) Then
-                MsgBox("EROARE: Fereastra Access invalida in DEBUG MODE!", vbCritical + vbOKOnly, "Tree_Load")
+                MessageBox.Show("EROARE: Fereastra Access invalida in DEBUG MODE!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
@@ -100,7 +102,7 @@ Partial Public Class Tree
                 Marshal.GetLastWin32Error()
                 Dim dllErrInt As Integer = Marshal.GetLastWin32Error()
                 Dim dllErr As String = New Win32Exception(dllErrInt).Message
-                MsgBox("EROARE: Formularul ACCESS nu este valid!" & vbCrLf & dllErr & vbCrLf & $"Form Handle:{_formHwnd}", vbOKOnly + vbCritical, "Tree_Load")
+                MessageBox.Show("EROARE: Formularul ACCESS nu este valid!" & vbCrLf & dllErr & vbCrLf & $"Form Handle:{_formHwnd}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
 
@@ -114,14 +116,14 @@ Partial Public Class Tree
 #End If
                 End If
             Else
-                MsgBox("ERROR: Nu s-a putut încărca structura arborelui din Access.", vbOKOnly + vbCritical, "Tree_Load")
+                MessageBox.Show("ERROR: Nu s-a putut încărca structura arborelui din Access.", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(0)
             End If
 
             TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
             ' _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
         Catch ex As Exception
-            MsgBox($"ERROR: {ex.Message}", vbOKOnly + vbCritical, "Tree_Load")
+            MessageBox.Show($"ERROR: {ex.Message}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 

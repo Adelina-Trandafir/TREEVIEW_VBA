@@ -110,7 +110,7 @@ Partial Public Class AdvancedTreeControl
         Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
 
         ' -- [PASUL 5] EXPANDER (+/-) --
-        Dim showExpander As Boolean = (it.Children.Count > 0)
+        Dim showExpander As Boolean = (it.Children.Count > 0 OrElse it.LazyNode)
         If it.Level = 0 AndAlso Not _rootButton Then showExpander = False
 
         If showExpander Then

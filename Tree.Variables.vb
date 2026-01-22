@@ -27,5 +27,6 @@
         Public Property Expanded As Object
         Public Property Tag As String
         Public Property Children As List(Of NodeDto)
+        Public Property LazyNode As Object
     End Class
 End Class

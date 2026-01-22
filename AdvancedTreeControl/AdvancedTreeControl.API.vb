@@ -8,7 +8,9 @@ Partial Public Class AdvancedTreeControl
                             Optional pLeftIconOpen As Image = Nothing,
                             Optional pRightIcon As Image = Nothing,
                             Optional pTag As String = Nothing,
-                            Optional pExpanded As Boolean = False) As TreeItem
+                            Optional pExpanded As Boolean = False,
+                            Optional pLazyNode As Boolean = False) As TreeItem
+
         Dim it As New TreeItem With {
             .Key = pKey,
             .Tag = pTag,
@@ -17,7 +19,8 @@ Partial Public Class AdvancedTreeControl
             .LeftIconClosed = pLeftIconClosed,
             .LeftIconOpen = pLeftIconOpen,
             .RightIcon = pRightIcon,
-            .Expanded = pExpanded
+            .Expanded = pExpanded,
+            .LazyNode = pLazyNode
         }
 
         If pParent Is Nothing Then

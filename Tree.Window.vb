@@ -59,7 +59,7 @@
                 End If
             Next
         Catch ex As Exception
-            MsgBox("Eroare la căutarea form-ului: " & ex.Message & vbCrLf)
+            MessageBox.Show("Eroare la căutarea form-ului: ", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
 
         Return Nothing

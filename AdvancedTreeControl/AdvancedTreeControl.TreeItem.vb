@@ -10,7 +10,7 @@
         Public LeftIconClosed As Image
         Public LeftIconOpen As Image
         Public RightIcon As Image
-
+        Public LazyNode As Boolean = False
         Private _tag As Object
 
         ' Cache pentru lățimea textului (performanță la desenare)

@@ -42,11 +42,11 @@ Partial Public Class Tree
                 _accessApp = windowObj.Application
                 'txtLog.AppendText("Conexiune COM reușită la instanța Access specifică!" & vbCrLf)
             Catch ex As Exception
-                MsgBox("Eroare la obținerea Application din Window: " & ex.Message)
+                MessageBox.Show("Eroare la obținerea Application din Window: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End Try
         Else
-            MsgBox("Nu s-a putut obține obiectul COM din HWND.")
+            MessageBox.Show("Nu s-a putut obține obiectul COM din HWND.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Application.Exit()
         End If
     End Sub
@@ -87,7 +87,7 @@ Partial Public Class Tree
                 Marshal.ReleaseComObject(_accessApp)
             Catch ex As Exception
                 ' Aceasta eroare e normala daca Access s-a inchis deja (RPC unavailable)
-                MsgBox("COM Cleanup Info (Access probabil inchis deja): " & ex.Message)
+                MessageBox.Show("COM Cleanup Info (Access probabil inchis deja): " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
             _accessApp = Nothing
         End If
@@ -106,7 +106,7 @@ Partial Public Class Tree
                                        End If
                                    End Sub)
                 Catch ex As Exception
-                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
+                    MessageBox.Show("EROARE: " & ex.Message, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
         Else
@@ -121,7 +121,7 @@ Partial Public Class Tree
                                        End If
                                    End Sub)
                 Catch ex As Exception
-                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "TrimiteMesajAccess")
+                    MessageBox.Show("EROARE: " & ex.Message, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
         End If
@@ -280,7 +280,7 @@ Partial Public Class Tree
 
         Catch ex As Exception
             ' Ignorăm erorile de parsare silențios sau le logăm
-            If DEBUG_MODE Then MsgBox("Err ProcessCmd: " & ex.Message)
+            If DEBUG_MODE Then MessageBox.Show("Err ProcessCmd: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -308,7 +308,7 @@ Partial Public Class Tree
             Next
 
             If parentNode Is Nothing Then
-                If DEBUG_MODE Then MsgBox($"Parent ID '{parentId}' not found. Cannot add child '{newId}'.")
+                If DEBUG_MODE Then MessageBox.Show($"Parent ID '{parentId}' not found. Cannot add child '{newId}'.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Return
             End If
         End If
@@ -358,7 +358,7 @@ Partial Public Class Tree
         If removed Then
             MyTree.Refresh()
         Else
-            If DEBUG_MODE Then MsgBox("Node ID to remove not found: " & nodeId)
+            If DEBUG_MODE Then MessageBox.Show("Node ID to remove not found: " & nodeId, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End If
     End Sub
 
@@ -435,7 +435,7 @@ Partial Public Class Tree
                 TrimiteMesajAccess("MouseUp", foundNode)
             End If
         Else
-            If DEBUG_MODE Then MsgBox("Nodul nu a fost găsit: " & text)
+            If DEBUG_MODE Then MessageBox.Show("Nodul nu a fost găsit: " & text, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End If
     End Sub
 
@@ -511,7 +511,7 @@ Partial Public Class Tree
                 ' Opțional: curățăm fișierul temporar creat de VBA
                 ' File.Delete(filePath) 
             Catch ex As Exception
-                MsgBox("Batch File Error: " & ex.Message)
+                MessageBox.Show("Batch File Error: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
         End If
     End Sub
@@ -529,7 +529,7 @@ Partial Public Class Tree
 
                 ' Dacă am cerut un părinte și nu există, ieșim (safety)
                 If parentNode Is Nothing Then
-                    If DEBUG_MODE Then MsgBox("Batch Error: Parent " & parentID & " not found.")
+                    If DEBUG_MODE Then MessageBox.Show("Batch Error: Parent " & parentID & " not found.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Return
                 End If
             End If
@@ -555,7 +555,7 @@ Partial Public Class Tree
             If parentNode IsNot Nothing Then parentNode.Expanded = True
 
         Catch ex As Exception
-            If DEBUG_MODE Then MsgBox("JSON Batch Error: " & ex.Message)
+            If DEBUG_MODE Then MessageBox.Show("JSON Batch Error: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
             ' 5. REPORNIM DESENAREA
             MyTree.SetAutoHeight()
@@ -579,6 +579,13 @@ Partial Public Class Tree
             ' Acceptăm 1, -1, "1", "true" ca fiind TRUE. Restul e False.
             isExpanded = (s = "1" OrElse s = "-1" OrElse s = "true")
         End If
+
+        Dim isLazyNode As Boolean = False
+        If dto.LazyNode IsNot Nothing Then
+            Dim s As String = dto.LazyNode.ToString().ToLower()
+            ' Acceptăm 1, -1, "1", "true" ca fiind TRUE. Restul e False.
+            isLazyNode = (s = "1" OrElse s = "-1" OrElse s = "true")
+        End If
         ' --------------------------------
 
         ' Creare Nod UI
@@ -588,7 +595,8 @@ Partial Public Class Tree
             .LeftIconClosed = iconImg,
             .LeftIconOpen = iconImg,
             .Tag = dto.Tag,
-            .Expanded = isExpanded ' <--- Folosim variabila calculată de noi
+            .Expanded = isExpanded,
+            .LazyNode = isLazyNode
         }
 
         ' Linkare la părinte sau root

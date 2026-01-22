@@ -62,7 +62,7 @@ Partial Public Class AdvancedTreeControl
         Dim expRect = GetExpanderRect(it)
 
         ' Verificăm dacă click-ul e în zona expanderului (și dacă are copii)
-        If expRect.Contains(e.Location) AndAlso it.Children.Count > 0 Then
+        If expRect.Contains(e.Location) AndAlso (it.Children.Count > 0 OrElse it.LazyNode) Then
 
             ' A. Verificare Protecție Root (dacă e activă)
             If it.Level = 0 AndAlso Not _rootButton Then
@@ -71,19 +71,9 @@ Partial Public Class AdvancedTreeControl
 
             ' B. LOGICĂ LAZY LOAD (Interception)
             ' Verificăm dacă încercăm să deschidem un nod nescărcat
-            If Not it.Expanded Then
-                Dim isDummy As Boolean = False
-                ' Verificăm primul copil pentru cheia dummy
-                If it.Children.Count > 0 AndAlso it.Children(0).Key.Contains("_DUMMY_") Then
-                    isDummy = True
-                End If
-
-                If isDummy Then
-                    ' STOP! Nu expandăm vizual. 
-                    ' Ridicăm evenimentul și ieșim. VBA va face treaba și va trimite FORCE_EXPAND mai târziu.
-                    RaiseEvent RequestLazyLoad(Me, it)
-                    Return
-                End If
+            If it.LazyNode AndAlso it.Children.Count = 0 Then
+                RaiseEvent RequestLazyLoad(Me, it)
+                Return ' STOP! Nu expandăm vizual (nu avem ce arăta încă)
             End If
 
             ' C. Acțiunea propriu-zisă (Standard)
@@ -163,7 +153,7 @@ Partial Public Class AdvancedTreeControl
         If it Is Nothing Then Return
 
         ' Dublu click oriunde pe rând face Toggle Expand
-        If it.Children.Count > 0 Then
+        If it.Children.Count > 0 OrElse it.LazyNode Then
 
             ' --- PROTECȚIE ROOT ---
             If it.Level = 0 AndAlso Not _rootButton Then
@@ -171,16 +161,9 @@ Partial Public Class AdvancedTreeControl
             End If
 
             ' --- LOGICĂ LAZY LOAD (Interception și la Dublu Click) ---
-            If Not it.Expanded Then
-                Dim isDummy As Boolean = False
-                If it.Children.Count > 0 AndAlso it.Children(0).Key.Contains("_DUMMY_") Then
-                    isDummy = True
-                End If
-
-                If isDummy Then
-                    RaiseEvent RequestLazyLoad(Me, it)
-                    Return ' STOP. Nu expandăm.
-                End If
+            If it.LazyNode AndAlso it.Children.Count = 0 Then
+                RaiseEvent RequestLazyLoad(Me, it)
+                Return
             End If
             ' ---------------------------------------------------------
 

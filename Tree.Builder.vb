@@ -40,7 +40,7 @@ Partial Public Class Tree
             Return True
 
         Catch ex As Exception
-            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "LoadXmlDataFromString")
+            MessageBox.Show("EROARE: " & ex.Message, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
 
         Finally
@@ -87,7 +87,7 @@ Partial Public Class Tree
             Return True
 
         Catch ex As Exception
-            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "LoadXmlDataFromString")
+            MessageBox.Show("EROARE: " & ex.Message, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
 
         Finally
@@ -105,18 +105,18 @@ Partial Public Class Tree
                     If Reload Then
                         ' La reload verific daca e acelasi ID. Daca nu, eroare.
                         If MyTree.treeID <> tId Then
-                            MsgBox("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                            MessageBox.Show("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                             Application.Exit()
                         End If
                     Else
                         MyTree.treeID = tId
                     End If
                 Else
-                    MsgBox("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                    MessageBox.Show("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Application.Exit()
                 End If
             Else
-                MsgBox("EROARE: Atributul 'treeId' este obligatoriu în configurație.", vbOKOnly + vbCritical, "AplicareConfigurare")
+                MessageBox.Show("EROARE: Atributul 'treeId' este obligatoriu în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
 
@@ -127,7 +127,7 @@ Partial Public Class Tree
                     MyTree.BackColor = c
                     Me.BackColor = c
                 Catch ex As Exception
-                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
+                    MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
 
@@ -137,7 +137,7 @@ Partial Public Class Tree
                     Dim c As Color = ColorTranslator.FromHtml(cfg.Attributes("ForeColor").Value)
                     MyTree.ForeColor = c
                 Catch ex As Exception
-                    MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
+                    MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
 
@@ -200,7 +200,7 @@ Partial Public Class Tree
 
             Return True
         Catch ex As Exception
-            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AplicareConfigurare")
+            MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
         End Try
     End Function
@@ -269,8 +269,15 @@ Partial Public Class Tree
                 End If
             End If
 
-            ' 4. Adăugăm Itemul
-            Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(nodeKey, nodeCaption, parentItem, iconImgClosed, iconImgOpen, iconImgRight, nodeTag, iconExpanded)
+            ' 4. Setări Stare (LazyNode)
+            Dim isLazy As Boolean = False
+            If xNode.Attributes("LazyNode") IsNot Nothing Then
+                Dim valStr As String = xNode.Attributes("LazyNode").Value.Trim().ToLower()
+                isLazy = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
+            End If
+
+            ' 5. Adăugăm Itemul
+            Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(nodeKey, nodeCaption, parentItem, iconImgClosed, iconImgOpen, iconImgRight, nodeTag, iconExpanded, isLazy)
             newItem.Key = nodeKey
 
             ' 5. Recursivitate
@@ -278,7 +285,7 @@ Partial Public Class Tree
                 AddXmlNodeToTree(childNode, newItem)
             Next
         Catch ex As Exception
-            MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "AddXmlNodeToTree")
+            MessageBox.Show("EROARE: " & ex.Message, "AddXmlNodeToTree", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -301,7 +308,7 @@ Partial Public Class Tree
                     End If
                 End If
             Catch ex As Exception
-                MsgBox("EROARE: " & ex.Message, vbOKOnly + vbCritical, "LoadImagesToCache")
+                MessageBox.Show("EROARE: " & ex.Message, "LoadImagesToCache", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
         Next
     End Sub
