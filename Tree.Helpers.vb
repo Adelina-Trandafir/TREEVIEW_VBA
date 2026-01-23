@@ -40,7 +40,7 @@ Partial Public Class Tree
                 ' Din obiectul Window, urcăm la Application
                 Dim windowObj As Object = obj
                 _accessApp = windowObj.Application
-                'txtLog.AppendText("Conexiune COM reușită la instanța Access specifică!" & vbCrLf)
+
             Catch ex As Exception
                 MessageBox.Show("Eroare la obținerea Application din Window: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
@@ -188,6 +188,7 @@ Partial Public Class Tree
                 Case "CLEAR_NODES"
                     ' Format: CLEAR_NODES
                     MyTree.Clear()
+                    MyTree.Refresh()
 
                 Case "FIND_NODE"
                     ' Format: FIND_NODE||Caption||MatchExact(1/0)||Scroll(1/0)||Click(1/0)
@@ -566,9 +567,14 @@ Partial Public Class Tree
 
     Private Sub AddNodeDtoToTree(dto As NodeDto, parentItem As AdvancedTreeControl.TreeItem)
         ' Rezolvare imagine
-        Dim iconImg As Image = Nothing
-        If Not String.IsNullOrEmpty(dto.Icon) Then
-            _imageCache.TryGetValue(dto.Icon, iconImg)
+        Dim iconImgClosed As Image = Nothing
+        If Not String.IsNullOrEmpty(dto.IconClosed) Then
+            _imageCache.TryGetValue(dto.IconClosed, iconImgClosed)
+        End If
+
+        Dim iconImgOpen As Image = Nothing
+        If Not String.IsNullOrEmpty(dto.IconOpen) Then
+            _imageCache.TryGetValue(dto.IconOpen, iconImgOpen)
         End If
 
         ' --- CONVERSIE SIGURĂ BOOLEAN ---
@@ -592,8 +598,8 @@ Partial Public Class Tree
         Dim newItem As New AdvancedTreeControl.TreeItem With {
             .Key = dto.Key,
             .Caption = dto.Caption,
-            .LeftIconClosed = iconImg,
-            .LeftIconOpen = iconImg,
+            .LeftIconClosed = iconImgClosed,
+            .LeftIconOpen = iconImgClosed,
             .Tag = dto.Tag,
             .Expanded = isExpanded,
             .LazyNode = isLazyNode

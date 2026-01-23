@@ -23,7 +23,8 @@
     Public Class NodeDto
         Public Property Key As String
         Public Property Caption As String
-        Public Property Icon As String
+        Public Property IconClosed As String
+        Public Property IconOpen As String
         Public Property Expanded As Object
         Public Property Tag As String
         Public Property Children As List(Of NodeDto)

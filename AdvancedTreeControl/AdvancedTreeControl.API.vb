@@ -94,10 +94,26 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' Metodă publică pentru a goli toate elementele din control
+    ' Metodă publică pentru a goli toate elementele din control
     Public Sub Clear()
+        ' 1. Oprim orice desenare sau calcul de layout
+        Me.SuspendLayout()
+
+        ' 2. Golim datele
         Items.Clear()
         pSelectedItem = Nothing
         pHoveredItem = Nothing
+
+        ' 3. Resetăm Scroll-ul la zero (CRITIC)
+        Me.AutoScrollPosition = New Point(0, 0)
+        Me.AutoScrollMinSize = Size.Empty
+
+        ' 4. Repornim logica
+        Me.ResumeLayout(False)
+        Me.PerformLayout()
+
+        ' 5. Forțăm redesenarea imediată a întregului control
         Me.Invalidate()
+        Me.Update()
     End Sub
 End Class

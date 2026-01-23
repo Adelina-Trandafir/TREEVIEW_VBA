@@ -8,6 +8,7 @@ Partial Public Class AdvancedTreeControl
 
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
         MyBase.OnPaint(e)
+        e.Graphics.Clear(Me.BackColor)
 
         ' Setări pentru linii clare
         e.Graphics.SmoothingMode = SmoothingMode.None

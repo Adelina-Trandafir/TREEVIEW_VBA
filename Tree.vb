@@ -77,11 +77,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(3738090) '################
+                _formHwnd = New IntPtr(2426558) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(854480)
-                _idTree = "AdaugCont"
-                _fisier = "C:\AVACONT\RES\Tree_AdaugCont.xml"
+                _mainAccessHwnd = New IntPtr(5900240)
+                _idTree = "frmFX_MAIN"
+                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -102,7 +102,7 @@ Partial Public Class Tree
                 Marshal.GetLastWin32Error()
                 Dim dllErrInt As Integer = Marshal.GetLastWin32Error()
                 Dim dllErr As String = New Win32Exception(dllErrInt).Message
-                MessageBox.Show("EROARE: Formularul ACCESS nu este valid!" & vbCrLf & dllErr & vbCrLf & $"Form Handle:{_formHwnd}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Formularul ACCESS nu este valid!" & ControlChars.CrLf & dllErr & ControlChars.CrLf & $"Form Handle:{_formHwnd}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
 
