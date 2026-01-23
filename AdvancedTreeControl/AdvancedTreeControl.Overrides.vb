@@ -56,6 +56,12 @@ Partial Public Class AdvancedTreeControl
         End If
         ' -------------------------------------------------------------------------------
 
+        ' --- Logica Nod Loader ---
+        If it.IsLoader Then
+            ' Nu permitem interacțiuni cu nodurile loader
+            Return
+        End If
+
         ' =================================================================
         ' 2. PRIORITATE ZERO: EXPANDER (+/-)
         ' =================================================================
@@ -70,18 +76,44 @@ Partial Public Class AdvancedTreeControl
                 Return
             End If
 
-            ' B. LOGICĂ LAZY LOAD (Interception)
-            ' Verificăm dacă încercăm să deschidem un nod nescărcat
-            If it.LazyNode AndAlso it.Children.Count = 0 Then
-                RaiseEvent RequestLazyLoad(Me, it)
-                Return ' STOP! Nu expandăm vizual (nu avem ce arăta încă)
+            If pSelectedItem IsNot it Then
+                pSelectedItem = it
+                RaiseEvent NodeMouseUp(it, e)
             End If
 
-            ' C. Acțiunea propriu-zisă (Standard)
+            ' B. LOGICĂ LAZY LOAD (Interception)
+            If it.LazyNode AndAlso it.Children.Count = 0 Then
+
+                ' 1. Creăm nodul temporar de încărcare
+                Dim loader As New TreeItem With {
+                    .Key = "LOADER_" & Guid.NewGuid().ToString(),
+                    .Caption = "Loading...",
+                    .Level = it.Level + 1,
+                    .Parent = it,
+                    .IsLoader = True
+                }
+                it.Children.Add(loader)
+
+                ' 2. Expandăm vizual părintele imediat
+                it.Expanded = True
+
+                ' 3. Pornim animația dacă nu merge deja
+                If Not _loadingTimer.Enabled Then _loadingTimer.Start()
+
+                ' 4. Forțăm redesenarea pentru a apărea loaderul
+                Me.Invalidate()
+
+                ' 5. Trimitem cererea la VBA
+                RaiseEvent RequestLazyLoad(Me, it)
+
+                Return
+            End If
+
+            ' C. Acțiunea propriu-zisă (Standard) 
             it.Expanded = Not it.Expanded
             Me.Invalidate()
 
-            ' D. CRITIC: Oprim execuția aici! 
+            ' D. CRITIC: Oprim execuția aici!  
             Return
         End If
 

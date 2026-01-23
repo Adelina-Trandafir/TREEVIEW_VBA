@@ -7,8 +7,6 @@ Partial Public Class AdvancedTreeControl
             it.Expanded = True
         End If
 
-        ' -- [COORDONATE RECALCULATE CU CONSTANTE] --
-
         ' 1. Punctul de start al grilei pentru nivelul curent (linia din stânga a nivelului)
         Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
@@ -20,7 +18,6 @@ Partial Public Class AdvancedTreeControl
         ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
         ' Aici se aplică distanțarea cerută
         Dim xBase As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
-
 
         ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
         ' Calculăm selecția să înceapă de la limita vizuală a nivelului
@@ -45,8 +42,37 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' -- [PASUL 2] LINII (TREE LINES) --
+        ' -- [PASUL 2] LINII (TREE LINES) --
         DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
 
+        ' === LOGICĂ DESENARE LOADER (REVIZUITĂ) ===
+        If it.IsLoader Then
+            ' 1. Recalculăm poziția X exactă bazată pe nivelul nodului curent
+            ' gridLeft este marginea stângă a nivelului. Adăugăm Indentarea și Spațiul de Expander.
+            Dim currentGridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+            Dim loaderX As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP
+
+            ' 2. Calculăm poziția Y Centrată (pentru spinner și text)
+            Dim loaderY As Integer = y + (ItemHeight - 14) \ 2
+            Dim textY_Local As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
+
+            ' 3. Setăm Grafica
+            Dim oldSmoothing = g.SmoothingMode
+            g.SmoothingMode = SmoothingMode.AntiAlias
+
+            ' 4. Desenăm Spinner-ul (La poziția loaderX)
+            Using p As New Pen(Color.DimGray, 2)
+                g.DrawArc(p, loaderX, loaderY, 14, 14, _loadingAngle, 300)
+            End Using
+
+            ' 5. Desenăm Textul (La loaderX + 20px spațiu)
+            g.DrawString("Se încarcă...", Me.Font, Brushes.Gray, loaderX + 20, textY_Local)
+
+            ' 6. Restore și Ieșire
+            g.SmoothingMode = oldSmoothing
+            Return
+        End If
+        ' ===========================================
         ' -- [PASUL 3] CHECKBOX MODERN --
         Dim chkRect As Rectangle
         If _checkBoxes Then

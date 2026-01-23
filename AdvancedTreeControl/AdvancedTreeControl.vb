@@ -34,6 +34,10 @@ Partial Public Class AdvancedTreeControl
     ' Separator pentru comanda de procesare venita din VBA
     Private Shared ReadOnly separator As String() = New String() {"||"}
 
+    ' Timer pentru animația de încărcare / Nod
+    Private WithEvents _loadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
+    Private _loadingAngle As Single = 0
+
     ' INIȚIALIZARE
     Public Sub New()
         Me.DoubleBuffered = True
@@ -304,4 +308,13 @@ Partial Public Class AdvancedTreeControl
             Return val.ToString()
         End If
     End Function
+
+    Private Sub LoadingTimer_Tick(sender As Object, e As EventArgs) Handles _loadingTimer.Tick
+        _loadingAngle += 15
+        If _loadingAngle >= 360 Then _loadingAngle = 0
+
+        ' Invalidăm doar zona vizibilă pentru a redesena animația
+        ' Optimizare: Am putea invalida doar nodurile loader, dar Invalidate() e suficient pentru început
+        Me.Invalidate()
+    End Sub
 End Class

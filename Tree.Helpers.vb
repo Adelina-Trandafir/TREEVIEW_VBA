@@ -1,9 +1,6 @@
 ﻿Imports System.IO
-Imports System.Reflection
 Imports System.Runtime.InteropServices
 Imports System.Text.Json
-Imports System.Text.Json.Serialization
-Imports TREEVIEW_VBA.AdvancedTreeControl
 
 Partial Public Class Tree
     Private Sub MonitorTimerHandle()
@@ -546,6 +543,13 @@ Partial Public Class Tree
 
             ' 3. OPRIM DESENAREA (PERFORMANȚĂ CRITICĂ)
             MyTree.SuspendLayout()
+
+            ' Dacă părintele are copii și primul este un Loader, îi ștergem pe toți
+            If parentNode IsNot Nothing AndAlso parentNode.Children.Count > 0 Then
+                If parentNode.Children(0).IsLoader Then
+                    parentNode.Children.Clear()
+                End If
+            End If
 
             ' 4. Adăugare recursivă
             For Each nodeDto In newNodes
