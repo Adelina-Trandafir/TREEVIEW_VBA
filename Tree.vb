@@ -77,11 +77,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(6098692) '################
+                _formHwnd = New IntPtr(10227546) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(5440604)
-                _idTree = "frmFX_MAIN"
-                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(8458146)
+                _idTree = "Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\Avacont\Res\tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then

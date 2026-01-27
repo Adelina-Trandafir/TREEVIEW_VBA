@@ -1,4 +1,5 @@
 ﻿Imports System.Drawing.Drawing2D
+Imports System.Text.RegularExpressions
 
 Partial Public Class AdvancedTreeControl
     Private Sub DrawItem(g As Graphics, it As TreeItem, y As Integer)
@@ -42,7 +43,6 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' -- [PASUL 2] LINII (TREE LINES) --
-        ' -- [PASUL 2] LINII (TREE LINES) --
         DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
 
         ' === LOGICĂ DESENARE LOADER (REVIZUITĂ) ===
@@ -73,6 +73,7 @@ Partial Public Class AdvancedTreeControl
             Return
         End If
         ' ===========================================
+
         ' -- [PASUL 3] CHECKBOX MODERN --
         Dim chkRect As Rectangle
         If _checkBoxes Then
@@ -155,7 +156,9 @@ Partial Public Class AdvancedTreeControl
             If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
         End If
 
-        g.DrawString(it.Caption, Me.Font, Brushes.Black, textX, textY)
+        Dim baseTextColor As Color = Color.Black
+        DrawRichText(g, it.Caption, textX, y, Me.Font, baseTextColor)
+        'g.DrawString(it.Caption, Me.Font, Brushes.Black, textX, textY)
 
         ' -- [PASUL 7] ICONIȚĂ DREAPTA --
         If it.RightIcon IsNot Nothing Then
@@ -203,4 +206,138 @@ Partial Public Class AdvancedTreeControl
             End While
         End Using
     End Sub
+
+    ' =================================================================================
+    ' SUPORT RICH TEXT (BOLD, ITALIC, COLOR)
+    ' =================================================================================
+    ' Desenează textul formatat și returnează lățimea totală (pentru calcule)
+    Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color)
+        Dim parts As List(Of RichTextPart) = ParseRichText(text, defaultFont, defaultColor)
+        Dim currentX As Single = x
+
+        ' Setăm formatarea pentru a elimina spațierea extra a GDI+
+        Dim fmt As StringFormat = StringFormat.GenericTypographic
+        fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
+
+        For Each part In parts
+            ' 1. Desenăm fundalul (dacă există)
+            Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+
+            If part.HasBackColor Then
+                Using b As New SolidBrush(part.BackColor)
+                    ' Ajustăm puțin rect-ul pe verticală pentru a arăta bine
+                    g.FillRectangle(b, currentX, y, size.Width, ItemHeight)
+                End Using
+            End If
+
+            ' 2. Desenăm Textul
+            Using b As New SolidBrush(part.ForeColor)
+                ' Ajustăm Y pentru centrare verticală în funcție de font
+                Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
+                g.DrawString(part.Text, part.Font, b, currentX, textY, fmt)
+            End Using
+
+            ' 3. Avansăm cursorul X
+            currentX += size.Width
+        Next
+    End Sub
+
+    ' Parser simplu bazat pe Regex
+    Private Function ParseRichText(rawText As String, baseFont As Font, baseColor As Color) As List(Of RichTextPart)
+        Dim list As New List(Of RichTextPart)
+
+        ' Regex care prinde tag-urile: <tag> sau </tag>
+        ' Pattern explicat: < (/?)(b|i|u|color|back) (=([^>]+))? >
+        Dim pattern As String = "<(/?)(b|i|u|color|back)(?:=([^>]+))?>"
+        Dim matches As MatchCollection = Regex.Matches(rawText, pattern, RegexOptions.IgnoreCase)
+
+        Dim lastIndex As Integer = 0
+
+        ' Starea curentă
+        Dim currentStyle As FontStyle = baseFont.Style
+        Dim currentColor As Color = baseColor
+        Dim currentBack As Color = Color.Transparent
+        Dim hasBack As Boolean = False
+
+        ' Stive pentru a reveni la starea anterioară (pentru nesting corect)
+        Dim colorStack As New Stack(Of Color)
+        Dim backStack As New Stack(Of Color)
+
+        For Each m As Match In matches
+            ' 1. Adăugăm textul dintre tag-uri (dacă există)
+            If m.Index > lastIndex Then
+                Dim txt As String = rawText.Substring(lastIndex, m.Index - lastIndex)
+                list.Add(New RichTextPart With {
+                    .Text = txt,
+                    .Font = New Font(baseFont, currentStyle),
+                    .ForeColor = currentColor,
+                    .BackColor = currentBack,
+                    .HasBackColor = hasBack
+                })
+            End If
+
+            ' 2. Procesăm Tag-ul
+            Dim isClosing As Boolean = (m.Groups(1).Value = "/")
+            Dim tagName As String = m.Groups(2).Value.ToLower()
+            Dim param As String = m.Groups(3).Value ' Valoarea de după = (ex: Red)
+
+            If isClosing Then
+                ' --- TAG DE ÎNCHIDERE ---
+                Select Case tagName
+                    Case "b" : currentStyle = currentStyle And Not FontStyle.Bold
+                    Case "i" : currentStyle = currentStyle And Not FontStyle.Italic
+                    Case "u" : currentStyle = currentStyle And Not FontStyle.Underline
+                    Case "color"
+                        If colorStack.Count > 0 Then currentColor = colorStack.Pop() Else currentColor = baseColor
+                    Case "back"
+                        If backStack.Count > 0 Then
+                            currentBack = backStack.Pop()
+                            hasBack = True
+                        Else
+                            currentBack = Color.Transparent
+                            hasBack = False
+                        End If
+                End Select
+            Else
+                ' --- TAG DE DESCHIDERE ---
+                Select Case tagName
+                    Case "b" : currentStyle = currentStyle Or FontStyle.Bold
+                    Case "i" : currentStyle = currentStyle Or FontStyle.Italic
+                    Case "u" : currentStyle = currentStyle Or FontStyle.Underline
+                    Case "color"
+                        colorStack.Push(currentColor)
+                        currentColor = ParseColor(param, baseColor)
+                    Case "back"
+                        If hasBack Then backStack.Push(currentBack)
+                        currentBack = ParseColor(param, Color.Transparent)
+                        hasBack = True
+                End Select
+            End If
+
+            lastIndex = m.Index + m.Length
+        Next
+
+        ' 3. Adăugăm restul textului de după ultimul tag
+        If lastIndex < rawText.Length Then
+            list.Add(New RichTextPart With {
+                .Text = rawText.Substring(lastIndex),
+                .Font = New Font(baseFont, currentStyle),
+                .ForeColor = currentColor,
+                .BackColor = currentBack,
+                .HasBackColor = hasBack
+            })
+        End If
+
+        Return list
+    End Function
+
+    Private Function ParseColor(val As String, defaultColor As Color) As Color
+        Try
+            If String.IsNullOrEmpty(val) Then Return defaultColor
+            If val.StartsWith("#") Then Return ColorTranslator.FromHtml(val)
+            Return Color.FromName(val)
+        Catch
+            Return defaultColor
+        End Try
+    End Function
 End Class

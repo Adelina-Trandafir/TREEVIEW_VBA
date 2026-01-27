@@ -38,6 +38,14 @@ Partial Public Class AdvancedTreeControl
     Private WithEvents _loadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
     Private _loadingAngle As Single = 0
 
+    Private Structure RichTextPart
+        Public Text As String
+        Public Font As Font
+        Public ForeColor As Color
+        Public BackColor As Color
+        Public HasBackColor As Boolean
+    End Structure
+
     ' INIȚIALIZARE
     Public Sub New()
         Me.DoubleBuffered = True
