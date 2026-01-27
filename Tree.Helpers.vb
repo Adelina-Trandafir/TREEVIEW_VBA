@@ -581,6 +581,11 @@ Partial Public Class Tree
             _imageCache.TryGetValue(dto.IconOpen, iconImgOpen)
         End If
 
+        Dim iconImgRight As Image = Nothing
+        If Not String.IsNullOrEmpty(dto.IconRight) Then
+            _imageCache.TryGetValue(dto.IconRight, iconImgRight)
+        End If
+
         ' --- CONVERSIE SIGURĂ BOOLEAN ---
         ' Verificăm ce am primit în Object și transformăm în Boolean curat
         Dim isExpanded As Boolean = False
@@ -604,6 +609,7 @@ Partial Public Class Tree
             .Caption = dto.Caption,
             .LeftIconClosed = iconImgClosed,
             .LeftIconOpen = iconImgClosed,
+            .RightIcon = iconImgRight,
             .Tag = dto.Tag,
             .Expanded = isExpanded,
             .LazyNode = isLazyNode

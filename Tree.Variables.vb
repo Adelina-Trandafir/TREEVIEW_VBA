@@ -25,6 +25,7 @@
         Public Property Caption As String
         Public Property IconClosed As String
         Public Property IconOpen As String
+        Public Property IconRight As String = ""
         Public Property Expanded As Object
         Public Property Tag As String
         Public Property Children As List(Of NodeDto)

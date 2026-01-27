@@ -156,13 +156,40 @@ Partial Public Class AdvancedTreeControl
             If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
         End If
 
+        ' === CALCUL LIMITĂ TEXT (Clipping) ===
+        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+
+        ' Limita din dreapta a controlului (minus padding 6px)
+        Dim maxRightX As Integer = Me.Width - 6 - scrollW
+
+        ' Dacă există RightIcon, limita se mută mai la stânga (lățime icon + încă 6px padding)
+        If it.RightIcon IsNot Nothing Then
+            maxRightX -= (RightIconSize.Width + 6)
+        End If
+
+        ' Calculăm lățimea disponibilă pentru text
+        Dim availableTextWidth As Integer = maxRightX - textX
+        If availableTextWidth < 0 Then availableTextWidth = 0
+
+        ' Salvăm starea curentă a "foarfecii" (Clip)
+        Dim oldClip As Region = g.Clip.Clone()
+
+        ' Setăm noua zonă de tăiere: Textul se va desena DOAR în acest dreptunghi
+        Dim clipRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
+        g.SetClip(clipRect)
+
+        ' --- DESENARE TEXT ---
         Dim baseTextColor As Color = Color.Black
         DrawRichText(g, it.Caption, textX, y, Me.Font, baseTextColor)
-        'g.DrawString(it.Caption, Me.Font, Brushes.Black, textX, textY)
+        ' ---------------------
+
+        ' Restaurăm "foarfeca" originală pentru a putea desena RightIcon (care e în afara zonei de text)
+        g.Clip = oldClip
+
 
         ' -- [PASUL 7] ICONIȚĂ DREAPTA --
         If it.RightIcon IsNot Nothing Then
-            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            ' Recalculăm poziția exact cum am calculat limita mai sus
             Dim rx As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
             Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
             g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)

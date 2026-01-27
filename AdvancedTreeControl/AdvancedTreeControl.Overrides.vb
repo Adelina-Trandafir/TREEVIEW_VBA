@@ -144,10 +144,34 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' =================================================================
+        ' =================================================================
         ' 4. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
         ' =================================================================
         pSelectedItem = it
         RaiseEvent NodeMouseDown(it, e)
+
+        ' 3.5. PRIORITATE: RIGHT ICON CLICK
+        ' =================================================================
+        If it.RightIcon IsNot Nothing Then
+            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            ' Reconstituim dreptunghiul iconiței exact ca în Painting.vb
+            Dim rIconRect As New Rectangle(Me.Width - RightIconSize.Width - 6 - scrollW,
+                                           (it.Level * Indent) + Me.AutoScrollPosition.Y + (ItemHeight - RightIconSize.Height) \ 2, ' Aici trebuie calculat Y-ul vizual, nu logic
+                                           RightIconSize.Width,
+                                           RightIconSize.Height)
+
+            ' Nota: Calculul Y de mai sus e complex pentru ca OnMouseDown nu ne da Y-ul desenat direct.
+            ' Mai simplu: stim ca e in dreapta. Verificam doar X-ul.
+            Dim minX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+
+            If e.X >= minX AndAlso e.X <= (minX + RightIconSize.Width) Then
+                ' Aici ridici un eveniment special
+                RaiseEvent RightIconClicked(it, e)
+                'Return ' Oprim selecția rândului
+            End If
+        End If
+
+
         Me.Invalidate()
     End Sub
 

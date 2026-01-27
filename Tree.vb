@@ -77,11 +77,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(10227546) '################
+                _formHwnd = New IntPtr(6230292) '################
                 '################################################
                 _mainAccessHwnd = New IntPtr(8458146)
-                _idTree = "Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\Avacont\Res\tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -146,5 +146,9 @@ Partial Public Class Tree
 
     Private Sub MyTree_NodeChecked(pNode As AdvancedTreeControl.TreeItem) Handles MyTree.NodeChecked
         TrimiteMesajAccess("NodeChecked", pNode, If(pNode.CheckState = CheckState.Checked, 1, 0))
+    End Sub
+
+    Private Sub MyTree_RightIconClicked(pNode As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.RightIconClicked
+        TrimiteMesajAccess("RightIconClicked", pNode, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
     End Sub
 End Class
