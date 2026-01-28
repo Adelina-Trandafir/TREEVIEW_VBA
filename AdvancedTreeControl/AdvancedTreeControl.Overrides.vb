@@ -51,7 +51,7 @@ Partial Public Class AdvancedTreeControl
             ' Considerăm zona activă începând de la linia expanderului/indentării
             ' Tot ce e în stânga alinierii nivelului este ignorat
             If e.X < gridLeft Then
-                it = Nothing
+                Return
             End If
         End If
         ' -------------------------------------------------------------------------------
@@ -208,6 +208,19 @@ Partial Public Class AdvancedTreeControl
         MyBase.OnMouseDoubleClick(e)
         Dim it = HitTestItem(e.Location)
         If it Is Nothing Then Return
+
+        ' --- 1. LOGICĂ ZONĂ MOARTĂ (Folosind constantele din AdvancedTreeControl.vb) ---
+        If it IsNot Nothing Then
+            ' Calculăm punctul de start exact ca în Painting.vb
+            Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+
+            ' Considerăm zona activă începând de la linia expanderului/indentării
+            ' Tot ce e în stânga alinierii nivelului este ignorat
+            If e.X < gridLeft Then
+                Return
+            End If
+        End If
+        ' -------------------------------------------------------------------------------
 
         ' Dublu click oriunde pe rând face Toggle Expand
         If it.Children.Count > 0 OrElse it.LazyNode Then
