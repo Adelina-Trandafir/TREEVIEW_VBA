@@ -58,7 +58,7 @@
         End Set
     End Property
 
-    Private _rightIconSize As New Size(24, 24)
+    Private _rightIconSize As New Size(14, 14)
     Public Property RightIconSize As Size
         Get
             Return _rightIconSize
@@ -111,6 +111,17 @@
         End Get
         Set(value As Boolean)
             _checkBoxes = value
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
+        End Set
+    End Property
+
+    Private _hasNodeIcons As Boolean = True
+    Public Property HasNodeIcons As Boolean
+        Get
+            Return _hasNodeIcons
+        End Get
+        Set(value As Boolean)
+            _hasNodeIcons = value
             Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
         End Set
     End Property

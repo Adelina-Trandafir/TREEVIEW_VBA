@@ -73,7 +73,7 @@ Partial Public Class Tree
 
             ' 3. POPULARE NODURI
             Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
-            If nodesRoot IsNot Nothing Then
+            If nodesRoot IsNot Nothing AndAlso nodesRoot.Count > 0 Then
                 MyTree.Items.Clear()
 
                 For Each xNode As XmlNode In nodesRoot
@@ -169,6 +169,13 @@ Partial Public Class Tree
                 Dim ih As Integer = 22
                 Dim v = Integer.TryParse(cfg.Attributes("ItemHeight").Value, ih)
                 If ih > 0 Then MyTree.ItemHeight = ih
+            End If
+
+            ' --- NodeIcons ---
+            If cfg.Attributes("HasNodeIcons") IsNot Nothing Then
+                Dim v As Integer = 0
+                Dim parsed = Integer.TryParse(cfg.Attributes("HasNodeIcons").Value, v)
+                If parsed Then MyTree.HasNodeIcons = v = 1
             End If
 
             ' === LeftIconHeight ===

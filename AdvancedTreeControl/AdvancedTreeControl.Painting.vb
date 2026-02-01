@@ -74,55 +74,73 @@ Partial Public Class AdvancedTreeControl
         End If
         ' ===========================================
 
-        ' -- [PASUL 3] CHECKBOX MODERN --
+        ' -- [PASUL 3] CHECKBOX MODERN (CU COLȚURI ROTUNJITE ȘI BIFĂ RECONSTRUITĂ) --
         Dim chkRect As Rectangle
         If _checkBoxes Then
             Dim chkSize As Integer = _checkBoxSize
-
             Dim chkY As Integer = midY - (chkSize \ 2)
             chkRect = New Rectangle(xBase, chkY, chkSize, chkSize)
 
+            ' Activăm AntiAlias pentru margini și bife netede
             Dim oldSmoothing = g.SmoothingMode
             g.SmoothingMode = SmoothingMode.AntiAlias
 
             Dim accentColor As Color = Color.DodgerBlue
             Dim borderColor As Color = Color.FromArgb(180, 180, 180)
+            Dim cornerRadius As Integer = 3 ' Ajustează pentru cât de rotund vrei să fie
 
-            If it.CheckState = TreeCheckState.Checked Then
-                Using brush As New SolidBrush(accentColor)
-                    g.FillRectangle(brush, chkRect)
-                End Using
-                Using pen As New Pen(accentColor)
-                    g.DrawRectangle(pen, chkRect)
-                End Using
-                Using penTick As New Pen(Color.White, 2)
-                    Dim p1 As New Point(chkRect.X + 3, chkRect.Y + 8)
-                    Dim p2 As New Point(chkRect.X + 6, chkRect.Y + 11)
-                    Dim p3 As New Point(chkRect.X + 12, chkRect.Y + 4)
-                    g.DrawLines(penTick, {p1, p2, p3})
-                End Using
+            Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
+                If it.CheckState = TreeCheckState.Checked Then
+                    ' 1. Desenăm fundalul albastru rotunjit
+                    Using brush As New SolidBrush(accentColor)
+                        g.FillPath(brush, path)
+                    End Using
+                    Using pen As New Pen(accentColor)
+                        g.DrawPath(pen, path)
+                    End Using
 
-            ElseIf it.CheckState = TreeCheckState.Indeterminate Then
-                Using brush As New SolidBrush(accentColor)
-                    g.FillRectangle(brush, chkRect)
-                End Using
-                Using pen As New Pen(accentColor)
-                    g.DrawRectangle(pen, chkRect)
-                End Using
-                Using penDash As New Pen(Color.White, 2)
-                    Dim yMidLine As Integer = chkRect.Y + (chkRect.Height \ 2)
-                    g.DrawLine(penDash, chkRect.X + 3, yMidLine, chkRect.Right - 3, yMidLine)
-                End Using
-            Else
-                g.FillRectangle(Brushes.White, chkRect)
-                Using pen As New Pen(borderColor, 1)
-                    g.DrawRectangle(pen, chkRect)
-                End Using
-            End If
+                    ' 2. Desenăm Bifa (V-ul alb) - Puncte recalculate pentru claritate
+                    Using penTick As New Pen(Color.White, 2.0F)
+                        penTick.StartCap = LineCap.Round
+                        penTick.EndCap = LineCap.Round
+                        penTick.LineJoin = LineJoin.Round
+
+                        ' Coordonate relative la chkRect
+                        Dim p1 As New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F)
+                        Dim p2 As New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F)
+                        Dim p3 As New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
+
+                        g.DrawLines(penTick, {p1, p2, p3})
+                    End Using
+
+                ElseIf it.CheckState = TreeCheckState.Indeterminate Then
+                    ' 1. Desenăm fundalul albastru rotunjit
+                    Using brush As New SolidBrush(accentColor)
+                        g.FillPath(brush, path)
+                    End Using
+                    Using pen As New Pen(accentColor)
+                        g.DrawPath(pen, path)
+                    End Using
+
+                    ' 2. Desenăm Liniuța (Dash-ul alb)
+                    Using penDash As New Pen(Color.White, 2.0F)
+                        penDash.StartCap = LineCap.Round
+                        penDash.EndCap = LineCap.Round
+                        Dim margin As Single = chkSize * 0.25F
+                        Dim yMidLine As Single = chkRect.Y + (chkRect.Height / 2.0F)
+                        g.DrawLine(penDash, chkRect.X + margin, yMidLine, chkRect.Right - margin, yMidLine)
+                    End Using
+
+                Else
+                    ' 3. Starea NEBIFATĂ (Fundal alb, margini gri)
+                    g.FillPath(Brushes.White, path)
+                    Using pen As New Pen(borderColor, 1)
+                        g.DrawPath(pen, path)
+                    End Using
+                End If
+            End Using
 
             g.SmoothingMode = oldSmoothing
-
-            ' Avansăm cu lățimea checkbox-ului + PADDING_CHECKBOX_GAP
             xBase += chkSize + PADDING_CHECKBOX_GAP
         End If
 
@@ -133,7 +151,7 @@ Partial Public Class AdvancedTreeControl
         If it.TextWidth = -1 Then it.TextWidth = CInt(g.MeasureString(it.Caption, Me.Font).Width)
 
         ' Calcul poziție text cu PADDING_ICON_GAP
-        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing, leftIconRect.Right + PADDING_ICON_GAP, xBase)
+        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing AndAlso _hasNodeIcons, leftIconRect.Right + PADDING_ICON_GAP, xBase)
         Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
 
         ' -- [PASUL 5] EXPANDER (+/-) --
@@ -150,10 +168,12 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' -- [PASUL 6] DESENARE CONȚINUT FINAL --
-        If it.Expanded Then
-            If it.LeftIconOpen IsNot Nothing Then g.DrawImage(it.LeftIconOpen, leftIconRect)
-        Else
-            If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
+        If _hasNodeIcons Then
+            If it.Expanded Then
+                If it.LeftIconOpen IsNot Nothing Then g.DrawImage(it.LeftIconOpen, leftIconRect)
+            Else
+                If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
+            End If
         End If
 
         ' === CALCUL LIMITĂ TEXT (Clipping) ===
@@ -356,6 +376,27 @@ Partial Public Class AdvancedTreeControl
         End If
 
         Return list
+    End Function
+    Private Function GetRoundedRect(rect As Rectangle, radius As Integer) As GraphicsPath
+        Dim path As New GraphicsPath()
+        Dim diameter As Integer = radius * 2
+
+        ' Evităm erorile dacă dreptunghiul e prea mic pentru rază
+        If diameter > rect.Width Then diameter = rect.Width
+        If diameter > rect.Height Then diameter = rect.Height
+
+        Dim arc As New Rectangle(rect.X, rect.Y, diameter, diameter)
+
+        path.AddArc(arc, 180, 90) ' Stânga sus
+        arc.X = rect.Right - diameter
+        path.AddArc(arc, 270, 90) ' Dreapta sus
+        arc.Y = rect.Bottom - diameter
+        path.AddArc(arc, 0, 90)   ' Dreapta jos
+        arc.X = rect.X
+        path.AddArc(arc, 90, 90)  ' Stânga jos
+        path.CloseFigure()
+
+        Return path
     End Function
 
     Private Function ParseColor(val As String, defaultColor As Color) As Color

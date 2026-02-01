@@ -176,7 +176,7 @@ Partial Public Class Tree
                 Case "REFRESH"
                     ' Format: "REFRES||xml_to_use_in_refresh_path"
                     If parts.Length >= 2 Then
-                        MyTree.Clear()
+                        'MyTree.Clear()
                         If ReLoadXmlData(parts(1)) Then
                             TrimiteMesajAccess("Refreshed", Nothing)
                         End If

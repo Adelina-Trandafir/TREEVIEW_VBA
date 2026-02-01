@@ -27,6 +27,16 @@ Partial Public Class AdvancedTreeControl
             End If
             y += ItemHeight
         Next
+
+        ' --- MASCĂ PENTRU STAREA DISABLED ---
+        If Not Me.Enabled Then
+            ' Folosim un gri semi-transparent (Alpha 100-120 din 255)
+            ' Color.LightGray sau Color.FromArgb(120, Color.Gray) funcționează bine
+            Using brush As New SolidBrush(Color.FromArgb(120, Color.WhiteSmoke))
+                ' ClientRectangle asigură acoperirea întregii zone vizibile a controlului
+                e.Graphics.FillRectangle(brush, Me.ClientRectangle)
+            End Using
+        End If
     End Sub
 
     ' ======================================================
