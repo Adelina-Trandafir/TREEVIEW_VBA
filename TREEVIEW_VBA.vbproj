@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
@@ -8,6 +8,7 @@
 		<MyType>WindowsForms</MyType>
 		<Platforms>AnyCPU;x64;x86</Platforms>
 		<ApplicationManifest>My Project\app.manifest</ApplicationManifest>
+		<Title>Treeview VB.NET accesibil din VBA</Title>
 	</PropertyGroup>
 	<ItemGroup>
 		<Import Include="System.Data" />

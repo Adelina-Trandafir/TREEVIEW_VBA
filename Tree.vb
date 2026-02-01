@@ -2,9 +2,9 @@
 Imports System.IO
 Imports System.Runtime.InteropServices
 
-' Asumăm că AdvancedTreeControl este definit în proiect
-' V.4 - 2024.06.17
+' V.4.0 - 28.01.2026
 ' Adugat LAZY LOADING pentru noduri
+' Adaugat Eveniment RightIconClicked
 
 Partial Public Class Tree
     ' =============================================================
