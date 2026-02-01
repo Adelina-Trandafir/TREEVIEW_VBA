@@ -5,6 +5,8 @@ Imports System.Runtime.InteropServices
 ' V.4.0 - 28.01.2026
 ' Adugat LAZY LOADING pentru noduri
 ' Adaugat Eveniment RightIconClicked
+' V.5.0 - 01.02.2026
+' Modificat checkbox si adaugat HasNodeIcons 
 
 Partial Public Class Tree
     ' =============================================================
