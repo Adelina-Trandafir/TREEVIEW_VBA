@@ -200,7 +200,7 @@ Partial Public Class AdvancedTreeControl
 
         ' --- DESENARE TEXT ---
         Dim baseTextColor As Color = Color.Black
-        DrawRichText(g, it.Caption, textX, y, Me.Font, baseTextColor)
+        DrawRichText(g, it.Caption, textX, y, Me.Font, baseTextColor, availableTextWidth)
         ' ---------------------
 
         ' Restaurăm "foarfeca" originală pentru a putea desena RightIcon (care e în afara zonei de text)
@@ -257,37 +257,115 @@ Partial Public Class AdvancedTreeControl
     ' =================================================================================
     ' SUPORT RICH TEXT (BOLD, ITALIC, COLOR)
     ' =================================================================================
-    ' Desenează textul formatat și returnează lățimea totală (pentru calcule)
-    Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color)
-        Dim parts As List(Of RichTextPart) = ParseRichText(text, defaultFont, defaultColor)
-        Dim currentX As Single = x
+    ' AdvancedTreeControl.Painting.vb
 
-        ' Setăm formatarea pentru a elimina spațierea extra a GDI+
+    Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color, availableWidth As Integer)
+        ' 1. Verificăm separatorul
+        Dim leftText As String = text
+        Dim rightText As String = ""
+        Dim hasSplit As Boolean = False
+
+        If text.Contains("|||") Then
+            Dim partsStr = text.Split({"|||"}, StringSplitOptions.None)
+            leftText = partsStr(0)
+            If partsStr.Length > 1 Then rightText = partsStr(1)
+            hasSplit = True
+        End If
+
+        ' Formatare text
         Dim fmt As StringFormat = StringFormat.GenericTypographic
         fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
 
-        For Each part In parts
-            ' 1. Desenăm fundalul (dacă există)
+        ' --- DESENARE PARTEA STÂNGĂ ---
+        Dim leftParts As List(Of RichTextPart) = ParseRichText(leftText, defaultFont, defaultColor)
+        Dim currentX As Single = x
+
+        For Each part In leftParts
             Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
 
+            ' Background
             If part.HasBackColor Then
                 Using b As New SolidBrush(part.BackColor)
-                    ' Ajustăm puțin rect-ul pe verticală pentru a arăta bine
                     g.FillRectangle(b, currentX, y, size.Width, ItemHeight)
                 End Using
             End If
 
-            ' 2. Desenăm Textul
+            ' Text
             Using b As New SolidBrush(part.ForeColor)
-                ' Ajustăm Y pentru centrare verticală în funcție de font
                 Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
                 g.DrawString(part.Text, part.Font, b, currentX, textY, fmt)
             End Using
 
-            ' 3. Avansăm cursorul X
             currentX += size.Width
         Next
+
+        ' --- DESENARE PARTEA DREAPTĂ (Dacă există) ---
+        If hasSplit AndAlso Not String.IsNullOrEmpty(rightText) Then
+            Dim rightParts As List(Of RichTextPart) = ParseRichText(rightText, defaultFont, defaultColor)
+
+            ' A. Calculăm lățimea totală a textului din dreapta pentru a ști de unde începem
+            Dim rightTotalWidth As Single = 0
+            For Each part In rightParts
+                Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+                rightTotalWidth += size.Width
+            Next
+
+            ' B. Setăm punctul de start (Marginea Dreaptă - Lățimea Textului)
+            ' x este punctul de start al textului, availableWidth este lățimea maximă permisă
+            Dim rightStartX As Single = (x + availableWidth) - rightTotalWidth
+
+            ' Opțional: Dacă textul din stânga se suprapune cu cel din dreapta, cel din dreapta are prioritate (se desenează peste)
+            ' Sau poți opri desenarea stângă mai devreme. Momentan se desenează peste.
+
+            For Each part In rightParts
+                Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+
+                If part.HasBackColor Then
+                    Using b As New SolidBrush(part.BackColor)
+                        g.FillRectangle(b, rightStartX, y, size.Width, ItemHeight)
+                    End Using
+                End If
+
+                Using b As New SolidBrush(part.ForeColor)
+                    Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
+                    g.DrawString(part.Text, part.Font, b, rightStartX, textY, fmt)
+                End Using
+
+                rightStartX += size.Width
+            Next
+        End If
     End Sub
+    ' Desenează textul formatat și returnează lățimea totală (pentru calcule)
+    'Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color)
+    '    Dim parts As List(Of RichTextPart) = ParseRichText(text, defaultFont, defaultColor)
+    '    Dim currentX As Single = x
+
+    '    ' Setăm formatarea pentru a elimina spațierea extra a GDI+
+    '    Dim fmt As StringFormat = StringFormat.GenericTypographic
+    '    fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
+
+    '    For Each part In parts
+    '        ' 1. Desenăm fundalul (dacă există)
+    '        Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+
+    '        If part.HasBackColor Then
+    '            Using b As New SolidBrush(part.BackColor)
+    '                ' Ajustăm puțin rect-ul pe verticală pentru a arăta bine
+    '                g.FillRectangle(b, currentX, y, size.Width, ItemHeight)
+    '            End Using
+    '        End If
+
+    '        ' 2. Desenăm Textul
+    '        Using b As New SolidBrush(part.ForeColor)
+    '            ' Ajustăm Y pentru centrare verticală în funcție de font
+    '            Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
+    '            g.DrawString(part.Text, part.Font, b, currentX, textY, fmt)
+    '        End Using
+
+    '        ' 3. Avansăm cursorul X
+    '        currentX += size.Width
+    '    Next
+    'End Sub
 
     ' Parser simplu bazat pe Regex
     Private Function ParseRichText(rawText As String, baseFont As Font, baseColor As Color) As List(Of RichTextPart)

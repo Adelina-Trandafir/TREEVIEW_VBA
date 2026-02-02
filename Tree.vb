@@ -80,9 +80,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(47320690) '################
+                _formHwnd = New IntPtr(9373520) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(73075504)
+                _mainAccessHwnd = New IntPtr(29887616)
                 _idTree = "Alege_Clsf" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_Alege_Clsf.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
