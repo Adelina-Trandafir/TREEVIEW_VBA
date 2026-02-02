@@ -197,31 +197,34 @@ Partial Public Class Tree
             PositioneazaInParent()
         End If
 
-        ' === VERIFICARE FOCUS ===
-        Dim foregroundWnd As IntPtr = GetForegroundWindow()
+        If MyTree.IsPopupTree Then
+            ' === VERIFICARE FOCUS ===
+            Dim foregroundWnd As IntPtr = GetForegroundWindow()
 
-        If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
-            Debug.WriteLine($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}")
+            If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
+                Debug.WriteLine($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}")
 
-            ' OPREȘTE timer-ul ÎNAINTE de SendMessage
-            _MonitorTimer.Stop()
+                ' OPREȘTE timer-ul ÎNAINTE de SendMessage
+                _MonitorTimer.Stop()
 
-            ' Trimite WM_CLOSE și așteaptă răspunsul (blocking)
-            SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
+                ' Trimite WM_CLOSE și așteaptă răspunsul (blocking)
+                SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
 
-            ' Verificăm ce s-a întâmplat
-            If Not IsWindow(_formParentHwnd) Then
-                ' Access a acceptat închiderea (Yes/No/fără modificări)
-                Debug.WriteLine(">>> Access a închis formularul")
-                Application.Exit()
-                Return
-            Else
-                ' Access a refuzat (Cancel)
-                Debug.WriteLine(">>> Access a anulat închiderea, repornesc timer")
-                SetFocus(_formHwnd)
-                _MonitorTimer.Start()  ' REPORNEȘTE timer-ul
+                ' Verificăm ce s-a întâmplat
+                If Not IsWindow(_formParentHwnd) Then
+                    ' Access a acceptat închiderea (Yes/No/fără modificări)
+                    Debug.WriteLine(">>> Access a închis formularul")
+                    Application.Exit()
+                    Return
+                Else
+                    ' Access a refuzat (Cancel)
+                    Debug.WriteLine(">>> Access a anulat închiderea, repornesc timer")
+                    SetFocus(_formHwnd)
+                    _MonitorTimer.Start()  ' REPORNEȘTE timer-ul
+                End If
             End If
         End If
+
     End Sub
 
     Private Function GetAccessFormParent(childHwnd As IntPtr) As IntPtr
