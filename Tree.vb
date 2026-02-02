@@ -88,7 +88,7 @@ Partial Public Class Tree
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
-                messagebox.show("EROARE: Parametrii de lansare invalizi!",  "Tree_Load", MessageBoxButtons.OK,MessageBoxIcon.Error)
+                messagebox.show("EROARE: Parametrii de lansare invalizi!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 #End If
