@@ -3,20 +3,6 @@ Imports System.Runtime.InteropServices
 Imports System.Text.Json
 
 Partial Public Class Tree
-    Private Sub MonitorTimerHandle()
-        If _formHwnd = IntPtr.Zero Then Return
-
-        ' Daca fereastra parinte (Access) NU mai exista
-        If Not IsWindow(_formHwnd) Then
-            _MonitorTimer.Stop()
-            CurataResurseSiIesi()
-            Application.Exit()
-            Return
-        End If
-
-        PositioneazaInParent()
-    End Sub
-
     Private Sub PositioneazaInParent()
         Dim rParent As RECT
         GetClientRect(_formHwnd, rParent)

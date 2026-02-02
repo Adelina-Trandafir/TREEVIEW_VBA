@@ -53,6 +53,7 @@ Partial Public Class AdvancedTreeControl
         Me.BackColor = Color.White
         Me.Cursor = Cursors.Default
         Me.Font = New Font("Segoe UI", 9)
+        Me.Enabled = True
         'Me._rightIconSize = Me._rightIconSize * CInt(Me.DeviceDpi) / 96
         pToolTip.ShowAlways = False
         pTooltipTimer.Interval = TooltipDelayMs

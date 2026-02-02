@@ -1,5 +1,6 @@
 ﻿Partial Public Class Tree
-    Private WithEvents MonitorTimer As System.Windows.Forms.Timer
+    Private WithEvents _MonitorTimer As System.Windows.Forms.Timer
+
     Private WithEvents MyTree As AdvancedTreeControl
 
     Private _formHwnd As IntPtr = IntPtr.Zero
@@ -17,6 +18,9 @@
 
     Private DEBUG_MODE As Boolean = True
     Private _manual_params As Boolean = False
+
+    ' Ultima dimensiune cunoscută a părintelui
+    Private _lastParentSize As Size = Size.Empty
 
     Private Shared ReadOnly inCommandSeparator As String() = New String() {"||"}
 

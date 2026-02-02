@@ -2,9 +2,12 @@
 Imports System.IO
 Imports System.Runtime.InteropServices
 
-' Asumăm că AdvancedTreeControl este definit în proiect
-' V.4 - 2024.06.17
+' V.4.0 - 28.01.2026
 ' Adugat LAZY LOADING pentru noduri
+' Adaugat Eveniment RightIconClicked
+' V.5.0 - 01.02.2026
+' Modificat checkbox si adaugat HasNodeIcons 
+' Activat timer monitorizare redimensionare
 
 Partial Public Class Tree
     ' =============================================================
@@ -39,7 +42,7 @@ Partial Public Class Tree
             Me.Controls.Add(MyTree)
 
             ' Inițializare Timer monitorizare
-            _MonitorTimer = New Timer With {.Interval = 10, .Enabled = False}
+            _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
 
         Catch ex As Exception
             MessageBox.Show(ex.Message, "NEW_TREE", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -77,9 +80,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(1770260) '################
+                _formHwnd = New IntPtr(42208302) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(73271232)
+                _mainAccessHwnd = New IntPtr(27332500)
                 _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
@@ -121,6 +124,13 @@ Partial Public Class Tree
             End If
 
             TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
+
+            ' === PORNIRE MONITORIZARE RESIZE ===
+            Dim rParent As RECT
+            GetClientRect(_formHwnd, rParent)
+            _lastParentSize = New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
+            _MonitorTimer.Start()
+
             ' _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
         Catch ex As Exception
             MessageBox.Show($"ERROR: {ex.Message}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -150,5 +160,29 @@ Partial Public Class Tree
 
     Private Sub MyTree_RightIconClicked(pNode As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.RightIconClicked
         TrimiteMesajAccess("RightIconClicked", pNode, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
+    End Sub
+
+
+    Private Sub MonitorTimer_Tick(sender As Object, e As EventArgs) Handles _MonitorTimer.Tick
+        If _formHwnd = IntPtr.Zero Then Return
+
+        ' Verificare validitate fereastră Access
+        If Not IsWindow(_formHwnd) Then
+            _MonitorTimer.Stop()
+            CurataResurseSiIesi()
+            Application.Exit()
+            Return
+        End If
+
+        ' Citim dimensiunea curentă a părintelui Access
+        Dim rParent As RECT
+        GetClientRect(_formHwnd, rParent)
+        Dim currentSize As New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
+
+        ' Doar dacă s-a schimbat dimensiunea, redimensionăm copilul
+        If currentSize <> _lastParentSize Then
+            _lastParentSize = currentSize
+            PositioneazaInParent()
+        End If
     End Sub
 End Class
