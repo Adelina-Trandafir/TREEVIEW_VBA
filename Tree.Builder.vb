@@ -178,6 +178,13 @@ Partial Public Class Tree
                 If parsed Then MyTree.HasNodeIcons = v = 1
             End If
 
+            ' --- PopupTree ---
+            If cfg.Attributes("PopupTree") IsNot Nothing Then
+                Dim v As Integer = 0
+                Dim parsed = Integer.TryParse(cfg.Attributes("PopupTree").Value, v)
+                If parsed Then MyTree.IsPopupTree = v = 1
+            End If
+
             ' === LeftIconHeight ===
             If cfg.Attributes("LeftIconHeight") IsNot Nothing Then
                 Dim lih As Integer = 16

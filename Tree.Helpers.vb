@@ -99,9 +99,13 @@ Partial Public Class Tree
             If _accessApp IsNot Nothing Then
                 Try
                     Me.BeginInvoke(Sub()
-                                       If _formHwnd <> IntPtr.Zero Then
-                                           _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
-                                       End If
+                                       Try
+                                           If _formHwnd <> IntPtr.Zero Then
+                                               _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
+                                           End If
+                                       Catch ex As Exception
+                                           Debug.Print("Err TrimiteMesajAccess Inner: " & ex.Message)
+                                       End Try
                                    End Sub)
                 Catch ex As Exception
                     MessageBox.Show("EROARE: " & ex.Message, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)

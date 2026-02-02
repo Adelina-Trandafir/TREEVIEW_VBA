@@ -4,6 +4,7 @@
     Private WithEvents MyTree As AdvancedTreeControl
 
     Private _formHwnd As IntPtr = IntPtr.Zero
+    Private _formParentHwnd As IntPtr = IntPtr.Zero
     Private _detailHwnd As IntPtr = IntPtr.Zero
     Private _accessApp As Object = Nothing ' Aici stocăm referința la Access
     Private _mainAccessHwnd As IntPtr = IntPtr.Zero ' Handle-ul ferestrei principale Access
@@ -21,6 +22,8 @@
 
     ' Ultima dimensiune cunoscută a părintelui
     Private _lastParentSize As Size = Size.Empty
+
+    Private _closeRequestSent As Boolean = False
 
     Private Shared ReadOnly inCommandSeparator As String() = New String() {"||"}
 

@@ -125,4 +125,15 @@
             Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
         End Set
     End Property
+
+    Private _isPopupTree As Boolean = True
+    Public Property IsPopupTree As Boolean
+        Get
+            Return _isPopupTree
+        End Get
+        Set(value As Boolean)
+            _isPopupTree = value
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
+        End Set
+    End Property
 End Class

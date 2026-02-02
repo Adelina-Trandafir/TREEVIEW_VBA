@@ -80,11 +80,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(42208302) '################
+                _formHwnd = New IntPtr(47320690) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(27332500)
-                _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(73075504)
+                _idTree = "Alege_Clsf" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\Avacont\Res\tree_Alege_Clsf.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -99,6 +99,18 @@ Partial Public Class Tree
             End If
 
             ConecteazaLaAccess(_mainAccessHwnd)
+
+            ' === GĂSIRE FORMULAR PĂRINTE ACCESS (NOU) ===
+            Debug.WriteLine("Căutare formular părinte Access:")
+            _formParentHwnd = GetAccessFormParent(_formHwnd)
+
+            If _formParentHwnd = IntPtr.Zero Then
+                Debug.WriteLine("AVERTISMENT: Nu s-a găsit formular părinte!")
+            Else
+                Debug.WriteLine($"Formular părinte găsit: {GetWindowInfo(_formParentHwnd)}")
+            End If
+            ' ============================================
+
             Dim spHwnd As IntPtr = SetParent(Me.Handle, _formHwnd)
             'SetParent returneaza HWND-ul anterior al ferestrei copil daca reuseste, sau NULL daca esueaza
             If spHwnd = IntPtr.Zero Then
@@ -184,5 +196,74 @@ Partial Public Class Tree
             _lastParentSize = currentSize
             PositioneazaInParent()
         End If
+
+        ' === VERIFICARE FOCUS ===
+        Dim foregroundWnd As IntPtr = GetForegroundWindow()
+
+        If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
+            Debug.WriteLine($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}")
+
+            ' OPREȘTE timer-ul ÎNAINTE de SendMessage
+            _MonitorTimer.Stop()
+
+            ' Trimite WM_CLOSE și așteaptă răspunsul (blocking)
+            SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
+
+            ' Verificăm ce s-a întâmplat
+            If Not IsWindow(_formParentHwnd) Then
+                ' Access a acceptat închiderea (Yes/No/fără modificări)
+                Debug.WriteLine(">>> Access a închis formularul")
+                Application.Exit()
+                Return
+            Else
+                ' Access a refuzat (Cancel)
+                Debug.WriteLine(">>> Access a anulat închiderea, repornesc timer")
+                SetFocus(_formHwnd)
+                _MonitorTimer.Start()  ' REPORNEȘTE timer-ul
+            End If
+        End If
     End Sub
+
+    Private Function GetAccessFormParent(childHwnd As IntPtr) As IntPtr
+        ' Urcă ierarhia până găsește fereastra de tip formular Access (top-level sau popup)
+        Dim currentHwnd As IntPtr = GetParent(childHwnd)
+        Dim maxLevels As Integer = 10 ' Protecție împotriva loop infinit
+        Dim level As Integer = 0
+
+        While currentHwnd <> IntPtr.Zero AndAlso level < maxLevels
+            ' Debug - vezi ce ferestre găsești
+            Debug.WriteLine($"  Nivel {level}: {GetWindowInfo(currentHwnd)}")
+
+            ' Verificăm dacă e fereastră top-level (are WS_CAPTION sau WS_POPUP)
+            Dim style As Integer = GetWindowLong(currentHwnd, GWL_STYLE)
+            Dim isTopLevel As Boolean = (style And WS_CAPTION) <> 0 OrElse (style And WS_POPUP) <> 0
+
+            If isTopLevel Then
+                Debug.WriteLine($"  → Găsit formular părinte la nivel {level}")
+                Return currentHwnd
+            End If
+
+            currentHwnd = GetParent(currentHwnd)
+            level += 1
+        End While
+
+        Debug.WriteLine("  → NU s-a găsit formular părinte, returnez IntPtr.Zero")
+        Return IntPtr.Zero
+    End Function
+    Private Function GetWindowInfo(hWnd As IntPtr) As String
+        If hWnd = IntPtr.Zero Then Return "NULL"
+
+        ' Obține titlul ferestrei
+        Dim length As Integer = GetWindowTextLength(hWnd)
+        If length = 0 Then Return $"HWND:{hWnd:X} (fără titlu)"
+
+        Dim sb As New System.Text.StringBuilder(length + 1)
+        GetWindowText(hWnd, sb, sb.Capacity)
+
+        ' Obține ProcessID
+        Dim processId As Integer = 0
+        GetWindowThreadProcessId(hWnd, processId)
+
+        Return $"HWND:{hWnd:X} | PID:{processId} | Title:[{sb}]"
+    End Function
 End Class
