@@ -265,8 +265,8 @@ Partial Public Class AdvancedTreeControl
         Dim rightText As String = ""
         Dim hasSplit As Boolean = False
 
-        If text.Contains("|||") Then
-            Dim partsStr = text.Split({"|||"}, StringSplitOptions.None)
+        If text.Contains("~~~") Then
+            Dim partsStr = text.Split({"~~~"}, StringSplitOptions.None)
             leftText = partsStr(0)
             If partsStr.Length > 1 Then rightText = partsStr(1)
             hasSplit = True

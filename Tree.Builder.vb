@@ -97,13 +97,15 @@ Partial Public Class Tree
 
     Private Function AplicareConfigurare(cfg As XmlNode, Optional Reload As Boolean = False) As Boolean
         Try
+            Dim sw As New Stopwatch()
+            sw.Start()
+
             Dim culture As CultureInfo = CultureInfo.InvariantCulture
 
             If cfg.Attributes("treeID") IsNot Nothing Then
                 Dim tId As String = cfg.Attributes("treeID").Value
                 If Not String.IsNullOrEmpty(tId) Then
                     If Reload Then
-                        ' La reload verific daca e acelasi ID. Daca nu, eroare.
                         If MyTree.treeID <> tId Then
                             MessageBox.Show("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                             Application.Exit()
@@ -119,6 +121,7 @@ Partial Public Class Tree
                 MessageBox.Show("EROARE: Atributul 'treeId' este obligatoriu în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
+            Debug.WriteLine($"  [1] După treeID: {sw.ElapsedMilliseconds}ms")
 
             ' --- BackColor ---
             If cfg.Attributes("BackColor") IsNot Nothing Then
@@ -130,6 +133,7 @@ Partial Public Class Tree
                     MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
+            Debug.WriteLine($"  [2] După BackColor: {sw.ElapsedMilliseconds}ms")
 
             ' --- ForeColor ---
             If cfg.Attributes("ForeColor") IsNot Nothing Then
@@ -140,29 +144,30 @@ Partial Public Class Tree
                     MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
+            Debug.WriteLine($"  [3] După ForeColor: {sw.ElapsedMilliseconds}ms")
 
-            ' --- Checkboxex ---
+            ' --- Checkboxes ---
             If cfg.Attributes("CheckBoxes") IsNot Nothing Then
                 Dim v As Integer = 0
                 Dim parsed = Integer.TryParse(cfg.Attributes("CheckBoxes").Value, v)
                 If parsed Then MyTree.CheckBoxes = v = 1
             End If
+            Debug.WriteLine($"  [4] După CheckBoxes: {sw.ElapsedMilliseconds}ms")
 
             ' --- Font ---
             Dim fName As String = "Segoe UI"
             Dim fSize As Single = 9.0F
-
             If MyTree.Font IsNot Nothing Then
                 fName = MyTree.Font.Name
                 fSize = MyTree.Font.Size
             End If
-
             If cfg.Attributes("FontName") IsNot Nothing Then fName = cfg.Attributes("FontName").Value
             If cfg.Attributes("FontSize") IsNot Nothing Then
                 Single.TryParse(cfg.Attributes("FontSize").Value, NumberStyles.Any, culture, fSize)
             End If
-
+            Debug.WriteLine($"  [5] Înainte de New Font: {sw.ElapsedMilliseconds}ms")
             MyTree.Font = New Font(fName, fSize)
+            Debug.WriteLine($"  [6] După New Font: {sw.ElapsedMilliseconds}ms")
 
             ' --- ItemHeight ---
             If cfg.Attributes("ItemHeight") IsNot Nothing Then
@@ -170,6 +175,7 @@ Partial Public Class Tree
                 Dim v = Integer.TryParse(cfg.Attributes("ItemHeight").Value, ih)
                 If ih > 0 Then MyTree.ItemHeight = ih
             End If
+            Debug.WriteLine($"  [7] După ItemHeight: {sw.ElapsedMilliseconds}ms")
 
             ' --- NodeIcons ---
             If cfg.Attributes("HasNodeIcons") IsNot Nothing Then
@@ -177,6 +183,7 @@ Partial Public Class Tree
                 Dim parsed = Integer.TryParse(cfg.Attributes("HasNodeIcons").Value, v)
                 If parsed Then MyTree.HasNodeIcons = v = 1
             End If
+            Debug.WriteLine($"  [8] După HasNodeIcons: {sw.ElapsedMilliseconds}ms")
 
             ' --- PopupTree ---
             If cfg.Attributes("PopupTree") IsNot Nothing Then
@@ -184,6 +191,7 @@ Partial Public Class Tree
                 Dim parsed = Integer.TryParse(cfg.Attributes("PopupTree").Value, v)
                 If parsed Then MyTree.IsPopupTree = v = 1
             End If
+            Debug.WriteLine($"  [9] După PopupTree: {sw.ElapsedMilliseconds}ms")
 
             ' === LeftIconHeight ===
             If cfg.Attributes("LeftIconHeight") IsNot Nothing Then
@@ -191,6 +199,7 @@ Partial Public Class Tree
                 Dim v = Integer.TryParse(cfg.Attributes("LeftIconHeight").Value, lih)
                 If lih > 0 Then MyTree.LeftIconSize = New Size(lih, lih)
             End If
+            Debug.WriteLine($"  [10] După LeftIconSize: {sw.ElapsedMilliseconds}ms")
 
             ' === RightIconHeight ===
             If cfg.Attributes("RightIconHeight") IsNot Nothing Then
@@ -198,6 +207,7 @@ Partial Public Class Tree
                 Dim v = Integer.TryParse(cfg.Attributes("RightIconHeight").Value, rih)
                 If rih > 0 Then MyTree.RightIconSize = New Size(rih, rih)
             End If
+            Debug.WriteLine($"  [11] După RightIconSize: {sw.ElapsedMilliseconds}ms")
 
             ' --- CheckboxSize ---
             If cfg.Attributes("CheckboxSize") IsNot Nothing Then
@@ -205,12 +215,14 @@ Partial Public Class Tree
                 Dim v = Integer.TryParse(cfg.Attributes("CheckboxSize").Value, cs)
                 If cs > 0 Then MyTree.CheckBoxSize = cs
             End If
+            Debug.WriteLine($"  [12] După CheckboxSize: {sw.ElapsedMilliseconds}ms")
 
             ' --- RightClickFunc ---
             If cfg.Attributes("RightClickFunc") IsNot Nothing Then
                 Dim rcFunc As String = cfg.Attributes("RightClickFunc").Value
                 MyTree.RightClickFunction = rcFunc
             End If
+            Debug.WriteLine($"  [13] FINAL: {sw.ElapsedMilliseconds}ms")
 
             Return True
         Catch ex As Exception
