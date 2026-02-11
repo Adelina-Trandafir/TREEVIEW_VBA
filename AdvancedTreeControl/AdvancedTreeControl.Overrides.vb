@@ -59,8 +59,36 @@ Partial Public Class AdvancedTreeControl
             Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
             ' Considerăm zona activă începând de la linia expanderului/indentării
-            ' Tot ce e în stânga alinierii nivelului este ignorat
+            ' Tot ce e în stânga alinierii nivelului → Toggle Expand dacă are copii/LazyNode
             If e.X < gridLeft Then
+                If it.Children.Count > 0 OrElse it.LazyNode Then
+                    ' A. Protecție Root
+                    If it.Level = 0 AndAlso Not _rootButton Then
+                        Return
+                    End If
+
+                    ' B. Lazy Load (identic cu logica expanderului)
+                    If it.LazyNode AndAlso it.Children.Count = 0 Then
+                        Dim loader As New TreeItem With {
+                    .Key = "LOADER_" & Guid.NewGuid().ToString(),
+                    .Caption = "Loading...",
+                    .Level = it.Level + 1,
+                    .Parent = it,
+                    .IsLoader = True
+                }
+                        it.Children.Add(loader)
+                        it.Expanded = True
+                        If Not _loadingTimer.Enabled Then _loadingTimer.Start()
+                        Me.Invalidate()
+                        RaiseEvent RequestLazyLoad(Me, it)
+                        Return
+                    End If
+
+                    ' C. Toggle standard
+                    it.Expanded = Not it.Expanded
+                    Me.Invalidate()
+                End If
+                ' NICIODATĂ selecție în zona moartă
                 Return
             End If
         End If

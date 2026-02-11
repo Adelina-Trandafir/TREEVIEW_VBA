@@ -2,24 +2,24 @@
 Imports System.IO
 Imports System.Runtime.InteropServices
 
-' V.4.0 - 28.01.2026
+' V.5.0 - 28.01.2026
 ' Adugat LAZY LOADING pentru noduri
 ' Adaugat Eveniment RightIconClicked
 ' V.5.0 - 01.02.2026
 ' Modificat checkbox si adaugat HasNodeIcons 
 ' Activat timer monitorizare redimensionare
-
+' V.6.0 - 10.02.2026
+' Adaugat click in zona moarta a copacului => deschide / inchide nodul
 Partial Public Class Tree
+    Private version As String = "6.0"
     ' =============================================================
     ' INIT
     ' =============================================================
     Public Sub New()
-        ' 1. Deschidem consola imediat pentru a vedea ce se intampla
 #If DEBUG Then
         DEBUG_MODE = True
 #End If
         InitializeComponent()
-
         Try
             ' Configurare Formă Gazdă
             Me.FormBorderStyle = FormBorderStyle.None
@@ -58,7 +58,7 @@ Partial Public Class Tree
             Dim args As String() = Environment.GetCommandLineArgs()
 
             If args.Length <= 1 And Not DEBUG_MODE Then
-                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
@@ -80,21 +80,21 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(9373520) '################
+                _formHwnd = New IntPtr(1510336) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(29887616)
-                _idTree = "Alege_Clsf" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\Avacont\Res\tree_Alege_Clsf.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(3933810)
+                _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
-                messagebox.show("EROARE: Parametrii de lansare invalizi!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Parametrii de lansare invalizi!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 #End If
             ' Conectare COM
             If Not IsWindow(_mainAccessHwnd) Then
-                MessageBox.Show("EROARE: Fereastra Access invalida in DEBUG MODE!", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Fereastra Access invalida in DEBUG MODE!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
