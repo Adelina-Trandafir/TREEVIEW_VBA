@@ -24,13 +24,14 @@ Partial Public Class Tree
                 ' Din obiectul Window, urcăm la Application
                 Dim windowObj As Object = obj
                 _accessApp = windowObj.Application
+                TreeLogger.Debug("Conectat la Access. Versiune Access: " & _accessApp.Version, "ConecteazaLaAccess", MessageBoxButtons.OK, MessageBoxIcon.Information)
 
             Catch ex As Exception
-                MessageBox.Show("Eroare la obținerea Application din Window: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Ex(ex, "ConecteazaLaAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End Try
         Else
-            MessageBox.Show("Nu s-a putut obține obiectul COM din HWND.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Err("Nu s-a putut obține obiectul COM din HWND.", "ConecteazaLaAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Application.Exit()
         End If
     End Sub
@@ -40,6 +41,7 @@ Partial Public Class Tree
         Dim targetForm As Object = GetFormObjectFromHwnd(_formHwnd)
 
         If targetForm Is Nothing Then
+            TreeLogger.Err($"Form object not found for HWND:{_formHwnd}", "GetValoareLocala", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return "Form not found"
         End If
 
@@ -51,9 +53,12 @@ Partial Public Class Tree
             Dim val As Object = ctl.Value
             If val Is Nothing Then Return ""
 
+            TreeLogger.Debug($"Valoare control '{numeControl}' este: {val}", "GetValoareLocala", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
             Return val.ToString()
         Catch ex As Exception
-            Return "Err: " & ex.Message
+            TreeLogger.Ex(ex, "GetValoareLocala", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return ""
         End Try
     End Function
 
@@ -69,18 +74,24 @@ Partial Public Class Tree
             Try
                 ' Eliberam referinta COM
                 Marshal.ReleaseComObject(_accessApp)
+                TreeLogger.Debug("COM object Access eliberat cu succes.", "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
             Catch ex As Exception
                 ' Aceasta eroare e normala daca Access s-a inchis deja (RPC unavailable)
-                MessageBox.Show("COM Cleanup Info (Access probabil inchis deja): " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Ex(ex, "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
             _accessApp = Nothing
         End If
 
         GC.Collect()
         GC.Collect()
+
+        TreeLogger.Debug("Curățare resurse completă. Iesire din aplicatie.", "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
 
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
+        TreeLogger.Debug($"TrimiteMesajAccess: Action='{Action}', ItemKey='{If(pItem IsNot Nothing, pItem.Key.ToString(), "null")}', ExtraInfo='{ExtraInfo}'", "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
         If pItem Is Nothing Then
             If _accessApp IsNot Nothing Then
                 Try
@@ -90,7 +101,7 @@ Partial Public Class Tree
                                        End If
                                    End Sub)
                 Catch ex As Exception
-                    MessageBox.Show("EROARE: " & ex.Message, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
         Else
@@ -105,11 +116,11 @@ Partial Public Class Tree
                                                _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
                                            End If
                                        Catch ex As Exception
-                                           Debug.Print("Err TrimiteMesajAccess Inner: " & ex.Message)
+                                           TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
                                        End Try
                                    End Sub)
                 Catch ex As Exception
-                    MessageBox.Show("EROARE: " & ex.Message, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
         End If
@@ -124,6 +135,8 @@ Partial Public Class Tree
             Dim parts() As String = cmd.Split(inCommandSeparator, StringSplitOptions.None)
 
             If parts.Length < 1 Then Return
+
+            TreeLogger.Debug(cmd, "ProcesareComandaAccess") ' Logăm comanda primită pentru debugging
 
             Select Case parts(0).ToUpper()
                 Case "FORCE_EXPAND"
@@ -269,7 +282,7 @@ Partial Public Class Tree
 
         Catch ex As Exception
             ' Ignorăm erorile de parsare silențios sau le logăm
-            If DEBUG_MODE Then MessageBox.Show("Err ProcessCmd: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "ProcesareComandaAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -280,58 +293,63 @@ Partial Public Class Tree
         Dim parentNode As AdvancedTreeControl.TreeItem = Nothing
         Dim iconImg As Image = Nothing
 
-        ' 1. Gestionare Imagine (Robustness: Fallback dacă nu există cheia)
-        If Not String.IsNullOrEmpty(iconKey) Then
-            If Not _imageCache.TryGetValue(iconKey, iconImg) Then
-                ' Opțional: Logare eroare sau folosire imagine default
-                ' iconImg = _defaultImage 
+        Try
+            ' 1. Gestionare Imagine (Robustness: Fallback dacă nu există cheia)
+            If Not String.IsNullOrEmpty(iconKey) Then
+                If Not _imageCache.TryGetValue(iconKey, iconImg) Then
+                    ' Opțional: Logare eroare sau folosire imagine default
+                    ' iconImg = _defaultImage 
+                End If
             End If
-        End If
 
-        ' 2. Determinăm Părintele
-        If Not String.IsNullOrEmpty(parentId) Then
-            ' Folosim funcția de căutare după ID, nu Text
-            For Each root In MyTree.Items
-                parentNode = FindNodeByIdRecursive(root, parentId)
-                If parentNode IsNot Nothing Then Exit For
-            Next
+            ' 2. Determinăm Părintele
+            If Not String.IsNullOrEmpty(parentId) Then
+                ' Folosim funcția de căutare după ID, nu Text
+                For Each root In MyTree.Items
+                    parentNode = FindNodeByIdRecursive(root, parentId)
+                    If parentNode IsNot Nothing Then Exit For
+                Next
+
+                If parentNode Is Nothing Then
+                    If DEBUG_MODE Then MessageBox.Show($"Parent ID '{parentId}' not found. Cannot add child '{newId}'.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    Return
+                End If
+            End If
+
+            ' 3. Creăm nodul
+            Dim newItem As New AdvancedTreeControl.TreeItem With {
+                .Caption = text,
+                .Key = newId,
+                .LeftIconClosed = iconImg,
+                .LeftIconOpen = iconImg, ' Asigurăm și iconița de Open
+                .Expanded = False ' Implicit collapse la nodurile noi dinamice
+            }
 
             If parentNode Is Nothing Then
-                If DEBUG_MODE Then MessageBox.Show($"Parent ID '{parentId}' not found. Cannot add child '{newId}'.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                Return
+                ' -- ROOT NODE --
+                newItem.Level = 0
+                MyTree.Items.Add(newItem)
+            Else
+                ' -- CHILD NODE --
+                newItem.Level = parentNode.Level + 1
+                newItem.Parent = parentNode
+                parentNode.Children.Add(newItem)
+
+                ' FOARTE IMPORTANT: Expandăm părintele ca să vedem ce am adăugat
+                parentNode.Expanded = True
             End If
-        End If
 
-        ' 3. Creăm nodul
-        Dim newItem As New AdvancedTreeControl.TreeItem With {
-        .Caption = text,
-        .Key = newId,
-        .LeftIconClosed = iconImg,
-        .LeftIconOpen = iconImg, ' Asigurăm și iconița de Open
-        .Expanded = False ' Implicit collapse la nodurile noi dinamice
-    }
+            ' 4. ACTUALIZARE VIZUALĂ COMPLETĂ
+            ' Recalculăm scroll-ul și forțăm redesenarea
+            MyTree.SetAutoHeight() ' Sau logica ta de recalculare înălțime totală
+            MyTree.Invalidate()
 
-        If parentNode Is Nothing Then
-            ' -- ROOT NODE --
-            newItem.Level = 0
-            MyTree.Items.Add(newItem)
-        Else
-            ' -- CHILD NODE --
-            newItem.Level = parentNode.Level + 1
-            newItem.Parent = parentNode
-            parentNode.Children.Add(newItem)
+            ' Opțional: Scroll până la noul element creat (User Experience)
+            ScrollToNode(newItem)
 
-            ' FOARTE IMPORTANT: Expandăm părintele ca să vedem ce am adăugat
-            parentNode.Expanded = True
-        End If
-
-        ' 4. ACTUALIZARE VIZUALĂ COMPLETĂ
-        ' Recalculăm scroll-ul și forțăm redesenarea
-        MyTree.SetAutoHeight() ' Sau logica ta de recalculare înălțime totală
-        MyTree.Invalidate()
-
-        ' Opțional: Scroll până la noul element creat (User Experience)
-        ScrollToNode(newItem)
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ExecuteAddNode", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
     ' =============================================================
@@ -347,7 +365,7 @@ Partial Public Class Tree
         If removed Then
             MyTree.Refresh()
         Else
-            If DEBUG_MODE Then MessageBox.Show("Node ID to remove not found: " & nodeId, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Debug("Node ID to remove not found: " & nodeId, "ExecuteRemoveNode", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End If
     End Sub
 
@@ -424,7 +442,7 @@ Partial Public Class Tree
                 TrimiteMesajAccess("MouseUp", foundNode)
             End If
         Else
-            If DEBUG_MODE Then MessageBox.Show("Nodul nu a fost găsit: " & text, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Debug($"Node with text '{text}' not found.", "FindAndSelectNode", MessageBoxButtons.OK, MessageBoxIcon.Information)
         End If
     End Sub
 
@@ -500,7 +518,7 @@ Partial Public Class Tree
                 ' Opțional: curățăm fișierul temporar creat de VBA
                 ' File.Delete(filePath) 
             Catch ex As Exception
-                MessageBox.Show("Batch File Error: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Ex(ex, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
         End If
     End Sub
@@ -518,40 +536,45 @@ Partial Public Class Tree
 
                 ' Dacă am cerut un părinte și nu există, ieșim (safety)
                 If parentNode Is Nothing Then
-                    If DEBUG_MODE Then MessageBox.Show("Batch Error: Parent " & parentID & " not found.", "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Err(parentID & " not found for batch add.", "ExecuteAddBatchJson", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Return
                 End If
             End If
 
-            ' 2. Deserializare
-            ' Opțiuni pentru a fi permisivi cu JSON-ul (Case Insensitive)
-            Dim options As New JsonSerializerOptions With {
+            Try
+                ' 2. Deserializare
+                ' Opțiuni pentru a fi permisivi cu JSON-ul (Case Insensitive)
+                Dim options As New JsonSerializerOptions With {
                 .PropertyNameCaseInsensitive = True
             }
-            Dim newNodes As List(Of NodeDto) = JsonSerializer.Deserialize(Of List(Of NodeDto))(jsonString, options)
+                Dim newNodes As List(Of NodeDto) = JsonSerializer.Deserialize(Of List(Of NodeDto))(jsonString, options)
 
-            If newNodes Is Nothing OrElse newNodes.Count = 0 Then Return
+                If newNodes Is Nothing OrElse newNodes.Count = 0 Then Return
 
-            ' 3. OPRIM DESENAREA (PERFORMANȚĂ CRITICĂ)
-            MyTree.SuspendLayout()
+                ' 3. OPRIM DESENAREA (PERFORMANȚĂ CRITICĂ)
+                MyTree.SuspendLayout()
 
-            ' Dacă părintele are copii și primul este un Loader, îi ștergem pe toți
-            If parentNode IsNot Nothing AndAlso parentNode.Children.Count > 0 Then
-                If parentNode.Children(0).IsLoader Then
-                    parentNode.Children.Clear()
+                ' Dacă părintele are copii și primul este un Loader, îi ștergem pe toți
+                If parentNode IsNot Nothing AndAlso parentNode.Children.Count > 0 Then
+                    If parentNode.Children(0).IsLoader Then
+                        parentNode.Children.Clear()
+                    End If
                 End If
-            End If
 
-            ' 4. Adăugare recursivă
-            For Each nodeDto In newNodes
-                AddNodeDtoToTree(nodeDto, parentNode)
-            Next
+                ' 4. Adăugare recursivă
+                For Each nodeDto In newNodes
+                    AddNodeDtoToTree(nodeDto, parentNode)
+                Next
 
-            ' Dacă am adăugat la un nod existent, îl expandăm
-            If parentNode IsNot Nothing Then parentNode.Expanded = True
+                ' Dacă am adăugat la un nod existent, îl expandăm
+                If parentNode IsNot Nothing Then parentNode.Expanded = True
+
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "ExecuteAddBatchJson", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            End Try
 
         Catch ex As Exception
-            If DEBUG_MODE Then MessageBox.Show("JSON Batch Error: " & ex.Message, "EROARE", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "ExecuteAddBatchJson", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
             ' 5. REPORNIM DESENAREA
             MyTree.SetAutoHeight()
@@ -653,12 +676,12 @@ Partial Public Class Tree
         If m.Msg = WM_DESTROY Then
             Dim st As New StackTrace(True)
             Dim stackInfo As String = st.ToString()
-
+            TreeLogger.Debug("WM_DESTROY received.", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
             If Not _cleaningDone Then
                 CurataResurseSiIesi()
             End If
         End If
-
+        TreeLogger.Debug($"WndProc received. Msg: {m.Msg}, LParam: {m.LParam}", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
         MyBase.WndProc(m)
     End Sub
 End Class

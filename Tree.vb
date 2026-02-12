@@ -65,6 +65,30 @@ Partial Public Class Tree
                 Environment.Exit(-1)
             End If
 
+            ' Parsăm treeId din argumente ÎNAINTE de Init logger
+            Dim earlyTreeId As String = "startup"
+            For Each a As String In args
+                If a.ToLower().StartsWith("/idt:") Then
+                    earlyTreeId = a.Substring(5)
+                    Exit For
+                End If
+            Next
+            TreeLogger.Init(earlyTreeId)
+            TreeLogger.Info($"=== Aplicația pornește (v{version}) ===", "Tree_Load")
+            TreeLogger.Debug($"Args: {String.Join(" ", args)}", "Tree_Load")
+
+            ' Diagnostic: background thread care loghează la fiecare 200ms
+            Dim diagThread As New System.Threading.Thread(Sub()
+                                                              For i As Integer = 1 To 30  ' 6 secunde de monitorizare
+                                                                  TreeLogger.Debug($">>> HEARTBEAT #{i}", "BG_THREAD")
+                                                                  System.Threading.Thread.Sleep(200)
+                                                              Next
+                                                          End Sub)
+            diagThread.IsBackground = True
+            diagThread.Start()
+
+
+
             For Each arg As String In args
                 Dim lowerArg As String = arg.ToLower()
 
@@ -83,9 +107,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(2298604) '################
+                _formHwnd = New IntPtr(1181080) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(3213882)
+                _mainAccessHwnd = New IntPtr(984020)
                 _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
@@ -97,20 +121,37 @@ Partial Public Class Tree
 #End If
             ' Conectare COM
             If Not IsWindow(_mainAccessHwnd) Then
-                MessageBox.Show("EROARE: Fereastra Access invalida in DEBUG MODE!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Err("EROARE: Fereastra Access invalida in DEBUG MODE!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
+            TreeLogger.Debug(">>> După LoadXmlData", "PERF")
+            If Not String.IsNullOrEmpty(_fisier) Then
+                If LoadXmlData(_fisier) Then
+#If DEBUG Then
+#Else
+                    File.Delete(_fisier)
+#End If
+                End If
+            Else
+                TreeLogger.Err("ERROR: Nu s-a putut încărca structura arborelui din Access.", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Environment.Exit(0)
+            End If
+
+
+            TreeLogger.Debug(">>> Înainte de ConecteazaLaAccess", "PERF")
             ConecteazaLaAccess(_mainAccessHwnd)
+            TreeLogger.Debug(">>> După ConecteazaLaAccess", "PERF")
 
             ' === GĂSIRE FORMULAR PĂRINTE ACCESS (NOU) ===
+            TreeLogger.Debug(">>> Înainte de SetParent", "PERF")
             Debug.WriteLine("Căutare formular părinte Access:")
             _formParentHwnd = GetAccessFormParent(_formHwnd)
 
             If _formParentHwnd = IntPtr.Zero Then
-                Debug.WriteLine("AVERTISMENT: Nu s-a găsit formular părinte!")
+                TreeLogger.Debug("AVERTISMENT: Nu s-a găsit formular părinte!")
             Else
-                Debug.WriteLine($"Formular părinte găsit: {GetWindowInfo(_formParentHwnd)}")
+                TreeLogger.Info($"Formular părinte găsit: {GetWindowInfo(_formParentHwnd)}")
             End If
             ' ============================================
 
@@ -120,35 +161,26 @@ Partial Public Class Tree
                 Marshal.GetLastWin32Error()
                 Dim dllErrInt As Integer = Marshal.GetLastWin32Error()
                 Dim dllErr As String = New Win32Exception(dllErrInt).Message
-                MessageBox.Show("EROARE: Formularul ACCESS nu este valid!" & ControlChars.CrLf & dllErr & ControlChars.CrLf & $"Form Handle:{_formHwnd}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Err("EROARE: Formularul ACCESS nu este valid!" & ControlChars.CrLf & dllErr & ControlChars.CrLf & $"Form Handle:{_formHwnd}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
 
             PositioneazaInParent()
+            TreeLogger.Debug(">>> După SetParent + Poziționare", "PERF")
 
-            If Not String.IsNullOrEmpty(_fisier) Then
-                If LoadXmlData(_fisier) Then
-#If DEBUG Then
-#Else
-                    File.Delete(_fisier)
-#End If
-                End If
-            Else
-                MessageBox.Show("ERROR: Nu s-a putut încărca structura arborelui din Access.", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                Environment.Exit(0)
-            End If
-
+            TreeLogger.Debug(">>> Înainte de TrimiteMesajAccess HWND", "PERF")
             TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
+            TreeLogger.Debug(">>> După TrimiteMesajAccess HWND", "PERF")
 
             ' === PORNIRE MONITORIZARE RESIZE ===
             Dim rParent As RECT
             GetClientRect(_formHwnd, rParent)
             _lastParentSize = New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
             _MonitorTimer.Start()
-
+            TreeLogger.Debug(">>> Tree_Load COMPLET", "PERF")
             ' _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
         Catch ex As Exception
-            MessageBox.Show($"ERROR: {ex.Message}", "Tree_Load", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "Tree_Load")
         End Try
     End Sub
 
@@ -163,6 +195,7 @@ Partial Public Class Tree
         ' --- POPUP: Închidere după click pe leaf ---
         If MyTree.IsPopupTree AndAlso pItem.Children.Count = 0 AndAlso Not pItem.LazyNode Then
             Me.BeginInvoke(Sub()
+                               TreeLogger.Debug("Leaf click în popup - trimit WM_CLOSE", "MyTree_NodeMouseUp")
                                _MonitorTimer.Stop()
                                SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
                                If Not IsWindow(_formParentHwnd) Then
@@ -195,6 +228,7 @@ Partial Public Class Tree
 
         ' Verificare validitate fereastră Access
         If Not IsWindow(_formHwnd) Then
+            TreeLogger.Warn("Fereastra Access nu mai este validă, închid aplicația", "MonitorTimer_Tick")
             _MonitorTimer.Stop()
             CurataResurseSiIesi()
             Application.Exit()
@@ -217,7 +251,7 @@ Partial Public Class Tree
             Dim foregroundWnd As IntPtr = GetForegroundWindow()
 
             If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
-                Debug.WriteLine($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}")
+                TreeLogger.Debug($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}", "MonitorTimer_Tick")
 
                 ' OPREȘTE timer-ul ÎNAINTE de SendMessage
                 _MonitorTimer.Stop()
@@ -228,12 +262,12 @@ Partial Public Class Tree
                 ' Verificăm ce s-a întâmplat
                 If Not IsWindow(_formParentHwnd) Then
                     ' Access a acceptat închiderea (Yes/No/fără modificări)
-                    Debug.WriteLine(">>> Access a închis formularul")
+                    TreeLogger.Info(">>> Access a închis formularul", "MonitorTimer_Tick")
                     Application.Exit()
                     Return
                 Else
                     ' Access a refuzat (Cancel)
-                    Debug.WriteLine(">>> Access a anulat închiderea, repornesc timer")
+                    TreeLogger.Info(">>> Access a anulat închiderea, repornesc timer", "MonitorTimer_Tick")
                     SetFocus(_formHwnd)
                     _MonitorTimer.Start()  ' REPORNEȘTE timer-ul
                 End If
@@ -250,14 +284,14 @@ Partial Public Class Tree
 
         While currentHwnd <> IntPtr.Zero AndAlso level < maxLevels
             ' Debug - vezi ce ferestre găsești
-            Debug.WriteLine($"  Nivel {level}: {GetWindowInfo(currentHwnd)}")
+            TreeLogger.Info($"  Nivel {level}: {GetWindowInfo(currentHwnd)}", "GetAccessFormParent")
 
             ' Verificăm dacă e fereastră top-level (are WS_CAPTION sau WS_POPUP)
             Dim style As Integer = GetWindowLong(currentHwnd, GWL_STYLE)
             Dim isTopLevel As Boolean = (style And WS_CAPTION) <> 0 OrElse (style And WS_POPUP) <> 0
 
             If isTopLevel Then
-                Debug.WriteLine($"  → Găsit formular părinte la nivel {level}")
+                TreeLogger.Info($"  → Găsit formular părinte la nivel {level}", "GetAccessFormParent")
                 Return currentHwnd
             End If
 
@@ -265,9 +299,10 @@ Partial Public Class Tree
             level += 1
         End While
 
-        Debug.WriteLine("  → NU s-a găsit formular părinte, returnez IntPtr.Zero")
+        TreeLogger.Err("  → NU s-a găsit formular părinte, returnez IntPtr.Zero", "GetAccessFormParent")
         Return IntPtr.Zero
     End Function
+
     Private Function GetWindowInfo(hWnd As IntPtr) As String
         If hWnd = IntPtr.Zero Then Return "NULL"
 

@@ -8,11 +8,11 @@ Partial Public Class Tree
     ' =============================================================
     Private Function LoadXmlData(filePath As String) As Boolean
         If Not File.Exists(filePath) Then Return False
-
         Try
             Dim xDoc As New XmlDocument()
             xDoc.Load(filePath)
 
+            TreeLogger.Info($"Încep încărcare XML din fișier: {filePath}", "LoadXmlData")
             MyTree.SuspendLayout()
             MyTree.Items.Clear()
             _imageCache.Clear()
@@ -40,7 +40,7 @@ Partial Public Class Tree
             Return True
 
         Catch ex As Exception
-            MessageBox.Show("EROARE: " & ex.Message, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
 
         Finally
@@ -87,7 +87,7 @@ Partial Public Class Tree
             Return True
 
         Catch ex As Exception
-            MessageBox.Show("EROARE: " & ex.Message, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
 
         Finally
@@ -107,21 +107,21 @@ Partial Public Class Tree
                 If Not String.IsNullOrEmpty(tId) Then
                     If Reload Then
                         If MyTree.treeID <> tId Then
-                            MessageBox.Show("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                            TreeLogger.Err("EROARE: La reîncărcare, atributul 'treeId' nu corespunde cu cel inițial.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                             Application.Exit()
                         End If
                     Else
                         MyTree.treeID = tId
                     End If
                 Else
-                    MessageBox.Show("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Err("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Application.Exit()
                 End If
             Else
-                MessageBox.Show("EROARE: Atributul 'treeId' este obligatoriu în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Err("EROARE: Atributul 'treeId' este obligatoriu în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
-            'debug.WriteLine($"  [1] După treeID: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [1] treeID", sw.ElapsedMilliseconds, "Config")
 
             ' --- BackColor ---
             If cfg.Attributes("BackColor") IsNot Nothing Then
@@ -130,10 +130,10 @@ Partial Public Class Tree
                     MyTree.BackColor = c
                     Me.BackColor = c
                 Catch ex As Exception
-                    MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
-            'debug.WriteLine($"  [2] După BackColor: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [2] BackColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- ForeColor ---
             If cfg.Attributes("ForeColor") IsNot Nothing Then
@@ -141,10 +141,10 @@ Partial Public Class Tree
                     Dim c As Color = ColorTranslator.FromHtml(cfg.Attributes("ForeColor").Value)
                     MyTree.ForeColor = c
                 Catch ex As Exception
-                    MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
-            'debug.WriteLine($"  [3] După ForeColor: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [3] ForeColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- Checkboxes ---
             If cfg.Attributes("CheckBoxes") IsNot Nothing Then
@@ -152,7 +152,7 @@ Partial Public Class Tree
                 Dim parsed = Integer.TryParse(cfg.Attributes("CheckBoxes").Value, v)
                 If parsed Then MyTree.CheckBoxes = v = 1
             End If
-            'debug.WriteLine($"  [4] După CheckBoxes: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [4] CheckBoxes", sw.ElapsedMilliseconds, "Config")
 
             ' --- Font ---
             Dim fName As String = "Segoe UI"
@@ -165,9 +165,9 @@ Partial Public Class Tree
             If cfg.Attributes("FontSize") IsNot Nothing Then
                 Single.TryParse(cfg.Attributes("FontSize").Value, NumberStyles.Any, culture, fSize)
             End If
-            'debug.WriteLine($"  [5] Înainte de New Font: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [5] Pre-Font", sw.ElapsedMilliseconds, "Config")
             MyTree.Font = New Font(fName, fSize)
-            'debug.WriteLine($"  [6] După New Font: {sw.ElapsedMilliseconds}ms")
+            TreeLogger.Perf("Config [6] Post-Font", sw.ElapsedMilliseconds, "Config")
 
             ' --- ItemHeight ---
             If cfg.Attributes("ItemHeight") IsNot Nothing Then
@@ -224,9 +224,22 @@ Partial Public Class Tree
             End If
             'debug.WriteLine($"  [13] FINAL: {sw.ElapsedMilliseconds}ms")
 
+            TreeLogger.Info($"Configurare aplicată cu succes în {sw.ElapsedMilliseconds}ms", "AplicareConfigurare")
+            TreeLogger.Debug("Proprietatile configurate: " &
+                System.Environment.NewLine & Space(5) & $"treeID={MyTree.treeID}, " &
+                System.Environment.NewLine & Space(5) & $"BackColor={MyTree.BackColor}, " &
+                System.Environment.NewLine & Space(5) & $"ForeColor={MyTree.ForeColor}, " &
+                System.Environment.NewLine & Space(5) & $"CheckBoxes={MyTree.CheckBoxes}, " &
+                System.Environment.NewLine & Space(5) & $"Font={MyTree.Font.Name} {MyTree.Font.Size}pt, " &
+                System.Environment.NewLine & Space(5) & $"ItemHeight={MyTree.ItemHeight}, " &
+                System.Environment.NewLine & Space(5) & $"HasNodeIcons={MyTree.HasNodeIcons}, " &
+                System.Environment.NewLine & Space(5) & $"PopupTree={MyTree.IsPopupTree}, " &
+                System.Environment.NewLine & Space(5) & $"LeftIconSize={MyTree.LeftIconSize}, " &
+                System.Environment.NewLine & Space(5) & $"RightIconSize={MyTree.RightIconSize}, " &
+                System.Environment.NewLine & Space(5) & $"CheckBoxSize={MyTree.CheckBoxSize}", "AplicareConfigurare")
             Return True
         Catch ex As Exception
-            MessageBox.Show("EROARE: " & ex.Message, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
         End Try
     End Function
@@ -310,8 +323,10 @@ Partial Public Class Tree
             For Each childNode As XmlNode In xNode.SelectNodes("Node")
                 AddXmlNodeToTree(childNode, newItem)
             Next
+
+            'TreeLogger.Debug($"AddXmlNodeToTree - Adăugat nod: '{nodeCaption}' cu key='{nodeKey}' sub parent='{If(parentItem IsNot Nothing, parentItem.Caption, "ROOT")}'", "AddXmlNodeToTree")
         Catch ex As Exception
-            MessageBox.Show("EROARE: " & ex.Message, "AddXmlNodeToTree", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "AddXmlNodeToTree", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -334,9 +349,11 @@ Partial Public Class Tree
                     End If
                 End If
             Catch ex As Exception
-                MessageBox.Show("EROARE: " & ex.Message, "LoadImagesToCache", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Ex(ex, "LoadImagesToCache", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
         Next
+
+        TreeLogger.Debug($" Încărcat {count} imagini în cache.", "LoadImagesToCache")
     End Sub
 
 End Class
