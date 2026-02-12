@@ -9,7 +9,17 @@
 		<Platforms>AnyCPU;x64;x86</Platforms>
 		<ApplicationManifest>My Project\app.manifest</ApplicationManifest>
 		<Title>Treeview VB.NET accesibil din VBA</Title>
+		<AssemblyName>TREEVIEW_VBA</AssemblyName>
 	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(PlatformTarget)' == 'x64' Or '$(RuntimeIdentifier)' == 'win-x64'">
+		<AssemblyName>TREEVIEW_VBA_64</AssemblyName>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Platform)' == 'x86' Or '$(PlatformTarget)' == 'x86' Or '$(RuntimeIdentifier)' == 'win-x86'">
+		<AssemblyName>TREEVIEW_VBA_32</AssemblyName>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<Import Include="System.Data" />
 		<Import Include="System.Drawing" />

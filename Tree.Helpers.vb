@@ -1,6 +1,7 @@
 ﻿Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text.Json
+Imports System.Diagnostics
 
 Partial Public Class Tree
     Private Sub PositioneazaInParent()
@@ -650,6 +651,9 @@ Partial Public Class Tree
 
         ' Interceptare distrugere
         If m.Msg = WM_DESTROY Then
+            Dim st As New StackTrace(True)
+            Dim stackInfo As String = st.ToString()
+
             If Not _cleaningDone Then
                 CurataResurseSiIesi()
             End If

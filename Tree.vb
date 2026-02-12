@@ -10,8 +10,11 @@ Imports System.Runtime.InteropServices
 ' Activat timer monitorizare redimensionare
 ' V.6.0 - 10.02.2026
 ' Adaugat click in zona moarta a copacului => deschide / inchide nodul
+' V.7.0 - 12.02.2026
+' Adaugat functia de inchidere automata a popup-ului la click pe leaf
+
 Partial Public Class Tree
-    Private version As String = "6.0"
+    Private version As String = "7.0"
     ' =============================================================
     ' INIT
     ' =============================================================
@@ -80,9 +83,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(1510336) '################
+                _formHwnd = New IntPtr(2298604) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(3933810)
+                _mainAccessHwnd = New IntPtr(3213882)
                 _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
@@ -155,6 +158,18 @@ Partial Public Class Tree
     Private Sub MyTree_NodeMouseUp(pItem As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeMouseUp
         If e.Button = MouseButtons.Left Then
             TrimiteMesajAccess("Click", pItem)
+        End If
+
+        ' --- POPUP: Închidere după click pe leaf ---
+        If MyTree.IsPopupTree AndAlso pItem.Children.Count = 0 AndAlso Not pItem.LazyNode Then
+            Me.BeginInvoke(Sub()
+                               _MonitorTimer.Stop()
+                               SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
+                               If Not IsWindow(_formParentHwnd) Then
+                                   Application.Exit()
+                               End If
+                           End Sub)
+            Exit Sub
         End If
 
         If e.Button = MouseButtons.Right Then

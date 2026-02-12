@@ -33,7 +33,7 @@
     End Property
 
     ' Înălțimea rândului (calculată automat sau setată manual)
-    Private _autoHeight As Boolean = True
+    Private _autoHeight As Boolean = False
     Private _itemHeight As Integer = 22
     Public Property ItemHeight As Integer
         Get
@@ -126,7 +126,7 @@
         End Set
     End Property
 
-    Private _isPopupTree As Boolean = True
+    Private _isPopupTree As Boolean = False
     Public Property IsPopupTree As Boolean
         Get
             Return _isPopupTree
