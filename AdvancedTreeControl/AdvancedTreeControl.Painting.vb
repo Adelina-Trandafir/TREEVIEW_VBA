@@ -199,8 +199,34 @@ Partial Public Class AdvancedTreeControl
         g.SetClip(clipRect)
 
         ' --- DESENARE TEXT ---
-        Dim baseTextColor As Color = Color.Black
-        DrawRichText(g, it.Caption, textX, y, Me.Font, baseTextColor, availableTextWidth)
+        ' A. Determinăm culoarea textului: Nod → Control → Negru
+        Dim baseTextColor As Color
+        If it.NodeForeColor <> Color.Empty Then
+            baseTextColor = it.NodeForeColor
+        ElseIf Me.ForeColor <> Color.Empty Then
+            baseTextColor = Me.ForeColor
+        Else
+            baseTextColor = Color.Black
+        End If
+
+        ' B. Determinăm fontul: aplicăm Bold/Italic de pe nod
+        Dim nodeFont As Font = Me.Font
+        Dim nodeStyle As FontStyle = Me.Font.Style
+        If it.Bold Then nodeStyle = nodeStyle Or FontStyle.Bold
+        If it.Italic Then nodeStyle = nodeStyle Or FontStyle.Italic
+        If nodeStyle <> Me.Font.Style Then
+            nodeFont = New Font(Me.Font, nodeStyle)
+        End If
+
+        ' C. BackColor per nod — VARIANTA A: doar zona textului
+        If it.NodeBackColor <> Color.Empty AndAlso it IsNot pSelectedItem Then
+            Dim textBgRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
+            Using bgBrush As New SolidBrush(it.NodeBackColor)
+                g.FillRectangle(bgBrush, textBgRect)
+            End Using
+        End If
+
+        DrawRichText(g, it.Caption, textX, y, nodeFont, baseTextColor, availableTextWidth)
         ' ---------------------
 
         ' Restaurăm "foarfeca" originală pentru a putea desena RightIcon (care e în afara zonei de text)
@@ -335,37 +361,6 @@ Partial Public Class AdvancedTreeControl
             Next
         End If
     End Sub
-    ' Desenează textul formatat și returnează lățimea totală (pentru calcule)
-    'Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color)
-    '    Dim parts As List(Of RichTextPart) = ParseRichText(text, defaultFont, defaultColor)
-    '    Dim currentX As Single = x
-
-    '    ' Setăm formatarea pentru a elimina spațierea extra a GDI+
-    '    Dim fmt As StringFormat = StringFormat.GenericTypographic
-    '    fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
-
-    '    For Each part In parts
-    '        ' 1. Desenăm fundalul (dacă există)
-    '        Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
-
-    '        If part.HasBackColor Then
-    '            Using b As New SolidBrush(part.BackColor)
-    '                ' Ajustăm puțin rect-ul pe verticală pentru a arăta bine
-    '                g.FillRectangle(b, currentX, y, size.Width, ItemHeight)
-    '            End Using
-    '        End If
-
-    '        ' 2. Desenăm Textul
-    '        Using b As New SolidBrush(part.ForeColor)
-    '            ' Ajustăm Y pentru centrare verticală în funcție de font
-    '            Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
-    '            g.DrawString(part.Text, part.Font, b, currentX, textY, fmt)
-    '        End Using
-
-    '        ' 3. Avansăm cursorul X
-    '        currentX += size.Width
-    '    Next
-    'End Sub
 
     ' Parser simplu bazat pe Regex
     Private Function ParseRichText(rawText As String, baseFont As Font, baseColor As Color) As List(Of RichTextPart)

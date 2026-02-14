@@ -44,9 +44,6 @@ Partial Public Class Tree
 
             Me.Controls.Add(MyTree)
 
-            ' Inițializare Timer monitorizare
-            _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
-
         Catch ex As Exception
             MessageBox.Show(ex.Message, "NEW_TREE", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
@@ -68,7 +65,7 @@ Partial Public Class Tree
             ' Parsăm treeId din argumente ÎNAINTE de Init logger
             Dim earlyTreeId As String = "startup"
             For Each a As String In args
-                If a.ToLower().StartsWith("/idt:") Then
+                If a.StartsWith("/idt:", StringComparison.CurrentCultureIgnoreCase) Then
                     earlyTreeId = a.Substring(5)
                     Exit For
                 End If
@@ -78,14 +75,14 @@ Partial Public Class Tree
             TreeLogger.Debug($"Args: {String.Join(" ", args)}", "Tree_Load")
 
             ' Diagnostic: background thread care loghează la fiecare 200ms
-            Dim diagThread As New System.Threading.Thread(Sub()
-                                                              For i As Integer = 1 To 30  ' 6 secunde de monitorizare
-                                                                  TreeLogger.Debug($">>> HEARTBEAT #{i}", "BG_THREAD")
-                                                                  System.Threading.Thread.Sleep(200)
-                                                              Next
-                                                          End Sub)
-            diagThread.IsBackground = True
-            diagThread.Start()
+            'Dim diagThread As New System.Threading.Thread(Sub()
+            '                                                  For i As Integer = 1 To 20  ' 6 secunde de monitorizare
+            '                                                      TreeLogger.Debug($">>> HEARTBEAT #{i}", "BG_THREAD")
+            '                                                      System.Threading.Thread.Sleep(200)
+            '                                                  Next
+            '                                              End Sub)
+            'diagThread.IsBackground = True
+            'diagThread.Start()
 
 
 
@@ -107,9 +104,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(1181080) '################
+                _formHwnd = New IntPtr(265732) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(984020)
+                _mainAccessHwnd = New IntPtr(1510810)
                 _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
@@ -119,13 +116,7 @@ Partial Public Class Tree
                 Environment.Exit(-1)
             End If
 #End If
-            ' Conectare COM
-            If Not IsWindow(_mainAccessHwnd) Then
-                TreeLogger.Err("EROARE: Fereastra Access invalida in DEBUG MODE!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                Environment.Exit(-1)
-            End If
 
-            TreeLogger.Debug(">>> După LoadXmlData", "PERF")
             If Not String.IsNullOrEmpty(_fisier) Then
                 If LoadXmlData(_fisier) Then
 #If DEBUG Then
@@ -138,14 +129,19 @@ Partial Public Class Tree
                 Environment.Exit(0)
             End If
 
+            ' Conectare COM
+            If Not IsWindow(_mainAccessHwnd) Then
+                TreeLogger.Err("EROARE: Fereastra Access invalida in DEBUG MODE!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Environment.Exit(-1)
+            End If
 
-            TreeLogger.Debug(">>> Înainte de ConecteazaLaAccess", "PERF")
+            'TreeLogger.Debug(">>> Înainte de ConecteazaLaAccess", "PERF")
             ConecteazaLaAccess(_mainAccessHwnd)
-            TreeLogger.Debug(">>> După ConecteazaLaAccess", "PERF")
+            'TreeLogger.Debug(">>> După ConecteazaLaAccess", "PERF")
 
             ' === GĂSIRE FORMULAR PĂRINTE ACCESS (NOU) ===
-            TreeLogger.Debug(">>> Înainte de SetParent", "PERF")
-            Debug.WriteLine("Căutare formular părinte Access:")
+            'TreeLogger.Debug(">>> Înainte de SetParent", "PERF")
+            'Debug.WriteLine("Căutare formular părinte Access:")
             _formParentHwnd = GetAccessFormParent(_formHwnd)
 
             If _formParentHwnd = IntPtr.Zero Then
@@ -166,19 +162,24 @@ Partial Public Class Tree
             End If
 
             PositioneazaInParent()
-            TreeLogger.Debug(">>> După SetParent + Poziționare", "PERF")
+            'TreeLogger.Debug(">>> După SetParent + Poziționare", "PERF")
 
-            TreeLogger.Debug(">>> Înainte de TrimiteMesajAccess HWND", "PERF")
-            TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
-            TreeLogger.Debug(">>> După TrimiteMesajAccess HWND", "PERF")
+            'TreeLogger.Debug(">>> Înainte de TrimiteMesajAccess HWND", "PERF")
+            'TreeLogger.Debug(">>> După TrimiteMesajAccess HWND", "PERF")
 
             ' === PORNIRE MONITORIZARE RESIZE ===
             Dim rParent As RECT
             GetClientRect(_formHwnd, rParent)
             _lastParentSize = New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
+
+            TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
+
+            ' Inițializare Timer monitorizare
+            _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
             _MonitorTimer.Start()
-            TreeLogger.Debug(">>> Tree_Load COMPLET", "PERF")
-            ' _accessApp?.Run("OnTreeEvent", _idTree, "HWND", 0, "x", CStr(Me.Handle))
+
+            'diagThread = Nothing
+
         Catch ex As Exception
             TreeLogger.Ex(ex, "Tree_Load")
         End Try
@@ -311,11 +312,11 @@ Partial Public Class Tree
         If length = 0 Then Return $"HWND:{hWnd:X} (fără titlu)"
 
         Dim sb As New System.Text.StringBuilder(length + 1)
-        GetWindowText(hWnd, sb, sb.Capacity)
+        Dim v = GetWindowText(hWnd, sb, sb.Capacity)
 
         ' Obține ProcessID
         Dim processId As Integer = 0
-        GetWindowThreadProcessId(hWnd, processId)
+        Dim v2 = GetWindowThreadProcessId(hWnd, processId)
 
         Return $"HWND:{hWnd:X} | PID:{processId} | Title:[{sb}]"
     End Function

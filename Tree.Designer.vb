@@ -26,8 +26,7 @@ Partial Class Tree
         ' 
         ' Tree
         ' 
-        AutoScaleDimensions = New SizeF(144F, 144F)
-        AutoScaleMode = AutoScaleMode.Dpi
+        AutoScaleMode = AutoScaleMode.None
         ClientSize = New Size(391, 313)
         DoubleBuffered = True
         Name = "Tree"

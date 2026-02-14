@@ -37,5 +37,9 @@
         Public Property Tag As String
         Public Property Children As List(Of NodeDto)
         Public Property LazyNode As Object
+        Public Property Bold As Object
+        Public Property Italic As Object
+        Public Property ForeColor As String = ""
+        Public Property BackColor As String = ""
     End Class
 End Class

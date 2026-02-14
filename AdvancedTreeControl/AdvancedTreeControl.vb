@@ -180,8 +180,13 @@ Partial Public Class AdvancedTreeControl
         pTooltipTimer.Stop()
         If pTooltipItem Is Nothing OrElse pTooltipItem IsNot pHoveredItem Then Return
 
-        Dim pt As Point = Me.PointToClient(Cursor.Position)
-        pToolTip.Show(pTooltipItem.Caption, Me, pt.X, pt.Y + 20, 4000)
+        Try
+            Dim pt As Point = Me.PointToClient(Cursor.Position)
+            pToolTip.Show(pTooltipItem.Caption, Me, pt.X, pt.Y + 20, 4000)
+
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "TooltipTimerTick")
+        End Try
     End Sub
 
     Private Function TextFits(it As TreeItem) As Boolean

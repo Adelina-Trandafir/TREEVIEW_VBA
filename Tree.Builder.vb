@@ -319,6 +319,45 @@ Partial Public Class Tree
             Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(nodeKey, nodeCaption, parentItem, iconImgClosed, iconImgOpen, iconImgRight, nodeTag, iconExpanded, isLazy)
             newItem.Key = nodeKey
 
+            ' 6. Atribute vizuale per nod (Bold, Italic, ForeColor, BackColor)
+            If xNode.Attributes("Bold") IsNot Nothing Then
+                Dim valStr As String = xNode.Attributes("Bold").Value.Trim().ToLower()
+                newItem.Bold = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
+            End If
+
+            If xNode.Attributes("Italic") IsNot Nothing Then
+                Dim valStr As String = xNode.Attributes("Italic").Value.Trim().ToLower()
+                newItem.Italic = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
+            End If
+
+            If xNode.Attributes("ForeColor") IsNot Nothing Then
+                Dim colorVal As String = xNode.Attributes("ForeColor").Value.Trim()
+                If Not String.IsNullOrEmpty(colorVal) Then
+                    Try
+                        If colorVal.StartsWith("#") Then
+                            newItem.NodeForeColor = ColorTranslator.FromHtml(colorVal)
+                        Else
+                            newItem.NodeForeColor = Color.FromName(colorVal)
+                        End If
+                    Catch
+                        ' Ignorăm culori invalide, rămâne Color.Empty
+                    End Try
+                End If
+            End If
+
+            If xNode.Attributes("BackColor") IsNot Nothing Then
+                Dim colorVal As String = xNode.Attributes("BackColor").Value.Trim()
+                If Not String.IsNullOrEmpty(colorVal) Then
+                    Try
+                        If colorVal.StartsWith("#") Then
+                            newItem.NodeBackColor = ColorTranslator.FromHtml(colorVal)
+                        Else
+                            newItem.NodeBackColor = Color.FromName(colorVal)
+                        End If
+                    Catch
+                    End Try
+                End If
+            End If
             ' 5. Recursivitate
             For Each childNode As XmlNode In xNode.SelectNodes("Node")
                 AddXmlNodeToTree(childNode, newItem)

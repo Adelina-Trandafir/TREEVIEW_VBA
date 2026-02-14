@@ -11,6 +11,10 @@
         Public LeftIconOpen As Image
         Public RightIcon As Image
         Public LazyNode As Boolean = False
+        Public Bold As Boolean = False
+        Public Italic As Boolean = False
+        Public NodeForeColor As Color = Color.Empty    ' Empty = folosește ForeColor-ul controlului
+        Public NodeBackColor As Color = Color.Empty    ' Empty = transparent (fără fundal per nod)
         Public IsLoader As Boolean = False
         Private _tag As Object
 

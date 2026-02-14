@@ -629,6 +629,25 @@ Partial Public Class Tree
             .LazyNode = isLazyNode
         }
 
+        ' Atribute vizuale
+        If dto.Bold IsNot Nothing Then
+            Dim s As String = dto.Bold.ToString().ToLower()
+            newItem.Bold = (s = "1" OrElse s = "-1" OrElse s = "true")
+        End If
+        If dto.Italic IsNot Nothing Then
+            Dim s As String = dto.Italic.ToString().ToLower()
+            newItem.Italic = (s = "1" OrElse s = "-1" OrElse s = "true")
+        End If
+        If Not String.IsNullOrEmpty(dto.ForeColor) Then
+            Try
+                If dto.ForeColor.StartsWith("#"c) Then
+                    newItem.NodeForeColor = ColorTranslator.FromHtml(dto.ForeColor)
+                Else
+                    newItem.NodeForeColor = Color.FromName(dto.ForeColor)
+                End If
+            Catch : End Try
+        End If
+
         ' Linkare la părinte sau root
         If parentItem Is Nothing Then
             newItem.Level = 0
@@ -681,7 +700,7 @@ Partial Public Class Tree
                 CurataResurseSiIesi()
             End If
         End If
-        TreeLogger.Debug($"WndProc received. Msg: {m.Msg}, LParam: {m.LParam}", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        'TreeLogger.Debug($"WndProc received. Msg: {m.Msg}, LParam: {m.LParam}", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
         MyBase.WndProc(m)
     End Sub
 End Class
