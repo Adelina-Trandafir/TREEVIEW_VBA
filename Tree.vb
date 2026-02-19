@@ -104,9 +104,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(265732) '################
+                _formHwnd = New IntPtr(9701162) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(1510810)
+                _mainAccessHwnd = New IntPtr(463368)
                 _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
@@ -152,6 +152,7 @@ Partial Public Class Tree
             ' ============================================
 
             Dim spHwnd As IntPtr = SetParent(Me.Handle, _formHwnd)
+
             'SetParent returneaza HWND-ul anterior al ferestrei copil daca reuseste, sau NULL daca esueaza
             If spHwnd = IntPtr.Zero Then
                 Marshal.GetLastWin32Error()
@@ -172,13 +173,41 @@ Partial Public Class Tree
             GetClientRect(_formHwnd, rParent)
             _lastParentSize = New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
 
+            ' Mesajul se pune automat în coadă (VBA nu e ready încă)
             TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
 
             ' Inițializare Timer monitorizare
             _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
             _MonitorTimer.Start()
 
-            'diagThread = Nothing
+            ' Poll timer: verifică dacă VBA a pus SetProp("VBA_READY") pe _formHwnd
+            _readyPollTimer = New Timer With {.Interval = 30}
+            AddHandler _readyPollTimer.Tick, Sub(s, ev)
+                                                 ' 1. Mai există fereastra?
+                                                 If Not IsWindow(_formHwnd) Then
+                                                     If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
+                                                         _readyPollTimer.Stop()
+                                                         _readyPollTimer.Dispose()
+                                                         _readyPollTimer = Nothing
+                                                         TreeLogger.Warn("Fereastra dispărută în timpul handshake — ies", "ReadyPoll")
+                                                         CurataResurseSiIesi()
+                                                         Application.Exit()
+                                                         Return
+                                                     End If
+                                                     Return ' părintele există, poate Access recreează — așteptăm
+                                                 End If
+
+                                                 ' 2. Biletul e acolo?
+                                                 Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
+                                                 If prop <> IntPtr.Zero Then
+                                                     _readyPollTimer.Stop()
+                                                     _readyPollTimer.Dispose()
+                                                     _readyPollTimer = Nothing
+                                                     RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
+                                                     OnVbaReady(prop)
+                                                 End If
+                                             End Sub
+            _readyPollTimer.Start()
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "Tree_Load")
@@ -227,54 +256,71 @@ Partial Public Class Tree
     Private Sub MonitorTimer_Tick(sender As Object, e As EventArgs) Handles _MonitorTimer.Tick
         If _formHwnd = IntPtr.Zero Then Return
 
-        ' Verificare validitate fereastră Access
+        ' === VERIFICARE VALIDITATE _formHwnd ===
         If Not IsWindow(_formHwnd) Then
-            TreeLogger.Warn("Fereastra Access nu mai este validă, închid aplicația", "MonitorTimer_Tick")
-            _MonitorTimer.Stop()
-            CurataResurseSiIesi()
-            Application.Exit()
+            ' 1. Părintele mai există?
+            If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
+                TreeLogger.Warn("Nici _formParentHwnd nu mai e valid, închid aplicația", "MonitorTimer_Tick")
+                _MonitorTimer.Stop()
+                CurataResurseSiIesi()
+                Application.Exit()
+                Return
+            End If
+
+            ' 2. Părintele există — întrebăm VBA pentru HWND nou
+            TreeLogger.Warn("_formHwnd invalidat, întreb VBA...", "MonitorTimer_Tick")
+            Dim newHwnd As IntPtr = IntPtr.Zero
+            Try
+                Dim result As Object = _accessApp.Run("GetTreeFormHwnd", _idTree)
+                If result IsNot Nothing Then
+                    newHwnd = New IntPtr(CLng(result))
+                End If
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "MonitorTimer_Tick.Recovery")
+            End Try
+
+            ' 3. Valid?
+            If newHwnd <> IntPtr.Zero AndAlso IsWindow(newHwnd) Then
+                ReattachToNewHwnd(newHwnd)
+            Else
+                TreeLogger.Info("VBA a confirmat: formularul nu mai există", "MonitorTimer_Tick")
+                _MonitorTimer.Stop()
+                CurataResurseSiIesi()
+                Application.Exit()
+            End If
             Return
         End If
 
-        ' Citim dimensiunea curentă a părintelui Access
+        ' === RESIZE MONITORING ===
         Dim rParent As RECT
         GetClientRect(_formHwnd, rParent)
         Dim currentSize As New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
 
-        ' Doar dacă s-a schimbat dimensiunea, redimensionăm copilul
         If currentSize <> _lastParentSize Then
             _lastParentSize = currentSize
             PositioneazaInParent()
         End If
 
+        ' === POPUP FOCUS MONITORING ===
         If MyTree.IsPopupTree Then
-            ' === VERIFICARE FOCUS ===
             Dim foregroundWnd As IntPtr = GetForegroundWindow()
 
             If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
                 TreeLogger.Debug($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}", "MonitorTimer_Tick")
-
-                ' OPREȘTE timer-ul ÎNAINTE de SendMessage
                 _MonitorTimer.Stop()
-
-                ' Trimite WM_CLOSE și așteaptă răspunsul (blocking)
                 SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
 
-                ' Verificăm ce s-a întâmplat
                 If Not IsWindow(_formParentHwnd) Then
-                    ' Access a acceptat închiderea (Yes/No/fără modificări)
                     TreeLogger.Info(">>> Access a închis formularul", "MonitorTimer_Tick")
                     Application.Exit()
                     Return
                 Else
-                    ' Access a refuzat (Cancel)
                     TreeLogger.Info(">>> Access a anulat închiderea, repornesc timer", "MonitorTimer_Tick")
                     SetFocus(_formHwnd)
-                    _MonitorTimer.Start()  ' REPORNEȘTE timer-ul
+                    _MonitorTimer.Start()
                 End If
             End If
         End If
-
     End Sub
 
     Private Function GetAccessFormParent(childHwnd As IntPtr) As IntPtr
@@ -320,4 +366,48 @@ Partial Public Class Tree
 
         Return $"HWND:{hWnd:X} | PID:{processId} | Title:[{sb}]"
     End Function
+
+    Private Sub FlushPendingMessages()
+        While _pendingMessages.Count > 0
+            Dim act As Action = _pendingMessages.Peek()
+            Try
+                act.Invoke()
+                _pendingMessages.Dequeue()
+            Catch ex As Runtime.InteropServices.COMException
+                ' VBA încă ocupată — reîncercăm silențios peste 50ms
+                Dim retryTimer As New Timer With {.Interval = 50}
+                AddHandler retryTimer.Tick, Sub(s, ev)
+                                                retryTimer.Stop()
+                                                retryTimer.Dispose()
+                                                FlushPendingMessages()
+                                            End Sub
+                retryTimer.Start()
+                Return
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "FlushPending")
+                _pendingMessages.Dequeue()
+            End Try
+        End While
+
+        ' Totul trimis
+        Dim elapsed As TimeSpan = DateTime.Now - _handshakeStart
+        TreeLogger.Info($"Flush complet — {elapsed.TotalMilliseconds:F0}ms de la prima punere în coadă", "FlushPending")
+    End Sub
+
+    Private Sub OnVbaReady(newFormHwnd As IntPtr)
+        If _vbaReady Then Return
+        _vbaReady = True
+
+        _readyPollTimer?.Stop()
+        _readyPollTimer?.Dispose()
+        _readyPollTimer = Nothing
+
+        If newFormHwnd <> IntPtr.Zero AndAlso newFormHwnd <> _formHwnd Then
+            TreeLogger.Info($"formHwnd schimbat: {_formHwnd:X} → {newFormHwnd:X}", "OnVbaReady")
+            ReattachToNewHwnd(newFormHwnd)
+        End If
+
+        TreeLogger.Info($"VBA READY — flush {_pendingMessages.Count} mesaje pending", "OnVbaReady")
+        FlushPendingMessages()
+    End Sub
 End Class

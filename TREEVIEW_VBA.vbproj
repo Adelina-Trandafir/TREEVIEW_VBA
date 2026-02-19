@@ -11,6 +11,7 @@
 		<Title>Treeview VB.NET accesibil din VBA</Title>
 		<AssemblyName>TREEVIEW_VBA</AssemblyName>
 		<PublishReadyToRun>true</PublishReadyToRun>
+		<ApplicationIcon>Gemini_Generated_Image_51otpx51otpx51ot.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(PlatformTarget)' == 'x64' Or '$(RuntimeIdentifier)' == 'win-x64'">
@@ -26,6 +27,10 @@
 		<Import Include="System.Drawing" />
 		<Import Include="System.Windows.Forms" />
 		<Import Remove="Microsoft.VisualBasic" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="Gemini_Generated_Image_51otpx51otpx51ot.ico" />
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Update="My Project\Application.Designer.vb">

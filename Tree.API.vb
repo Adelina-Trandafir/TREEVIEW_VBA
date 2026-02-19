@@ -77,6 +77,14 @@ Partial Public Class Tree
     Private Shared Function SetFocus(hWnd As IntPtr) As IntPtr
     End Function
 
+    <DllImport("user32.dll", CharSet:=CharSet.Ansi, SetLastError:=True)>
+    Private Shared Function GetProp(ByVal hWnd As IntPtr, ByVal lpString As String) As IntPtr
+    End Function
+
+    <DllImport("user32.dll", CharSet:=CharSet.Ansi, SetLastError:=True)>
+    Private Shared Function RemoveProp(ByVal hWnd As IntPtr, ByVal lpString As String) As IntPtr
+    End Function
+
     Private Delegate Function EnumChildProcDelegate(hWnd As IntPtr, lParam As IntPtr) As Boolean
 
     <StructLayout(LayoutKind.Sequential)>

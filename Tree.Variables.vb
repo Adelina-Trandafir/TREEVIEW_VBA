@@ -27,6 +27,14 @@
 
     Private Shared ReadOnly inCommandSeparator As String() = New String() {"||"}
 
+    ' === HANDSHAKE VBA READY ===
+    Private _vbaReady As Boolean = False
+    Private _pendingMessages As New Queue(Of Action)
+    Private _readyPollTimer As Timer = Nothing
+    Private _handshakeStart As DateTime
+
+    Private Const WM_APP_READY As Integer = &H8001  ' WM_APP + 1 (safe custom range)
+
     Public Class NodeDto
         Public Property Key As String
         Public Property Caption As String

@@ -11,6 +11,28 @@ Partial Public Class Tree
             MoveWindow(Me.Handle, 0, 0, rParent.Right - rParent.Left, rParent.Bottom - rParent.Top, True)
         End If
     End Sub
+    Private Sub ReattachToNewHwnd(newHwnd As IntPtr)
+        Try
+            Dim oldHwnd As IntPtr = _formHwnd
+            _formHwnd = newHwnd
+
+            Dim spResult As IntPtr = SetParent(Me.Handle, _formHwnd)
+            If spResult = IntPtr.Zero Then
+                TreeLogger.Err($"SetParent eșuat la re-attach! Win32 err: {Runtime.InteropServices.Marshal.GetLastWin32Error()}", "ReattachToNewHwnd")
+                Return
+            End If
+
+            PositioneazaInParent()
+
+            Dim rParent As RECT
+            GetClientRect(_formHwnd, rParent)
+            _lastParentSize = New Size(rParent.Right - rParent.Left, rParent.Bottom - rParent.Top)
+
+            TreeLogger.Info($"Re-attach complet: {oldHwnd:X} → {newHwnd:X}", "ReattachToNewHwnd")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ReattachToNewHwnd")
+        End Try
+    End Sub
 
     Private Sub ConecteazaLaAccess(hwndAccess As IntPtr)
         Dim guidIDispatch As New Guid("{00020400-0000-0000-C000-000000000046}") ' IID_IDispatch
@@ -66,6 +88,11 @@ Partial Public Class Tree
         If _cleaningDone Then Return
         _cleaningDone = True
 
+        ' Oprire poll timer handshake
+        _readyPollTimer?.Stop()
+        _readyPollTimer?.Dispose()
+        _readyPollTimer = Nothing
+
         ' 1. Oprire Timer
         _MonitorTimer?.Stop()
 
@@ -90,18 +117,43 @@ Partial Public Class Tree
     End Sub
 
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        TreeLogger.Debug($"TrimiteMesajAccess: Action='{Action}', ItemKey='{If(pItem IsNot Nothing, pItem.Key.ToString(), "null")}', ExtraInfo='{ExtraInfo}'", "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        ' === HANDSHAKE: Dacă VBA nu e gata, punem în coadă ===
+        If Not _vbaReady Then
+            If _pendingMessages.Count = 0 Then
+                TreeLogger.Info($"VBA not ready — mesajele se pun în coadă (primul: {Action})", "TrimiteMesajAccess")
+                _handshakeStart = DateTime.Now
+            End If
+            Dim capturedAction As String = Action
+            Dim capturedItem As AdvancedTreeControl.TreeItem = pItem
+            Dim capturedExtra As String = ExtraInfo
+            _pendingMessages.Enqueue(Sub() TrimiteMesajAccess(capturedAction, capturedItem, capturedExtra))
+            Return
+        End If
 
+        ' === FLOW NORMAL ===
         If pItem Is Nothing Then
             If _accessApp IsNot Nothing Then
                 Try
                     Me.BeginInvoke(Sub()
-                                       If _formHwnd <> IntPtr.Zero Then
-                                           _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
-                                       End If
+                                       Try
+                                           If _formHwnd <> IntPtr.Zero Then
+                                               _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
+                                           End If
+                                       Catch comEx As Runtime.InteropServices.COMException
+                                           ' VBA ocupată — re-enqueue silențios cu retry
+                                           Dim retryTimer As New Timer With {.Interval = 100}
+                                           AddHandler retryTimer.Tick, Sub(s, ev)
+                                                                           retryTimer.Stop()
+                                                                           retryTimer.Dispose()
+                                                                           TrimiteMesajAccess(Action, Nothing, ExtraInfo)
+                                                                       End Sub
+                                           retryTimer.Start()
+                                       Catch ex As Exception
+                                           TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
+                                       End Try
                                    End Sub)
                 Catch ex As Exception
-                    TreeLogger.Ex(ex, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "TrimiteMesajAccess")
                 End Try
             End If
         Else
@@ -115,12 +167,20 @@ Partial Public Class Tree
                                            If _formHwnd <> IntPtr.Zero Then
                                                _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
                                            End If
+                                       Catch comEx As Runtime.InteropServices.COMException
+                                           Dim retryTimer As New Timer With {.Interval = 100}
+                                           AddHandler retryTimer.Tick, Sub(s, ev)
+                                                                           retryTimer.Stop()
+                                                                           retryTimer.Dispose()
+                                                                           TrimiteMesajAccess(Action, pItem, ExtraInfo)
+                                                                       End Sub
+                                           retryTimer.Start()
                                        Catch ex As Exception
                                            TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
                                        End Try
                                    End Sub)
                 Catch ex As Exception
-                    TreeLogger.Ex(ex, "TrimiteMesajAccess", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    TreeLogger.Ex(ex, "TrimiteMesajAccess")
                 End Try
             End If
         End If
@@ -693,10 +753,10 @@ Partial Public Class Tree
 
         ' Interceptare distrugere
         If m.Msg = WM_DESTROY Then
-            Dim st As New StackTrace(True)
-            Dim stackInfo As String = st.ToString()
-            TreeLogger.Debug("WM_DESTROY received.", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
             If Not _cleaningDone Then
+                Dim st As New StackTrace(True)
+                Dim stackInfo As String = st.ToString()
+                TreeLogger.Debug("WM_DESTROY received.", "WndProc", MessageBoxButtons.OK, MessageBoxIcon.Information)
                 CurataResurseSiIesi()
             End If
         End If
