@@ -136,4 +136,15 @@
             Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
         End Set
     End Property
+
+    Private _radioButtonLevel As Integer = -1  ' -1 = dezactivat
+    Public Property RadioButtonLevel As Integer
+        Get
+            Return _radioButtonLevel
+        End Get
+        Set(value As Integer)
+            _radioButtonLevel = value
+            Me.Invalidate()
+        End Set
+    End Property
 End Class

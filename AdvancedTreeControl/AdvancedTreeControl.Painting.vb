@@ -74,71 +74,88 @@ Partial Public Class AdvancedTreeControl
         End If
         ' ===========================================
 
-        ' -- [PASUL 3] CHECKBOX MODERN (CU COLȚURI ROTUNJITE ȘI BIFĂ RECONSTRUITĂ) --
+        ' -- [PASUL 3] CHECKBOX / RADIOBUTTON --
         Dim chkRect As Rectangle
-        If _checkBoxes Then
+
+        If _checkBoxes OrElse (it.Level = _radioButtonLevel AndAlso _radioButtonLevel >= 0) Then
             Dim chkSize As Integer = _checkBoxSize
             Dim chkY As Integer = midY - (chkSize \ 2)
             chkRect = New Rectangle(xBase, chkY, chkSize, chkSize)
 
-            ' Activăm AntiAlias pentru margini și bife netede
             Dim oldSmoothing = g.SmoothingMode
             g.SmoothingMode = SmoothingMode.AntiAlias
 
             Dim accentColor As Color = Color.DodgerBlue
             Dim borderColor As Color = Color.FromArgb(180, 180, 180)
-            Dim cornerRadius As Integer = 3 ' Ajustează pentru cât de rotund vrei să fie
 
-            Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
-                If it.CheckState = TreeCheckState.Checked Then
-                    ' 1. Desenăm fundalul albastru rotunjit
+            ' *** RADIO BUTTON: nivel specificat ***
+            If it.Level = _radioButtonLevel AndAlso _radioButtonLevel >= 0 Then
+
+                If it.IsRadioSelected Then
+                    ' Cerc plin albastru (background)
                     Using brush As New SolidBrush(accentColor)
-                        g.FillPath(brush, path)
+                        g.FillEllipse(brush, chkRect)
                     End Using
                     Using pen As New Pen(accentColor)
-                        g.DrawPath(pen, path)
+                        g.DrawEllipse(pen, chkRect)
                     End Using
-
-                    ' 2. Desenăm Bifa (V-ul alb) - Puncte recalculate pentru claritate
-                    Using penTick As New Pen(Color.White, 2.0F)
-                        penTick.StartCap = LineCap.Round
-                        penTick.EndCap = LineCap.Round
-                        penTick.LineJoin = LineJoin.Round
-
-                        ' Coordonate relative la chkRect
-                        Dim p1 As New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F)
-                        Dim p2 As New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F)
-                        Dim p3 As New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
-
-                        g.DrawLines(penTick, {p1, p2, p3})
+                    ' Punct alb interior
+                    Dim dotMargin As Integer = CInt(chkSize * 0.28F)
+                    Dim dotRect As New Rectangle(chkRect.X + dotMargin, chkRect.Y + dotMargin,
+                                          chkSize - dotMargin * 2, chkSize - dotMargin * 2)
+                    Using brush As New SolidBrush(Color.White)
+                        g.FillEllipse(brush, dotRect)
                     End Using
-
-                ElseIf it.CheckState = TreeCheckState.Indeterminate Then
-                    ' 1. Desenăm fundalul albastru rotunjit
-                    Using brush As New SolidBrush(accentColor)
-                        g.FillPath(brush, path)
-                    End Using
-                    Using pen As New Pen(accentColor)
-                        g.DrawPath(pen, path)
-                    End Using
-
-                    ' 2. Desenăm Liniuța (Dash-ul alb)
-                    Using penDash As New Pen(Color.White, 2.0F)
-                        penDash.StartCap = LineCap.Round
-                        penDash.EndCap = LineCap.Round
-                        Dim margin As Single = chkSize * 0.25F
-                        Dim yMidLine As Single = chkRect.Y + (chkRect.Height / 2.0F)
-                        g.DrawLine(penDash, chkRect.X + margin, yMidLine, chkRect.Right - margin, yMidLine)
-                    End Using
-
                 Else
-                    ' 3. Starea NEBIFATĂ (Fundal alb, margini gri)
-                    g.FillPath(Brushes.White, path)
+                    ' Cerc gol cu margine gri
+                    g.FillEllipse(Brushes.White, chkRect)
                     Using pen As New Pen(borderColor, 1)
-                        g.DrawPath(pen, path)
+                        g.DrawEllipse(pen, chkRect)
                     End Using
                 End If
-            End Using
+
+            Else
+                ' *** CHECKBOX STANDARD (cod existent) ***
+                Dim cornerRadius As Integer = 3
+                Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
+                    If it.CheckState = TreeCheckState.Checked Then
+                        Using brush As New SolidBrush(accentColor)
+                            g.FillPath(brush, path)
+                        End Using
+                        Using pen As New Pen(accentColor)
+                            g.DrawPath(pen, path)
+                        End Using
+                        Using penTick As New Pen(Color.White, 2.0F)
+                            penTick.StartCap = LineCap.Round
+                            penTick.EndCap = LineCap.Round
+                            penTick.LineJoin = LineJoin.Round
+                            Dim p1 As New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F)
+                            Dim p2 As New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F)
+                            Dim p3 As New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
+                            g.DrawLines(penTick, {p1, p2, p3})
+                        End Using
+                    ElseIf it.CheckState = TreeCheckState.Indeterminate Then
+                        Using brush As New SolidBrush(accentColor)
+                            g.FillPath(brush, path)
+                        End Using
+                        Using pen As New Pen(accentColor)
+                            g.DrawPath(pen, path)
+                        End Using
+                        Using penDash As New Pen(Color.White, 2.0F)
+                            penDash.StartCap = LineCap.Round
+                            penDash.EndCap = LineCap.Round
+                            Dim margin As Single = chkSize * 0.25F
+                            Dim yMidLine As Single = chkRect.Y + (chkRect.Height / 2.0F)
+                            g.DrawLine(penDash, chkRect.X + margin, yMidLine, chkRect.Right - margin, yMidLine)
+                        End Using
+                    Else
+                        g.FillPath(Brushes.White, path)
+                        Using pen As New Pen(borderColor, 1)
+                            g.DrawPath(pen, path)
+                        End Using
+                    End If
+                End Using
+            End If
 
             g.SmoothingMode = oldSmoothing
             xBase += chkSize + PADDING_CHECKBOX_GAP

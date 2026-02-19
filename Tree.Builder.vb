@@ -146,8 +146,15 @@ Partial Public Class Tree
             End If
             TreeLogger.Perf("Config [3] ForeColor", sw.ElapsedMilliseconds, "Config")
 
-            ' --- Checkboxes ---
-            If cfg.Attributes("CheckBoxes") IsNot Nothing Then
+            ' --- RadioButtonLevel ---
+            If cfg.Attributes("RadioButtonLevel") IsNot Nothing Then
+                Dim v As Integer = -1
+                Dim parsed = Integer.TryParse(cfg.Attributes("RadioButtonLevel").Value, v)
+                If parsed Then MyTree.RadioButtonLevel = v
+            End If
+
+            ' --- Checkboxes (doar daca nu are RadioButton ---
+            If MyTree.RadioButtonLevel = -1 AndAlso cfg.Attributes("CheckBoxes") IsNot Nothing Then
                 Dim v As Integer = 0
                 Dim parsed = Integer.TryParse(cfg.Attributes("CheckBoxes").Value, v)
                 If parsed Then MyTree.CheckBoxes = v = 1

@@ -16,6 +16,7 @@
         Public NodeForeColor As Color = Color.Empty    ' Empty = folosește ForeColor-ul controlului
         Public NodeBackColor As Color = Color.Empty    ' Empty = transparent (fără fundal per nod)
         Public IsLoader As Boolean = False
+        Public IsRadioSelected As Boolean = False
         Private _tag As Object
 
         ' Cache pentru lățimea textului (performanță la desenare)

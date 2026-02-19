@@ -156,23 +156,39 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' =================================================================
-        ' 3. PRIORITATE UNU: CHECKBOX (Dacă există)
+        ' 3. PRIORITATE UNU: CHECKBOX / RADIOBUTTON
         ' =================================================================
-        If _checkBoxes Then
-            ' GetCheckBoxRect folosește deja PADDING_TREE_START și PADDING_EXPANDER_GAP intern
+        ' --- RADIO BUTTON: nivel specificat ---
+        If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
             Dim chkRect = GetCheckBoxRect(it)
-
             If chkRect.Contains(e.Location) Then
-                ' Toggle CheckState
-                Dim newState As TreeCheckState = TreeCheckState.Checked
-                If it.CheckState = TreeCheckState.Checked Then
-                    newState = TreeCheckState.Unchecked
+                Dim siblings As List(Of TreeItem)
+                If it.Parent IsNot Nothing Then
+                    siblings = it.Parent.Children
+                Else
+                    siblings = Me.Items
                 End If
 
-                ' Aplică logica recursivă
-                SetNodeStateWithPropagation(it, newState)
+                ' *** Capturăm nodeOff ÎNAINTE de a deselecta ***
+                Dim nodeOff As TreeItem = Nothing
+                For Each sibling In siblings
+                    If sibling.Level = _radioButtonLevel AndAlso sibling.IsRadioSelected Then
+                        nodeOff = sibling
+                        Exit For
+                    End If
+                Next
 
-                RaiseEvent NodeChecked(it)
+                ' Deselectăm frații
+                For Each sibling In siblings
+                    If sibling.Level = _radioButtonLevel Then
+                        sibling.IsRadioSelected = False
+                    End If
+                Next
+
+                ' Selectăm nodul curent
+                it.IsRadioSelected = True
+
+                RaiseEvent NodeRadioSelected(it, nodeOff)   ' nodeOff poate fi Nothing dacă nu era nimic selectat
                 Me.Invalidate()
 
                 pSelectedItem = it
@@ -180,7 +196,22 @@ Partial Public Class AdvancedTreeControl
                 Return
             End If
         End If
-
+        ' --- CHECKBOX STANDARD ---
+        If _checkBoxes Then
+            Dim chkRect = GetCheckBoxRect(it)
+            If chkRect.Contains(e.Location) Then
+                Dim newState As TreeCheckState = TreeCheckState.Checked
+                If it.CheckState = TreeCheckState.Checked Then
+                    newState = TreeCheckState.Unchecked
+                End If
+                SetNodeStateWithPropagation(it, newState)
+                RaiseEvent NodeChecked(it)
+                Me.Invalidate()
+                pSelectedItem = it
+                If pSelectedItem IsNot pOldSelectedItem Then RaiseEvent NodeMouseDown(it, e)
+                Return
+            End If
+        End If
         ' =================================================================
         ' =================================================================
         ' 4. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)

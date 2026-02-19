@@ -104,11 +104,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(9701162) '################
+                _formHwnd = New IntPtr(5178766) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(463368)
-                _idTree = "frmFX_MAIN" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\Avacont\Res\tree_frmFX_MAIN.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(395282)
+                _idTree = "FX_MAIN_PLATI_RECEPTII" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\AVACONT\RES\tree_FX_MAIN_PLATI_RECEPTII.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -183,6 +183,7 @@ Partial Public Class Tree
             ' Poll timer: verifică dacă VBA a pus SetProp("VBA_READY") pe _formHwnd
             _readyPollTimer = New Timer With {.Interval = 30}
             AddHandler _readyPollTimer.Tick, Sub(s, ev)
+                                                 Debug.Print(">>> Poll VBA_READY...")
                                                  ' 1. Mai există fereastra?
                                                  If Not IsWindow(_formHwnd) Then
                                                      If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
@@ -194,15 +195,18 @@ Partial Public Class Tree
                                                          Application.Exit()
                                                          Return
                                                      End If
+                                                     TreeLogger.Warn(">>> Fereastra dispărută în timpul handshake — întreb VBA dacă a recreat ceva")
                                                      Return ' părintele există, poate Access recreează — așteptăm
                                                  End If
 
                                                  ' 2. Biletul e acolo?
                                                  Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
+                                                 'Debug.Print($">>> GetProp VBA_READY: {_formHwnd.ToInt64}:{ _idTree}")
                                                  If prop <> IntPtr.Zero Then
                                                      _readyPollTimer.Stop()
                                                      _readyPollTimer.Dispose()
                                                      _readyPollTimer = Nothing
+                                                     TreeLogger.Info($">>> VBA a confirmat că e ready {_idTree}!", "ReadyPoll")
                                                      RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
                                                      OnVbaReady(prop)
                                                  End If
@@ -252,7 +256,14 @@ Partial Public Class Tree
         TrimiteMesajAccess("RightIconClicked", pNode, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
     End Sub
 
+    Private Sub MyTree_NodeRadioSelected(nodeOn As AdvancedTreeControl.TreeItem, nodeOff As AdvancedTreeControl.TreeItem) Handles MyTree.NodeRadioSelected
+        Dim nodeOffKey As String = If(nodeOff IsNot Nothing, nodeOff.Key, "")
+        TrimiteMesajAccess("NodeRadio", nodeOn, nodeOffKey)
+    End Sub
 
+    ' =============================================================
+    ' TIMER MONITORIZARE RESIZE & FOCUS
+    ' =============================================================
     Private Sub MonitorTimer_Tick(sender As Object, e As EventArgs) Handles _MonitorTimer.Tick
         If _formHwnd = IntPtr.Zero Then Return
 

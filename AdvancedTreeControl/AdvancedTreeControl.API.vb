@@ -93,6 +93,38 @@ Partial Public Class AdvancedTreeControl
         Me.Invalidate()
     End Sub
 
+    ' Setează un nod ca radio-selectat din exterior (VBA), deselectând frații
+    Public Sub SetRadioSelected(pItem As TreeItem)
+        If pItem Is Nothing Then Return
+        If pItem.Level <> _radioButtonLevel Then Return
+
+        Dim siblings As List(Of TreeItem)
+        If pItem.Parent IsNot Nothing Then
+            siblings = pItem.Parent.Children
+        Else
+            siblings = Me.Items
+        End If
+
+        ' *** Capturăm nodeOff ÎNAINTE ***
+        Dim nodeOff As TreeItem = Nothing
+        For Each sibling In siblings
+            If sibling.Level = _radioButtonLevel AndAlso sibling.IsRadioSelected Then
+                nodeOff = sibling
+                Exit For
+            End If
+        Next
+
+        For Each sibling In siblings
+            If sibling.Level = _radioButtonLevel Then
+                sibling.IsRadioSelected = False
+            End If
+        Next
+
+        pItem.IsRadioSelected = True
+        RaiseEvent NodeRadioSelected(pItem, nodeOff)
+        Me.Invalidate()
+    End Sub
+
     ' Metodă publică pentru a goli toate elementele din control
     ' Metodă publică pentru a goli toate elementele din control
     Public Sub Clear()
