@@ -98,14 +98,9 @@ Partial Public Class AdvancedTreeControl
         If pItem Is Nothing Then Return
         If pItem.Level <> _radioButtonLevel Then Return
 
-        Dim siblings As List(Of TreeItem)
-        If pItem.Parent IsNot Nothing Then
-            siblings = pItem.Parent.Children
-        Else
-            siblings = Me.Items
-        End If
+        Dim siblings As List(Of TreeItem) = If(pItem.Parent IsNot Nothing, pItem.Parent.Children, Me.Items)
 
-        ' *** Capturăm nodeOff ÎNAINTE ***
+        ' Capturăm nodeOff
         Dim nodeOff As TreeItem = Nothing
         For Each sibling In siblings
             If sibling.Level = _radioButtonLevel AndAlso sibling.IsRadioSelected Then
@@ -114,6 +109,12 @@ Partial Public Class AdvancedTreeControl
             End If
         Next
 
+        ' Ștergem checkboxurile copiilor lui nodeOff
+        If nodeOff IsNot Nothing Then
+            ClearChildrenCheckboxes(nodeOff)
+        End If
+
+        ' Resetare frați + selectare
         For Each sibling In siblings
             If sibling.Level = _radioButtonLevel Then
                 sibling.IsRadioSelected = False
@@ -121,11 +122,13 @@ Partial Public Class AdvancedTreeControl
         Next
 
         pItem.IsRadioSelected = True
+
+        CheckChildrenRecursive(pItem)
+
         RaiseEvent NodeRadioSelected(pItem, nodeOff)
         Me.Invalidate()
     End Sub
 
-    ' Metodă publică pentru a goli toate elementele din control
     ' Metodă publică pentru a goli toate elementele din control
     Public Sub Clear()
         ' 1. Oprim orice desenare sau calcul de layout

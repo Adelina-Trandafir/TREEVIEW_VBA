@@ -104,7 +104,7 @@ Partial Public Class AdvancedTreeControl
     End Function
 
     Private Function GetCheckBoxRect(it As TreeItem) As Rectangle
-        If Not _checkBoxes Then Return Rectangle.Empty
+        If Not NodeHasCheckControl(it) Then Return Rectangle.Empty
 
         Dim y As Integer = GetItemY(it)
         If y = -1 Then Return Rectangle.Empty ' Item invizibil
@@ -141,6 +141,29 @@ Partial Public Class AdvancedTreeControl
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
         Return Me.AutoScrollPosition.Y + idx * ItemHeight
+    End Function
+
+    ' Găsește ancestorul de pe RadioButtonLevel al unui nod
+    Private Function GetRadioAncestor(it As TreeItem) As TreeItem
+        Dim current As TreeItem = it.Parent
+        While current IsNot Nothing
+            If current.Level = _radioButtonLevel Then Return current
+            current = current.Parent
+        End While
+        Return Nothing
+    End Function
+
+    ' Determină dacă un nod trebuie să aibă checkbox/radio desenat și activ
+    Private Function NodeHasCheckControl(it As TreeItem) As Boolean
+        If _radioButtonLevel >= 0 Then
+            If it.Level < _radioButtonLevel Then Return False                    ' deasupra: niciodată
+            If it.Level = _radioButtonLevel Then Return True                     ' nivelul radio: întotdeauna
+            ' sub nivel radio: doar dacă ancestorul radio e selectat
+            Dim radioAnc As TreeItem = GetRadioAncestor(it)
+            Return radioAnc IsNot Nothing AndAlso radioAnc.IsRadioSelected
+        Else
+            Return _checkBoxes                                                    ' mod normal
+        End If
     End Function
 
     ' Returnează lista plată a nodurilor vizibile (ținând cont de expandare)
@@ -201,7 +224,7 @@ Partial Public Class AdvancedTreeControl
             Dim currentX As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
 
             ' 3. Adăugăm lățimea Checkbox-ului + Spațiul de după el (dacă e activ)
-            If _checkBoxes Then
+            If NodeHasCheckControl(it) Then
                 currentX += _checkBoxSize + PADDING_CHECKBOX_GAP
             End If
 
@@ -322,6 +345,22 @@ Partial Public Class AdvancedTreeControl
             Return val.ToString()
         End If
     End Function
+
+    ' Resetează recursiv checkboxurile tuturor descendenților unui nod
+    Private Sub ClearChildrenCheckboxes(node As TreeItem)
+        For Each child In node.Children
+            child.CheckState = TreeCheckState.Unchecked
+            ClearChildrenCheckboxes(child)
+        Next
+    End Sub
+
+    ' Bifează recursiv toți descendenții unui nod
+    Private Sub CheckChildrenRecursive(node As TreeItem)
+        For Each child In node.Children
+            child.CheckState = TreeCheckState.Checked
+            CheckChildrenRecursive(child)
+        Next
+    End Sub
 
     Private Sub LoadingTimer_Tick(sender As Object, e As EventArgs) Handles _loadingTimer.Tick
         _loadingAngle += 15

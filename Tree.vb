@@ -1,6 +1,7 @@
 ﻿Imports System.ComponentModel
 Imports System.IO
 Imports System.Runtime.InteropServices
+Imports System.Text
 
 ' V.5.0 - 28.01.2026
 ' Adugat LAZY LOADING pentru noduri
@@ -104,7 +105,7 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(5178766) '################
+                _formHwnd = New IntPtr(3803798) '################
                 '################################################
                 _mainAccessHwnd = New IntPtr(395282)
                 _idTree = "FX_MAIN_PLATI_RECEPTII" '"Clasificatii" '"frmFX_MAIN"
@@ -335,29 +336,26 @@ Partial Public Class Tree
     End Sub
 
     Private Function GetAccessFormParent(childHwnd As IntPtr) As IntPtr
-        ' Urcă ierarhia până găsește fereastra de tip formular Access (top-level sau popup)
         Dim currentHwnd As IntPtr = GetParent(childHwnd)
-        Dim maxLevels As Integer = 10 ' Protecție împotriva loop infinit
-        Dim level As Integer = 0
+        Dim maxLevels As Integer = 10
+        Dim className As New StringBuilder(256)
 
-        While currentHwnd <> IntPtr.Zero AndAlso level < maxLevels
-            ' Debug - vezi ce ferestre găsești
-            TreeLogger.Info($"  Nivel {level}: {GetWindowInfo(currentHwnd)}", "GetAccessFormParent")
+        For level As Integer = 0 To maxLevels - 1
+            If currentHwnd = IntPtr.Zero Then Exit For
 
-            ' Verificăm dacă e fereastră top-level (are WS_CAPTION sau WS_POPUP)
-            Dim style As Integer = GetWindowLong(currentHwnd, GWL_STYLE)
-            Dim isTopLevel As Boolean = (style And WS_CAPTION) <> 0 OrElse (style And WS_POPUP) <> 0
+            GetClassName(currentHwnd, className, 256)
+            Dim cls As String = className.ToString()
+            TreeLogger.Info($"  Nivel {level}: class='{cls}' {GetWindowInfo(currentHwnd)}", "GetAccessFormParent")
 
-            If isTopLevel Then
-                TreeLogger.Info($"  → Găsit formular părinte la nivel {level}", "GetAccessFormParent")
+            If cls = "OForm" OrElse cls = "OFormPopup" Then
+                TreeLogger.Info($"  → Găsit formular Access la nivel {level} ({cls})", "GetAccessFormParent")
                 Return currentHwnd
             End If
 
             currentHwnd = GetParent(currentHwnd)
-            level += 1
-        End While
+        Next
 
-        TreeLogger.Err("  → NU s-a găsit formular părinte, returnez IntPtr.Zero", "GetAccessFormParent")
+        TreeLogger.Err("  → NU s-a găsit OForm/OFormPopup, returnez IntPtr.Zero", "GetAccessFormParent")
         Return IntPtr.Zero
     End Function
 

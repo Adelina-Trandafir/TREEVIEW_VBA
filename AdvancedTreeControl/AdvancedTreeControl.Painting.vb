@@ -75,12 +75,10 @@ Partial Public Class AdvancedTreeControl
         ' ===========================================
 
         ' -- [PASUL 3] CHECKBOX / RADIOBUTTON --
-        Dim chkRect As Rectangle
-
-        If _checkBoxes OrElse (it.Level = _radioButtonLevel AndAlso _radioButtonLevel >= 0) Then
+        If NodeHasCheckControl(it) Then
             Dim chkSize As Integer = _checkBoxSize
             Dim chkY As Integer = midY - (chkSize \ 2)
-            chkRect = New Rectangle(xBase, chkY, chkSize, chkSize)
+            Dim chkRect As New Rectangle(xBase, chkY, chkSize, chkSize)
 
             Dim oldSmoothing = g.SmoothingMode
             g.SmoothingMode = SmoothingMode.AntiAlias
@@ -88,26 +86,22 @@ Partial Public Class AdvancedTreeControl
             Dim accentColor As Color = Color.DodgerBlue
             Dim borderColor As Color = Color.FromArgb(180, 180, 180)
 
-            ' *** RADIO BUTTON: nivel specificat ***
-            If it.Level = _radioButtonLevel AndAlso _radioButtonLevel >= 0 Then
-
+            If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
+                ' *** RADIO BUTTON ***
                 If it.IsRadioSelected Then
-                    ' Cerc plin albastru (background)
                     Using brush As New SolidBrush(accentColor)
                         g.FillEllipse(brush, chkRect)
                     End Using
                     Using pen As New Pen(accentColor)
                         g.DrawEllipse(pen, chkRect)
                     End Using
-                    ' Punct alb interior
                     Dim dotMargin As Integer = CInt(chkSize * 0.28F)
                     Dim dotRect As New Rectangle(chkRect.X + dotMargin, chkRect.Y + dotMargin,
-                                          chkSize - dotMargin * 2, chkSize - dotMargin * 2)
+                                         chkSize - dotMargin * 2, chkSize - dotMargin * 2)
                     Using brush As New SolidBrush(Color.White)
                         g.FillEllipse(brush, dotRect)
                     End Using
                 Else
-                    ' Cerc gol cu margine gri
                     g.FillEllipse(Brushes.White, chkRect)
                     Using pen As New Pen(borderColor, 1)
                         g.DrawEllipse(pen, chkRect)
@@ -115,7 +109,7 @@ Partial Public Class AdvancedTreeControl
                 End If
 
             Else
-                ' *** CHECKBOX STANDARD (cod existent) ***
+                ' *** CHECKBOX STANDARD (sub radio level SAU mod normal) ***
                 Dim cornerRadius As Integer = 3
                 Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
                     If it.CheckState = TreeCheckState.Checked Then

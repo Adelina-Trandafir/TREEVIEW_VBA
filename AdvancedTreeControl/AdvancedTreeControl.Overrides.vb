@@ -158,60 +158,58 @@ Partial Public Class AdvancedTreeControl
         ' =================================================================
         ' 3. PRIORITATE UNU: CHECKBOX / RADIOBUTTON
         ' =================================================================
-        ' --- RADIO BUTTON: nivel specificat ---
-        If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
+        If NodeHasCheckControl(it) Then
             Dim chkRect = GetCheckBoxRect(it)
             If chkRect.Contains(e.Location) Then
-                Dim siblings As List(Of TreeItem)
-                If it.Parent IsNot Nothing Then
-                    siblings = it.Parent.Children
+
+                If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
+                    ' --- RADIO: deselectăm frații, ștergem checkboxurile copiilor nodeOff ---
+                    Dim siblings As List(Of TreeItem) = If(it.Parent IsNot Nothing, it.Parent.Children, Me.Items)
+
+                    ' Capturăm nodeOff ÎNAINTE
+                    Dim nodeOff As TreeItem = Nothing
+                    For Each sibling In siblings
+                        If sibling.Level = _radioButtonLevel AndAlso sibling IsNot it AndAlso sibling.IsRadioSelected Then
+                            nodeOff = sibling
+                            Exit For
+                        End If
+                    Next
+
+                    ' Ștergem checkboxurile copiilor lui nodeOff
+                    If nodeOff IsNot Nothing Then
+                        ClearChildrenCheckboxes(nodeOff)
+                    End If
+
+                    ' Deselectăm toți frații
+                    For Each sibling In siblings
+                        If sibling.Level = _radioButtonLevel Then
+                            sibling.IsRadioSelected = False
+                        End If
+                    Next
+
+                    ' Selectăm nodul curent
+                    CheckChildrenRecursive(it)
+                    it.IsRadioSelected = True
+
+                    RaiseEvent NodeRadioSelected(it, nodeOff)
+                    Me.Invalidate()
+
                 Else
-                    siblings = Me.Items
+                    ' --- CHECKBOX STANDARD ---
+                    Dim newState As TreeCheckState = If(it.CheckState = TreeCheckState.Checked,
+                                                 TreeCheckState.Unchecked,
+                                                 TreeCheckState.Checked)
+                    SetNodeStateWithPropagation(it, newState)
+                    RaiseEvent NodeChecked(it)
+                    Me.Invalidate()
                 End If
-
-                ' *** Capturăm nodeOff ÎNAINTE de a deselecta ***
-                Dim nodeOff As TreeItem = Nothing
-                For Each sibling In siblings
-                    If sibling.Level = _radioButtonLevel AndAlso sibling.IsRadioSelected Then
-                        nodeOff = sibling
-                        Exit For
-                    End If
-                Next
-
-                ' Deselectăm frații
-                For Each sibling In siblings
-                    If sibling.Level = _radioButtonLevel Then
-                        sibling.IsRadioSelected = False
-                    End If
-                Next
-
-                ' Selectăm nodul curent
-                it.IsRadioSelected = True
-
-                RaiseEvent NodeRadioSelected(it, nodeOff)   ' nodeOff poate fi Nothing dacă nu era nimic selectat
-                Me.Invalidate()
 
                 pSelectedItem = it
                 If pSelectedItem IsNot pOldSelectedItem Then RaiseEvent NodeMouseDown(it, e)
                 Return
             End If
         End If
-        ' --- CHECKBOX STANDARD ---
-        If _checkBoxes Then
-            Dim chkRect = GetCheckBoxRect(it)
-            If chkRect.Contains(e.Location) Then
-                Dim newState As TreeCheckState = TreeCheckState.Checked
-                If it.CheckState = TreeCheckState.Checked Then
-                    newState = TreeCheckState.Unchecked
-                End If
-                SetNodeStateWithPropagation(it, newState)
-                RaiseEvent NodeChecked(it)
-                Me.Invalidate()
-                pSelectedItem = it
-                If pSelectedItem IsNot pOldSelectedItem Then RaiseEvent NodeMouseDown(it, e)
-                Return
-            End If
-        End If
+
         ' =================================================================
         ' =================================================================
         ' 4. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
