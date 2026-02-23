@@ -8,6 +8,10 @@ Partial Public Class Tree
     Private Shared Function GetForegroundWindow() As IntPtr
     End Function
 
+    <DllImport("user32.dll")>
+    Private Shared Function SetForegroundWindow(hWnd As IntPtr) As Boolean
+    End Function
+
     <DllImport("user32.dll", SetLastError:=True)>
     Private Shared Function GetWindowLong(hWnd As IntPtr, nIndex As Integer) As Integer
     End Function

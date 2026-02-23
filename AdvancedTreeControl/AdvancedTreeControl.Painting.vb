@@ -374,7 +374,7 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' Parser simplu bazat pe Regex
-    Private Function ParseRichText(rawText As String, baseFont As Font, baseColor As Color) As List(Of RichTextPart)
+    Friend Shared Function ParseRichText(rawText As String, baseFont As Font, baseColor As Color) As List(Of RichTextPart)
         Dim list As New List(Of RichTextPart)
 
         ' Regex care prinde tag-urile: <tag> sau </tag>
@@ -461,6 +461,7 @@ Partial Public Class AdvancedTreeControl
 
         Return list
     End Function
+
     Private Function GetRoundedRect(rect As Rectangle, radius As Integer) As GraphicsPath
         Dim path As New GraphicsPath()
         Dim diameter As Integer = radius * 2
@@ -483,7 +484,7 @@ Partial Public Class AdvancedTreeControl
         Return path
     End Function
 
-    Private Function ParseColor(val As String, defaultColor As Color) As Color
+    Friend Shared Function ParseColor(val As String, defaultColor As Color) As Color
         Try
             If String.IsNullOrEmpty(val) Then Return defaultColor
             If val.StartsWith("#") Then Return ColorTranslator.FromHtml(val)

@@ -17,6 +17,8 @@
         Public NodeBackColor As Color = Color.Empty    ' Empty = transparent (fără fundal per nod)
         Public IsLoader As Boolean = False
         Public IsRadioSelected As Boolean = False
+        Public Tooltip As String = ""   ' ControlTipText din VBA - apare ÎNTOTDEAUNA dacă e setat
+
         Private _tag As Object
 
         ' Cache pentru lățimea textului (performanță la desenare)

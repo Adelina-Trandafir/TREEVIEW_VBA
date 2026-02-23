@@ -326,6 +326,8 @@ Partial Public Class Tree
             Dim newItem As AdvancedTreeControl.TreeItem = MyTree.AddItem(nodeKey, nodeCaption, parentItem, iconImgClosed, iconImgOpen, iconImgRight, nodeTag, iconExpanded, isLazy)
             newItem.Key = nodeKey
 
+            If xNode.Attributes("Tooltip") IsNot Nothing Then newItem.Tooltip = xNode.Attributes("Tooltip").Value
+
             ' 6. Atribute vizuale per nod (Bold, Italic, ForeColor, BackColor)
             If xNode.Attributes("Bold") IsNot Nothing Then
                 Dim valStr As String = xNode.Attributes("Bold").Value.Trim().ToLower()

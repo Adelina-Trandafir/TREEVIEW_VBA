@@ -331,9 +331,12 @@ Partial Public Class AdvancedTreeControl
 
         If it IsNot pHoveredItem Then
             pHoveredItem = it
-            ResetTooltip(it)
+            ResetTooltip(it, e.X)
             Me.Invalidate()
         End If
+
+        ' Și stocăm întotdeauna X-ul curent (indiferent de hover change):
+        _lastMouseX = e.X
     End Sub
 
     Protected Overrides Sub OnMouseLeave(e As EventArgs)

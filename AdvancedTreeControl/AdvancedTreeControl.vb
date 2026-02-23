@@ -12,6 +12,8 @@ Partial Public Class AdvancedTreeControl
     Private ReadOnly pToolTip As New ToolTip()
     Private ReadOnly pTooltipTimer As New Timer()
     Private pTooltipItem As TreeItem = Nothing
+    Private pTooltipPopup As TooltipPopup = Nothing
+    Private _lastMouseX As Integer = -1
 
     ' Timer pentru a diferenția Click de DoubleClick
     Private WithEvents ClickDelayTimer As New Timer()
@@ -38,7 +40,17 @@ Partial Public Class AdvancedTreeControl
     Private WithEvents _loadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
     Private _loadingAngle As Single = 0
 
-    Private Structure RichTextPart
+    ' Proprietate publică - folosită de Tree.vb pentru whitelist în MonitorTimer
+    Public ReadOnly Property TooltipPopupHandle As IntPtr
+        Get
+            If pTooltipPopup IsNot Nothing AndAlso Not pTooltipPopup.IsDisposed AndAlso pTooltipPopup.Visible Then
+                Return pTooltipPopup.Handle
+            End If
+            Return IntPtr.Zero
+        End Get
+    End Property
+
+    Friend Structure RichTextPart
         Public Text As String
         Public Font As Font
         Public ForeColor As Color
@@ -185,15 +197,34 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' ======================================================
-    ' 9. TOOLTIP LOGIC
+    ' TOOLTIP LOGIC
     ' ======================================================
-    Private Sub ResetTooltip(it As TreeItem)
+    Private Sub HideAllTooltips()
         pToolTip.Hide(Me)
+        If pTooltipPopup IsNot Nothing AndAlso Not pTooltipPopup.IsDisposed Then
+            pTooltipPopup.Hide()
+        End If
+    End Sub
+
+    Private Sub ResetTooltip(it As TreeItem, Optional mouseX As Integer = -1)
+        HideAllTooltips()
         pTooltipTimer.Stop()
         pTooltipItem = Nothing
 
         If it Is Nothing Then Return
-        If TextFits(it) Then Return ' Nu afișăm dacă încape
+
+        ' Nu afișăm tooltip dacă mouse-ul e pe zona RightIcon
+        If it.RightIcon IsNot Nothing AndAlso mouseX >= 0 Then
+            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+            If mouseX >= rightIconMinX Then Return
+        End If
+
+        ' Dacă are Tooltip custom → afișăm ÎNTOTDEAUNA (ignorăm TextFits)
+        ' Dacă NU are Tooltip → afișăm doar dacă textul nu încape (comportamentul vechi)
+        If String.IsNullOrEmpty(it.Tooltip) Then
+            If TextFits(it) Then Return
+        End If
 
         pTooltipItem = it
         pTooltipTimer.Start()
@@ -203,9 +234,27 @@ Partial Public Class AdvancedTreeControl
         pTooltipTimer.Stop()
         If pTooltipItem Is Nothing OrElse pTooltipItem IsNot pHoveredItem Then Return
 
+        ' Verificare suplimentară: dacă cursorul s-a mutat pe RightIcon între timp
+        If pTooltipItem.RightIcon IsNot Nothing Then
+            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+            If _lastMouseX >= rightIconMinX Then Return
+        End If
+
         Try
-            Dim pt As Point = Me.PointToClient(Cursor.Position)
-            pToolTip.Show(pTooltipItem.Caption, Me, pt.X, pt.Y + 20, 4000)
+            Dim screenPt As Point = Cursor.Position
+
+            If Not String.IsNullOrEmpty(pTooltipItem.Tooltip) Then
+                ' Tooltip custom cu RichText - popup form
+                If pTooltipPopup Is Nothing OrElse pTooltipPopup.IsDisposed Then
+                    pTooltipPopup = New TooltipPopup()
+                End If
+                pTooltipPopup.ShowTooltip(pTooltipItem.Tooltip, Me.Font, Me.ForeColor, screenPt)
+            Else
+                ' Tooltip standard (caption trunchiat)
+                Dim ptClient As Point = Me.PointToClient(Cursor.Position)
+                pToolTip.Show(pTooltipItem.Caption, Me, ptClient.X, ptClient.Y + 20, 4000)
+            End If
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "TooltipTimerTick")

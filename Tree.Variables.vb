@@ -35,6 +35,11 @@
 
     Private Const WM_APP_READY As Integer = &H8001  ' WM_APP + 1 (safe custom range)
 
+    ' === POPUP GRACE ===
+    Private _popupGraceActive As Boolean = False
+    Private _popupGraceMs As Integer = 1500       ' valoare implicită, suprascrisă din XML
+    Private _popupGraceTimer As Timer = Nothing
+
     Public Class NodeDto
         Public Property Key As String
         Public Property Caption As String

@@ -315,9 +315,13 @@ Partial Public Class Tree
 
         ' === POPUP FOCUS MONITORING ===
         If MyTree.IsPopupTree Then
-            Dim foregroundWnd As IntPtr = GetForegroundWindow()
+            ' Nu verificăm focus în perioada de grație de la deschidere
+            If _popupGraceActive Then Return
 
-            If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd Then
+            Dim foregroundWnd As IntPtr = GetForegroundWindow()
+            Dim tooltipHwnd As IntPtr = MyTree.TooltipPopupHandle
+
+            If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd AndAlso foregroundWnd <> tooltipHwnd Then
                 TreeLogger.Debug($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}", "MonitorTimer_Tick")
                 _MonitorTimer.Stop()
                 SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
@@ -347,7 +351,7 @@ Partial Public Class Tree
             Dim cls As String = className.ToString()
             TreeLogger.Info($"  Nivel {level}: class='{cls}' {GetWindowInfo(currentHwnd)}", "GetAccessFormParent")
 
-            If cls = "OForm" OrElse cls = "OFormPopup" Then
+            If cls = "OForm" OrElse cls = "OFormPopup" OrElse cls = "OFormPopupNC" OrElse cls = "OFormNoClose" Then
                 TreeLogger.Info($"  → Găsit formular Access la nivel {level} ({cls})", "GetAccessFormParent")
                 Return currentHwnd
             End If
@@ -418,5 +422,22 @@ Partial Public Class Tree
 
         TreeLogger.Info($"VBA READY — flush {_pendingMessages.Count} mesaje pending", "OnVbaReady")
         FlushPendingMessages()
+
+        ' === POPUP: forțare focus + perioadă de grație ===
+        If MyTree.IsPopupTree Then
+            Dim focused = SetForegroundWindow(_formHwnd)
+            TreeLogger.Info($"Popup ready — SetForegroundWindow({_formHwnd:X}) = {focused}, grație {_popupGraceMs}ms", "OnVbaReady")
+
+            _popupGraceActive = True
+            _popupGraceTimer = New Timer With {.Interval = _popupGraceMs}
+            AddHandler _popupGraceTimer.Tick, Sub(s, ev)
+                                                  _popupGraceTimer.Stop()
+                                                  _popupGraceTimer.Dispose()
+                                                  _popupGraceTimer = Nothing
+                                                  _popupGraceActive = False
+                                                  TreeLogger.Info($"Perioadă de grație expirată ({_popupGraceMs}ms) — pornesc monitorizarea focus", "PopupGrace")
+                                              End Sub
+            _popupGraceTimer.Start()
+        End If
     End Sub
 End Class
