@@ -1,5 +1,6 @@
 ﻿Imports System.ComponentModel
 Imports System.IO
+Imports System.IO.Pipes
 Imports System.Runtime.InteropServices
 Imports System.Text
 
@@ -94,11 +95,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(789794) '################
+                _formHwnd = New IntPtr(331538) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(3409994)
-                _idTree = "EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\AVACONT\RES\tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(4459592)
+                _idTree = "Clasificatii" '"EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\AVACONT\RES\tree_Clasificatii.xml" 'tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -126,6 +127,7 @@ Partial Public Class Tree
             End If
 
             'TreeLogger.Debug(">>> Înainte de ConecteazaLaAccess", "PERF")
+            ConectarePipe()
             ConecteazaLaAccess(_mainAccessHwnd)
             'TreeLogger.Debug(">>> După ConecteazaLaAccess", "PERF")
 
@@ -171,37 +173,37 @@ Partial Public Class Tree
             _MonitorTimer.Start()
 
             ' Poll timer: verifică dacă VBA a pus SetProp("VBA_READY") pe _formHwnd
-            _readyPollTimer = New Timer With {.Interval = 30}
-            AddHandler _readyPollTimer.Tick, Sub(s, ev)
-                                                 Debug.Print(">>> Poll VBA_READY...")
-                                                 ' 1. Mai există fereastra?
-                                                 If Not IsWindow(_formHwnd) Then
-                                                     If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
-                                                         _readyPollTimer.Stop()
-                                                         _readyPollTimer.Dispose()
-                                                         _readyPollTimer = Nothing
-                                                         TreeLogger.Warn("Fereastra dispărută în timpul handshake — ies", "ReadyPoll")
-                                                         CurataResurseSiIesi()
-                                                         Application.Exit()
-                                                         Return
-                                                     End If
-                                                     TreeLogger.Warn(">>> Fereastra dispărută în timpul handshake — întreb VBA dacă a recreat ceva")
-                                                     Return ' părintele există, poate Access recreează — așteptăm
-                                                 End If
+            '_readyPollTimer = New Timer With {.Interval = 30}
+            'AddHandler _readyPollTimer.Tick, Sub(s, ev)
+            '                                     Debug.Print(">>> Poll VBA_READY...")
+            '                                     ' 1. Mai există fereastra?
+            '                                     If Not IsWindow(_formHwnd) Then
+            '                                         If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
+            '                                             _readyPollTimer.Stop()
+            '                                             _readyPollTimer.Dispose()
+            '                                             _readyPollTimer = Nothing
+            '                                             TreeLogger.Warn("Fereastra dispărută în timpul handshake — ies", "ReadyPoll")
+            '                                             CurataResurseSiIesi()
+            '                                             Application.Exit()
+            '                                             Return
+            '                                         End If
+            '                                         TreeLogger.Warn(">>> Fereastra dispărută în timpul handshake — întreb VBA dacă a recreat ceva")
+            '                                         Return ' părintele există, poate Access recreează — așteptăm
+            '                                     End If
 
-                                                 ' 2. Biletul e acolo?
-                                                 Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
-                                                 'Debug.Print($">>> GetProp VBA_READY: {_formHwnd.ToInt64}:{ _idTree}")
-                                                 If prop <> IntPtr.Zero Then
-                                                     _readyPollTimer.Stop()
-                                                     _readyPollTimer.Dispose()
-                                                     _readyPollTimer = Nothing
-                                                     TreeLogger.Info($">>> VBA a confirmat că e ready {_idTree}!", "ReadyPoll")
-                                                     RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
-                                                     OnVbaReady(prop)
-                                                 End If
-                                             End Sub
-            _readyPollTimer.Start()
+            '                                     ' 2. Biletul e acolo?
+            '                                     Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
+            '                                     'Debug.Print($">>> GetProp VBA_READY: {_formHwnd.ToInt64}:{ _idTree}")
+            '                                     If prop <> IntPtr.Zero Then
+            '                                         _readyPollTimer.Stop()
+            '                                         _readyPollTimer.Dispose()
+            '                                         _readyPollTimer = Nothing
+            '                                         TreeLogger.Info($">>> VBA a confirmat că e ready {_idTree}!", "ReadyPoll")
+            '                                         RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
+            '                                         OnVbaReady(prop)
+            '                                     End If
+            '                                 End Sub
+            '_readyPollTimer.Start()
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "Tree_Load")
@@ -373,40 +375,56 @@ Partial Public Class Tree
         Return $"HWND:{hWnd:X} | PID:{processId} | Title:[{sb}]"
     End Function
 
+    'Private Sub FlushPendingMessages()
+    '    While _pendingMessages.Count > 0
+    '        Dim act As Action = _pendingMessages.Peek()
+    '        Try
+    '            act.Invoke()
+    '            _pendingMessages.Dequeue()
+    '        Catch ex As Runtime.InteropServices.COMException
+    '            ' VBA încă ocupată — reîncercăm silențios peste 50ms
+    '            Dim retryTimer As New Timer With {.Interval = 50}
+    '            AddHandler retryTimer.Tick, Sub(s, ev)
+    '                                            retryTimer.Stop()
+    '                                            retryTimer.Dispose()
+    '                                            FlushPendingMessages()
+    '                                        End Sub
+    '            retryTimer.Start()
+    '            Return
+    '        Catch ex As Exception
+    '            TreeLogger.Ex(ex, "FlushPending")
+    '            _pendingMessages.Dequeue()
+    '        End Try
+    '    End While
+
+    '    ' Totul trimis
+    '    Dim elapsed As TimeSpan = DateTime.Now - _handshakeStart
+    '    TreeLogger.Info($"Flush complet — {elapsed.TotalMilliseconds:F0}ms de la prima punere în coadă", "FlushPending")
+    'End Sub
+
+    ' Versiunea veche folosea retry pe COMException.
+    ' Acum pipe-ul e disponibil cand se apeleaza, deci flush direct.
     Private Sub FlushPendingMessages()
+        Dim count As Integer = _pendingMessages.Count
         While _pendingMessages.Count > 0
-            Dim act As Action = _pendingMessages.Peek()
             Try
-                act.Invoke()
-                _pendingMessages.Dequeue()
-            Catch ex As Runtime.InteropServices.COMException
-                ' VBA încă ocupată — reîncercăm silențios peste 50ms
-                Dim retryTimer As New Timer With {.Interval = 50}
-                AddHandler retryTimer.Tick, Sub(s, ev)
-                                                retryTimer.Stop()
-                                                retryTimer.Dispose()
-                                                FlushPendingMessages()
-                                            End Sub
-                retryTimer.Start()
-                Return
+                _pendingMessages.Dequeue().Invoke()
             Catch ex As Exception
-                TreeLogger.Ex(ex, "FlushPending")
-                _pendingMessages.Dequeue()
+                TreeLogger.Ex(ex, "FlushPendingMessages")
             End Try
         End While
-
-        ' Totul trimis
-        Dim elapsed As TimeSpan = DateTime.Now - _handshakeStart
-        TreeLogger.Info($"Flush complet — {elapsed.TotalMilliseconds:F0}ms de la prima punere în coadă", "FlushPending")
+        If count > 0 Then
+            TreeLogger.Info($"Flushed {count} mesaje pending.", "FlushPendingMessages")
+        End If
     End Sub
 
     Private Sub OnVbaReady(newFormHwnd As IntPtr)
         If _vbaReady Then Return
         _vbaReady = True
 
-        _readyPollTimer?.Stop()
-        _readyPollTimer?.Dispose()
-        _readyPollTimer = Nothing
+        '_readyPollTimer?.Stop()
+        '_readyPollTimer?.Dispose()
+        '_readyPollTimer = Nothing
 
         If newFormHwnd <> IntPtr.Zero AndAlso newFormHwnd <> _formHwnd Then
             TreeLogger.Info($"formHwnd schimbat: {_formHwnd:X} → {newFormHwnd:X}", "OnVbaReady")
@@ -434,4 +452,102 @@ Partial Public Class Tree
         End If
     End Sub
 
+    ' =============================================================
+    ' CONECTARE LA PIPE SERVER (apelata din Tree_Load, dupa SetParent)
+    ' =============================================================
+    Private Sub ConectarePipe()
+        Try
+            _pipeClient = New IO.Pipes.NamedPipeClientStream(".", PIPE_NAME,
+                              IO.Pipes.PipeDirection.InOut,
+                              IO.Pipes.PipeOptions.Asynchronous)
+
+            ' Timeout 5s — daca VBA nu a pornit serverul, iesim cu eroare clara
+            _pipeClient.Connect(5000)
+            _pipeClient.ReadMode = PipeTransmissionMode.Message  ' OBLIGATORIU
+            _pipeConnected = True
+
+            ' Handshake OBLIGATORIU primul mesaj - direct, nu prin TrimiteMesajAccess
+            PipeWrite($"CONNECT:{_idTree}")
+
+            TreeLogger.Info($"Pipe conectat. treeId={_idTree}", "ConectarePipe")
+
+            ' Porneste thread de citire comenzi (VBA → VB.NET)
+            ' Inlocuieste complet WndProc WM_SETTEXT
+            Task.Run(AddressOf PipeReaderLoop)
+
+            ' Trimite HWND-ul nostru catre VBA — acesta e primul mesaj
+            ' VBA il primeste in OnTreeEvent(Action="HWND") -> seteaza m_TreeHwnd -> TreeLoaded
+            TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
+
+            ' Flush orice mesaje acumulate inainte de conectare (rar, dar posibil)
+            FlushPendingMessages()
+
+        Catch ex As TimeoutException
+            TreeLogger.Err("Timeout conectare pipe — VBA nu a pornit serverul in 5s.", "ConectarePipe",
+                           MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Application.Exit()
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ConectarePipe")
+            Application.Exit()
+        End Try
+    End Sub
+
+    ' =============================================================
+    ' READER LOOP — citeste comenzile trimise de VBA (ruleaza pe thread separat)
+    ' Inlocuieste WndProc WM_SETTEXT
+    ' =============================================================
+    ' Apelat din PipeReaderLoop cand primeste SUCCESS|| sau ERROR||
+    Private Sub HandleAck(line As String)
+        If line.StartsWith("SUCCESS||") Then
+            _lastAckSuccess = True
+            _lastAckData = line.Substring(9)  ' dupa "SUCCESS||"
+        ElseIf line.StartsWith("ERROR||") Then
+            _lastAckSuccess = False
+            _lastAckData = line.Substring(7)
+        End If
+        _ackEvent.Set()
+    End Sub
+
+    ' PipeReaderLoop - modificare pentru a detecta ACK vs comanda normala
+    Private Sub PipeReaderLoop()
+        Dim buffer(8191) As Byte
+        Try
+            While _pipeConnected AndAlso _pipeClient.IsConnected
+                Dim bytesRead As Integer = _pipeClient.Read(buffer, 0, buffer.Length)
+                If bytesRead > 0 Then
+                    Dim line As String = Encoding.Unicode.GetString(buffer, 0, bytesRead)
+
+                    If line.StartsWith("SUCCESS||") OrElse line.StartsWith("ERROR||") Then
+                        ' ACK pentru mesajul trimis anterior
+                        HandleAck(line)
+                    ElseIf line.Contains("||") Then
+                        ' Comanda normala VBA → VB.NET
+                        Me.BeginInvoke(Sub() ProcesareComandaAccess(line))
+                    End If
+                End If
+            End While
+        Catch ex As IO.IOException
+            _pipeConnected = False
+        End Try
+    End Sub
+
+    ' Trimitere cu asteptare ACK - pentru aplicatii care au nevoie
+    Protected Function PipeWriteAndWait(msg As String, Optional timeoutMs As Integer = 3000) As (Success As Boolean, Data As String)
+        _ackEvent.Reset()
+        PipeWrite(msg)
+
+        If _ackEvent.Wait(timeoutMs) Then
+            Return (_lastAckSuccess, _lastAckData)
+        Else
+            TreeLogger.Warn($"ACK timeout dupa {timeoutMs}ms pentru: {msg.Substring(0, 40)}", "PipeWriteAndWait")
+            Return (False, "Timeout")
+        End If
+    End Function
+
+    ' Trimitere mesaje - metoda privata in loc de _pipeWriter
+    Private Sub PipeWrite(msg As String)
+        Dim bytes() As Byte = Encoding.Unicode.GetBytes(msg)
+        _pipeClient.Write(bytes, 0, bytes.Length)
+        _pipeClient.Flush()
+    End Sub
 End Class

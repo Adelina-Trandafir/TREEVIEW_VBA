@@ -30,8 +30,19 @@
     ' === HANDSHAKE VBA READY ===
     Private _vbaReady As Boolean = False
     Private _pendingMessages As New Queue(Of Action)
-    Private _readyPollTimer As Timer = Nothing
-    Private _handshakeStart As DateTime
+    'Private _readyPollTimer As Timer = Nothing
+    'Private _handshakeStart As DateTime
+
+    ' === PIPE CLIENT ===
+    Private _pipeClient As IO.Pipes.NamedPipeClientStream = Nothing
+    Private _pipeWriter As IO.StreamWriter = Nothing
+    Private _pipeConnected As Boolean = False
+    Private Const PIPE_NAME As String = "AvacontPipe"   ' identic cu DLL-ul C++
+
+    ' === ACKNOWLEDGMENT MECHANISM ===
+    Private _ackEvent As New System.Threading.ManualResetEventSlim(False)
+    Private _lastAckSuccess As Boolean
+    Private _lastAckData As String
 
     Private Const WM_APP_READY As Integer = &H8001  ' WM_APP + 1 (safe custom range)
 

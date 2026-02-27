@@ -84,106 +84,74 @@ Partial Public Class Tree
         End Try
     End Function
 
+    ' INLOCUIESTE blocul existent cu:
     Private Sub CurataResurseSiIesi()
         If _cleaningDone Then Return
         _cleaningDone = True
 
-        ' Oprire poll timer handshake
-        _readyPollTimer?.Stop()
-        _readyPollTimer?.Dispose()
-        _readyPollTimer = Nothing
-
-        ' 1. Oprire Timer
+        ' Oprire timere
         _MonitorTimer?.Stop()
+        _popupGraceTimer?.Stop()
+        _popupGraceTimer?.Dispose()
 
-        ' 2. Eliberare Access COM (foarte important cu Try/Catch)
+        ' Cleanup pipe — inchiderea writer-ului va termina si PipeReaderLoop
+        _pipeConnected = False
+        Try
+            _pipeWriter?.Close()
+            _pipeClient?.Close()
+        Catch : End Try
+        _pipeWriter = Nothing
+        _pipeClient = Nothing
+
+        ' Eliberare COM Access (pastrat pentru GetValoareLocala si alte utilizari)
         If _accessApp IsNot Nothing Then
             Try
-                ' Eliberam referinta COM
                 Marshal.ReleaseComObject(_accessApp)
-                TreeLogger.Debug("COM object Access eliberat cu succes.", "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Information)
-
+                TreeLogger.Debug("COM Access eliberat.", "CurataResurseSiIesi")
             Catch ex As Exception
-                ' Aceasta eroare e normala daca Access s-a inchis deja (RPC unavailable)
-                TreeLogger.Ex(ex, "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                TreeLogger.Ex(ex, "CurataResurseSiIesi")
             End Try
             _accessApp = Nothing
         End If
 
         GC.Collect()
         GC.Collect()
-
-        TreeLogger.Debug("Curățare resurse completă. Iesire din aplicatie.", "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        TreeLogger.Debug("Curatare resurse completa.", "CurataResurseSiIesi")
     End Sub
 
+    ' =============================================================
+    ' TRIMITERE MESAJ CATRE VBA PRIN PIPE
+    ' =============================================================
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        ' === HANDSHAKE: Dacă VBA nu e gata, punem în coadă ===
-        If Not _vbaReady Then
-            If _pendingMessages.Count = 0 Then
-                TreeLogger.Info($"VBA not ready — mesajele se pun în coadă (primul: {Action})", "TrimiteMesajAccess")
-                _handshakeStart = DateTime.Now
-            End If
+        ' === PIPE INDISPONIBIL: punem in coada ===
+        ' Scenariul: eveniment apare in fereastra inainte ca pipe-ul sa se conecteze.
+        ' Cand ConectarePipe reuseste, FlushPendingMessages trimite tot ce s-a acumulat.
+        If Not _pipeConnected Then
             Dim capturedAction As String = Action
             Dim capturedItem As AdvancedTreeControl.TreeItem = pItem
             Dim capturedExtra As String = ExtraInfo
             _pendingMessages.Enqueue(Sub() TrimiteMesajAccess(capturedAction, capturedItem, capturedExtra))
+            TreeLogger.Info($"Pipe not ready — queued: {Action}", "TrimiteMesajAccess")
             Return
         End If
 
-        ' === FLOW NORMAL ===
-        If pItem Is Nothing Then
-            If _accessApp IsNot Nothing Then
-                Try
-                    Me.BeginInvoke(Sub()
-                                       Try
-                                           If _formHwnd <> IntPtr.Zero Then
-                                               _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
-                                           End If
-                                       Catch comEx As Runtime.InteropServices.COMException
-                                           ' VBA ocupată — re-enqueue silențios cu retry
-                                           Dim retryTimer As New Timer With {.Interval = 100}
-                                           AddHandler retryTimer.Tick, Sub(s, ev)
-                                                                           retryTimer.Stop()
-                                                                           retryTimer.Dispose()
-                                                                           TrimiteMesajAccess(Action, Nothing, ExtraInfo)
-                                                                       End Sub
-                                           retryTimer.Start()
-                                       Catch ex As Exception
-                                           TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
-                                       End Try
-                                   End Sub)
-                Catch ex As Exception
-                    TreeLogger.Ex(ex, "TrimiteMesajAccess")
-                End Try
-            End If
-        Else
-            Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
-            Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
+        ' === FLOW NORMAL: scriere directa pe pipe ===
+        Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
+        Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
 
-            If _accessApp IsNot Nothing Then
-                Try
-                    Me.BeginInvoke(Sub()
-                                       Try
-                                           If _formHwnd <> IntPtr.Zero Then
-                                               _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
-                                           End If
-                                       Catch comEx As Runtime.InteropServices.COMException
-                                           Dim retryTimer As New Timer With {.Interval = 100}
-                                           AddHandler retryTimer.Tick, Sub(s, ev)
-                                                                           retryTimer.Stop()
-                                                                           retryTimer.Dispose()
-                                                                           TrimiteMesajAccess(Action, pItem, ExtraInfo)
-                                                                       End Sub
-                                           retryTimer.Start()
-                                       Catch ex As Exception
-                                           TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
-                                       End Try
-                                   End Sub)
-                Catch ex As Exception
-                    TreeLogger.Ex(ex, "TrimiteMesajAccess")
-                End Try
-            End If
-        End If
+        ' Format identic cu cel parsabil de DispatchTreeMessage din mdl_TreeControlers:
+        ' treeId||ACTION||nodeKey||nodeText||extraInfo
+        Dim msg As String = $"TREE@@{Action}||{nodeKey}||{nodeCaption}||{ExtraInfo}"
+
+        Try
+            PipeWrite(msg)
+            ' Fire & forget — nu mai blocam asteptand COM
+        Catch ex As IO.IOException
+            TreeLogger.Warn($"Pipe IO error in TrimiteMesajAccess: {ex.Message}", "TrimiteMesajAccess")
+            _pipeConnected = False
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "TrimiteMesajAccess")
+        End Try
     End Sub
 
     ' =============================================================
@@ -734,20 +702,20 @@ Partial Public Class Tree
     ' WNDPROC - INTERCEPTARE DISTRUGERE FORTATA
     ' =============================================================
     Protected Overrides Sub WndProc(ByRef m As Message)
-        Const WM_SETTEXT As Integer = &HC
+        'Const WM_SETTEXT As Integer = &HC
 
-        If m.Msg = WM_SETTEXT Then
-            ' 1. Citim mesajul venit din Access
-            Dim messageFromAccess As String = Marshal.PtrToStringAuto(m.LParam) ' Folosim Ansi pt ca VBA SendMessageA trimite Ansi
+        'If m.Msg = WM_SETTEXT Then
+        '    ' 1. Citim mesajul venit din Access
+        '    Dim messageFromAccess As String = Marshal.PtrToStringAuto(m.LParam) ' Folosim Ansi pt ca VBA SendMessageA trimite Ansi
 
-            ' 2. Procesăm comanda
-            If Not String.IsNullOrEmpty(messageFromAccess) Then
-                ' Verificăm dacă este o comandă complexă cu delimitator
-                If messageFromAccess.Contains("||") Then
-                    ProcesareComandaAccess(messageFromAccess)
-                End If
-            End If
-        End If
+        '    ' 2. Procesăm comanda
+        '    If Not String.IsNullOrEmpty(messageFromAccess) Then
+        '        ' Verificăm dacă este o comandă complexă cu delimitator
+        '        If messageFromAccess.Contains("||") Then
+        '            ProcesareComandaAccess(messageFromAccess)
+        '        End If
+        '    End If
+        'End If
 
         ' Interceptare distrugere
         If m.Msg = WM_DESTROY Then
