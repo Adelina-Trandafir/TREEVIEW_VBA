@@ -3,19 +3,8 @@ Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text
 
-' V.5.0 - 28.01.2026
-' Adugat LAZY LOADING pentru noduri
-' Adaugat Eveniment RightIconClicked
-' V.5.0 - 01.02.2026
-' Modificat checkbox si adaugat HasNodeIcons 
-' Activat timer monitorizare redimensionare
-' V.6.0 - 10.02.2026
-' Adaugat click in zona moarta a copacului => deschide / inchide nodul
-' V.7.0 - 12.02.2026
-' Adaugat functia de inchidere automata a popup-ului la click pe leaf
-
 Partial Public Class Tree
-    Private version As String = "7.0"
+    Private ReadOnly version As Single = CSng(Reflection.Assembly.GetExecutingAssembly().GetName().Version.Major)
     ' =============================================================
     ' INIT
     ' =============================================================
@@ -59,7 +48,7 @@ Partial Public Class Tree
             Dim args As String() = Environment.GetCommandLineArgs()
 
             If args.Length <= 1 And Not DEBUG_MODE Then
-                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", $"TreeView v{version}", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
@@ -105,15 +94,15 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(3803798) '################
+                _formHwnd = New IntPtr(789794) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(395282)
-                _idTree = "FX_MAIN_PLATI_RECEPTII" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\AVACONT\RES\tree_FX_MAIN_PLATI_RECEPTII.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(3409994)
+                _idTree = "EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\AVACONT\RES\tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
-                MessageBox.Show("EROARE: Parametrii de lansare invalizi!", $"Tree_Load ({version})", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Parametrii de lansare invalizi!", $"TreeView v{version}", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 #End If
@@ -222,6 +211,10 @@ Partial Public Class Tree
     ' =============================================================
     ' MOUSE EVENTS
     ' =============================================================
+    Private Sub MyTree_NodeDoubleClicked(pNode As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeDoubleClicked
+        If Not MyTree.IsPopupTree Then TrimiteMesajAccess("DblClick", pNode)
+    End Sub
+
     Private Sub MyTree_NodeMouseUp(pItem As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeMouseUp
         If e.Button = MouseButtons.Left Then
             TrimiteMesajAccess("Click", pItem)
@@ -440,4 +433,5 @@ Partial Public Class Tree
             _popupGraceTimer.Start()
         End If
     End Sub
+
 End Class

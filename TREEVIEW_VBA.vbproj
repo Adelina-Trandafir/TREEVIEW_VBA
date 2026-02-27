@@ -14,6 +14,11 @@
 		<ApplicationIcon>Gemini_Generated_Image_51otpx51otpx51ot.ico</ApplicationIcon>
 	</PropertyGroup>
 
+	<PropertyGroup>
+		<FileVersion>14.0.0.0</FileVersion>
+		<AssemblyVersion>14.0.0.0</AssemblyVersion>
+	</PropertyGroup>
+
 	<PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(PlatformTarget)' == 'x64' Or '$(RuntimeIdentifier)' == 'win-x64'">
 		<AssemblyName>TREEVIEW_VBA_64</AssemblyName>
 	</PropertyGroup>

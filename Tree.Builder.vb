@@ -1,5 +1,6 @@
 ﻿Imports System.Globalization
 Imports System.IO
+Imports System.Text.Json
 Imports System.Xml
 
 Partial Public Class Tree
@@ -53,6 +54,8 @@ Partial Public Class Tree
 
         Try
             Dim xDoc As New XmlDocument()
+            Dim cNodeKey = MyTree.SelectedNode?.Key
+
             xDoc.Load(filePath)
 
             MyTree.SuspendLayout()
@@ -81,6 +84,23 @@ Partial Public Class Tree
                 Next
             Else
                 MyTree.Refresh()
+            End If
+
+            'scroll la nodul activ dacă există
+            If cNodeKey <> "" Then
+                Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
+
+                ' Iterăm prin rădăcini pentru a găsi nodul (fix pentru eroarea cu 'root')
+                For Each rootItem In MyTree.Items
+                    foundNode = FindNodeByIdRecursive(rootItem, cNodeKey)
+                    If foundNode IsNot Nothing Then Exit For
+                Next
+
+                If foundNode IsNot Nothing Then
+                    MyTree.SelectedNode = foundNode
+                    foundNode.SetExpanded(True, True)
+                    ScrollToNode(foundNode)
+                End If
             End If
 
             MyTree.Invalidate()
@@ -134,6 +154,20 @@ Partial Public Class Tree
                 End Try
             End If
             TreeLogger.Perf("Config [2] BackColor", sw.ElapsedMilliseconds, "Config")
+
+            ' --- BorderColor ---
+            If cfg.Attributes("BorderColor") IsNot Nothing Then
+                Try
+                    Dim v As String = cfg.Attributes("BorderColor").Value
+                    If v.StartsWith("#"c) Then
+                        Dim c As Color = ColorTranslator.FromHtml(v)
+                        MyTree.BorderColor = c
+                    End If
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
+            End If
+            TreeLogger.Perf("Config [2] BorderColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- ForeColor ---
             If cfg.Attributes("ForeColor") IsNot Nothing Then
@@ -339,11 +373,16 @@ Partial Public Class Tree
                 newItem.Italic = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
             End If
 
+            If xNode.Attributes("HasCheckbox") IsNot Nothing Then
+                Dim valStr As String = xNode.Attributes("HasCheckbox").Value.Trim().ToLower()
+                newItem.HasCheckBox = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
+            End If
+
             If xNode.Attributes("ForeColor") IsNot Nothing Then
                 Dim colorVal As String = xNode.Attributes("ForeColor").Value.Trim()
                 If Not String.IsNullOrEmpty(colorVal) Then
                     Try
-                        If colorVal.StartsWith("#") Then
+                        If colorVal.StartsWith("#"c) Then
                             newItem.NodeForeColor = ColorTranslator.FromHtml(colorVal)
                         Else
                             newItem.NodeForeColor = Color.FromName(colorVal)
@@ -358,7 +397,7 @@ Partial Public Class Tree
                 Dim colorVal As String = xNode.Attributes("BackColor").Value.Trim()
                 If Not String.IsNullOrEmpty(colorVal) Then
                     Try
-                        If colorVal.StartsWith("#") Then
+                        If colorVal.StartsWith("#"c) Then
                             newItem.NodeBackColor = ColorTranslator.FromHtml(colorVal)
                         Else
                             newItem.NodeBackColor = Color.FromName(colorVal)

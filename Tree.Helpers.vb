@@ -212,7 +212,7 @@ Partial Public Class Tree
                         Next
 
                         If foundNode IsNot Nothing Then
-                            foundNode.Expanded = True
+                            foundNode.SetExpanded(True)
                             MyTree.Invalidate()
                         End If
                     End If
@@ -708,7 +708,6 @@ Partial Public Class Tree
             Catch : End Try
         End If
 
-        ' Linkare la părinte sau root
         If parentItem Is Nothing Then
             newItem.Level = 0
             MyTree.Items.Add(newItem)
@@ -726,7 +725,6 @@ Partial Public Class Tree
         End If
     End Sub
 
-    ' Aceasta înlocuiește SetupEvents și OnRequestLazyLoad-ul anterior
     Private Sub MyTree_RequestLazyLoad(sender As Object, item As AdvancedTreeControl.TreeItem) Handles MyTree.RequestLazyLoad
         ' Trimitem cererea la VBA: "BEFORE_EXPAND||NodeID"
         TrimiteMesajAccess("BEFORE_EXPAND", item)

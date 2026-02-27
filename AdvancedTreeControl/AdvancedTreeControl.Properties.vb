@@ -19,7 +19,7 @@
     Public SelectedBorderColor As Color = Color.FromArgb(150, 180, 255)
 
     ' Tooltip
-    Public TooltipDelayMs As Integer = 600
+    Public TooltipDelayMs As Integer = 1000
 
     Private _checkBoxSize As Integer = 16
     Public Property CheckBoxSize As Integer
@@ -144,6 +144,17 @@
         End Get
         Set(value As Integer)
             _radioButtonLevel = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private m_BorderColor As Color = Color.Transparent
+    Public Property BorderColor As Color
+        Get
+            Return m_BorderColor
+        End Get
+        Set(value As Color)
+            m_BorderColor = value
             Me.Invalidate()
         End Set
     End Property

@@ -153,6 +153,11 @@ Partial Public Class AdvancedTreeControl
 
             g.SmoothingMode = oldSmoothing
             xBase += chkSize + PADDING_CHECKBOX_GAP
+        ElseIf Me.CheckBoxes Then 'copacul are checkbox-uri, dar nodul curent nu are → decalăm conținutul în continuare pentru aliniarea textului
+            'Dim chkSize As Integer = _checkBoxSize
+
+            'xBase += chkSize + PADDING_CHECKBOX_GAP
+
         End If
 
         ' -- [PASUL 4] CALCUL CONȚINUT (Icon + Caption) --

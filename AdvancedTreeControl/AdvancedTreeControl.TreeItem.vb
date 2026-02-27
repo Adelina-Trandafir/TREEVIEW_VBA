@@ -18,6 +18,7 @@
         Public IsLoader As Boolean = False
         Public IsRadioSelected As Boolean = False
         Public Tooltip As String = ""   ' ControlTipText din VBA - apare ÎNTOTDEAUNA dacă e setat
+        Public HasCheckBox As Boolean = False
 
         Private _tag As Object
 
@@ -44,5 +45,17 @@
                 _tag = value
             End Set
         End Property
+
+        Public Sub SetExpanded(value As Boolean, Optional expandParent As Boolean = False)
+            Expanded = value
+
+            If value AndAlso expandParent Then
+                Dim p = Parent
+                While p IsNot Nothing
+                    If Not p.Expanded Then p.Expanded = True
+                    p = p.Parent
+                End While
+            End If
+        End Sub
     End Class
 End Class

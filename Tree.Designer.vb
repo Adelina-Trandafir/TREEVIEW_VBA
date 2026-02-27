@@ -30,7 +30,7 @@ Partial Class Tree
         ClientSize = New Size(391, 313)
         DoubleBuffered = True
         Name = "Tree"
-        Text = "Form1"
+        Text = "TreeView"
         ResumeLayout(False)
     End Sub
 

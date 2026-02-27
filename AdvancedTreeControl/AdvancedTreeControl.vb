@@ -174,7 +174,7 @@ Partial Public Class AdvancedTreeControl
             Dim radioAnc As TreeItem = GetRadioAncestor(it)
             Return radioAnc IsNot Nothing AndAlso radioAnc.IsRadioSelected
         Else
-            Return _checkBoxes                                                    ' mod normal
+            Return _checkBoxes And it.HasCheckBox                                               ' mod normal
         End If
     End Function
 

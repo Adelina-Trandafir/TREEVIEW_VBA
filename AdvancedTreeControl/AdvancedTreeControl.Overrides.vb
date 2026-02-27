@@ -37,6 +37,13 @@ Partial Public Class AdvancedTreeControl
                 e.Graphics.FillRectangle(brush, Me.ClientRectangle)
             End Using
         End If
+
+        ' --- DESENARE BORDER COPAC (Dacă e cazul) ---
+        If Me.BorderColor <> Color.Transparent Then
+            Using pen As New Pen(Me.BorderColor, 1)
+                e.Graphics.DrawRectangle(pen, 1, 1, Me.Width - 1, Me.Height - 1)
+            End Using
+        End If
     End Sub
 
     ' ======================================================
@@ -307,7 +314,9 @@ Partial Public Class AdvancedTreeControl
             it.Expanded = Not it.Expanded
             Me.Invalidate()
         End If
-        RaiseEvent NodeDoubleClicked(it, e)
+
+        ' Nu triggerează dublu click dacă e în zona moartă sau pe expander, dar dacă e dublu click pe text/icon, atunci da:
+        If Not Me.IsPopupTree Then RaiseEvent NodeDoubleClicked(it, e)
     End Sub
 
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
