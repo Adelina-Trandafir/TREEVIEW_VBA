@@ -8,42 +8,74 @@ Partial Public Class AdvancedTreeControl
             it.Expanded = True
         End If
 
+        ' 0.
+        If Me.ExpanderSize Mod 2 <> 0 Then Me.ExpanderSize = Me.ExpanderSize - 1
+        If Me.ItemHeight Mod 2 <> 0 Then Me.ItemHeight = Me.ItemHeight - 1
+
         ' 1. Punctul de start al grilei pentru nivelul curent (linia din stânga a nivelului)
         Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
         ' 2. Expander-ul este centrat în coloana de indentare
         Dim expanderCenterX As Integer = gridLeft + (Indent \ 2)
         Dim midY As Integer = y + (ItemHeight \ 2)
-        Dim expanderRect As New Rectangle(expanderCenterX - (ExpanderSize \ 2), midY - (ExpanderSize \ 2), ExpanderSize, ExpanderSize)
+        Dim expanderRect As New Rectangle(
+                                        expanderCenterX - (ExpanderSize \ 2),
+                                        midY - (ExpanderSize \ 2),
+                                        ExpanderSize,
+                                        ExpanderSize)
 
         ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
         ' Aici se aplică distanțarea cerută
-        Dim xBase As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
+        Dim xBase As Integer
+        If it.Level = 0 AndAlso Not _rootButton Then
+            xBase = gridLeft
+        Else
+            xBase = gridLeft + Indent + PADDING_EXPANDER_GAP
+        End If
 
         ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
         ' Calculăm selecția să înceapă de la limita vizuală a nivelului
-        Dim selStartX As Integer = gridLeft + ExpanderSize * 2 + 2 ' +2 ca să nu acoperim linia punctată a părintelui
-        Dim selWidth As Integer = Me.ClientSize.Width - selStartX
+        Dim selStartX As Integer
+        If it.Level = 0 AndAlso Not _rootButton Then
+            selStartX = gridLeft   ' Fără offset de expander
+        Else
+            selStartX = gridLeft + ExpanderSize * 2 - 1
+        End If
+        Dim selWidth As Integer = Me.ClientSize.Width - selStartX - PADDING_TREE_END
         If selWidth < 0 Then selWidth = 0
 
         Dim fullRowRect As New Rectangle(selStartX, y, selWidth, ItemHeight)
 
+        Dim oldSmooth = g.SmoothingMode
+        g.SmoothingMode = SmoothingMode.AntiAlias
+
         If it Is pSelectedItem Then
-            Using brush As New SolidBrush(SelectedBackColor)
-                g.FillRectangle(brush, fullRowRect)
-            End Using
-            Using pen As New Pen(SelectedBorderColor)
-                Dim borderRect As New Rectangle(selStartX, y, selWidth - 1, ItemHeight - 1)
-                g.DrawRectangle(pen, borderRect)
+            Using path As GraphicsPath = GetRoundedRect(fullRowRect, SELECTION_CORNER_RADIUS)
+                Using brush As New SolidBrush(SelectedBackColor)
+                    g.FillPath(brush, path)
+                End Using
+                Using pen As New Pen(SelectedBorderColor)
+                    ' Border-ul trebuie inset cu 1px pentru a nu ieși din path
+                    Dim borderRect As New Rectangle(fullRowRect.X, fullRowRect.Y, fullRowRect.Width - 1, fullRowRect.Height - 1)
+                    Using borderPath As GraphicsPath = GetRoundedRect(borderRect, SELECTION_CORNER_RADIUS)
+                        g.DrawPath(pen, borderPath)
+                    End Using
+                End Using
             End Using
         ElseIf it Is pHoveredItem Then
-            Using brush As New SolidBrush(HoverBackColor)
-                g.FillRectangle(brush, fullRowRect)
+            Using path As GraphicsPath = GetRoundedRect(fullRowRect, SELECTION_CORNER_RADIUS)
+                Using brush As New SolidBrush(HoverBackColor)
+                    g.FillPath(brush, path)
+                End Using
             End Using
         End If
 
+        g.SmoothingMode = oldSmooth
+
         ' -- [PASUL 2] LINII (TREE LINES) --
-        DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
+        If Not (it.Level = 0 AndAlso Not _rootButton) Then
+            DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
+        End If
 
         ' === LOGICĂ DESENARE LOADER (REVIZUITĂ) ===
         If it.IsLoader Then
@@ -196,7 +228,7 @@ Partial Public Class AdvancedTreeControl
         Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
 
         ' Limita din dreapta a controlului (minus padding 6px)
-        Dim maxRightX As Integer = Me.Width - 6 - scrollW
+        Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
 
         ' Dacă există RightIcon, limita se mută mai la stânga (lățime icon + încă 6px padding)
         If it.RightIcon IsNot Nothing Then
@@ -252,50 +284,75 @@ Partial Public Class AdvancedTreeControl
         ' -- [PASUL 7] ICONIȚĂ DREAPTA --
         If it.RightIcon IsNot Nothing Then
             ' Recalculăm poziția exact cum am calculat limita mai sus
-            Dim rx As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+            Dim rx As Integer = Me.Width - RightIconSize.Width - 6 - PADDING_TREE_END - scrollW
             Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
             g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
         End If
     End Sub
 
-    ' Am adăugat parametrul 'gridLeft' pentru a nu-l recalcula degeaba
     Private Sub DrawTreeLines(g As Graphics, it As TreeItem, y As Integer, expCenterX As Integer, midY As Integer, currentGridLeft As Integer)
+
         Using p As New Pen(LineColor)
             p.DashStyle = DashStyle.Dot
 
-            ' 1. Linia Orizontală (Expander -> Conținut)
-            Dim startH As Integer = expCenterX + (ExpanderSize \ 2) + 2
-            If it.Children.Count = 0 Then startH = expCenterX
+            ' ------------------------------------------------------------------
+            ' PASUL 0. TRUNCHI JOS (din expander spre primul copil)
+            '    Desenat pe COLOANA NODULUI CURENT (expCenterX).
+            '    Acoperă golul din rândul părintelui: de la baza expanderului
+            '    până la marginea de jos a rândului curent.
+            '    Condiție: nodul are copii vizibili (expanded).
+            '    Expanderul (white fill) se desenează DUPĂ în Pasul 5 → îl acoperă.
+            ' ------------------------------------------------------------------
+            If (it.Children.Count > 0 OrElse it.LazyNode) AndAlso it.Expanded Then
+                Dim trunkStartY As Integer = midY + (ExpanderSize \ 2) + 1  ' imediat sub expander
+                Dim trunkEndY As Integer = y + ItemHeight                  ' baza rândului curent
+                If trunkStartY < trunkEndY Then
+                    g.DrawLine(p, expCenterX, trunkStartY, expCenterX, trunkEndY)
+                End If
+            End If
 
-            ' Linia se duce până unde începe conținutul (xBase) minus 2 pixeli
-            Dim endH As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP - 2
-            g.DrawLine(p, startH, midY, endH, midY)
+            ' Nodurile root fără _rootButton nu au trunchi ascendent → ieșim
+            If it.Level = 0 Then Return
 
-            ' 2. Linia Verticală Sus
+            ' X-ul trunchiului vertical = coloana expanderului PĂRINTELUI
+            Dim parentColX As Integer = ((it.Level - 1) * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START + (Indent \ 2)
+
+            ' Capătul drept al liniei orizontale = imediat înainte de conținut
+            Dim hLineEnd As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP - TREE_LINE_H_MARGIN
+
+            ' ------------------------------------------------------------------
+            ' 1. LINIA ORIZONTALĂ — de la trunchiul părintelui → înainte de conținut
+            ' ------------------------------------------------------------------
+            g.DrawLine(p, parentColX, midY, hLineEnd, midY)
+
+            ' ------------------------------------------------------------------
+            ' 2. LINIA VERTICALĂ SUS — jumătatea superioară a rândului curent
+            ' ------------------------------------------------------------------
             If it.Parent IsNot Nothing Then
-                g.DrawLine(p, expCenterX, y, expCenterX, midY)
+                g.DrawLine(p, parentColX, y, parentColX, midY)
             End If
 
-            ' 3. Linia Verticală Jos
+            ' ------------------------------------------------------------------
+            ' 3. LINIA VERTICALĂ JOS — jumătatea inferioară (dacă urmează un frate)
+            ' ------------------------------------------------------------------
             If it.Parent IsNot Nothing AndAlso Not it.IsLastSibling Then
-                g.DrawLine(p, expCenterX, midY, expCenterX, y + ItemHeight)
+                g.DrawLine(p, parentColX, midY, parentColX, y + ItemHeight)
             End If
 
-            ' 4. Liniile Strămoșilor
+            ' ------------------------------------------------------------------
+            ' 4. LINIILE VERTICALE ALE STRĂMOȘILOR (continuare trunchi prin rând)
+            ' ------------------------------------------------------------------
             Dim ancestor As TreeItem = it.Parent
-            While ancestor IsNot Nothing
-                If ancestor.Parent IsNot Nothing AndAlso Not ancestor.IsLastSibling Then
-                    ' Recalculăm poziția pentru nivelul strămoșului folosind constantele
-                    Dim ancGridLeft As Integer = (ancestor.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
-                    Dim ancExpCenterX As Integer = ancGridLeft + (Indent \ 2)
-
-                    g.DrawLine(p, ancExpCenterX, y, ancExpCenterX, y + ItemHeight)
+            While ancestor IsNot Nothing AndAlso ancestor.Parent IsNot Nothing
+                If Not ancestor.IsLastSibling Then
+                    Dim ancParentColX As Integer = ((ancestor.Level - 1) * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START + (Indent \ 2)
+                    g.DrawLine(p, ancParentColX, y, ancParentColX, y + ItemHeight)
                 End If
                 ancestor = ancestor.Parent
             End While
+
         End Using
     End Sub
-
     ' =================================================================================
     ' SUPORT RICH TEXT (BOLD, ITALIC, COLOR)
     ' =================================================================================

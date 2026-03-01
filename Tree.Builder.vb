@@ -133,6 +133,8 @@ Partial Public Class Tree
                     Else
                         MyTree.treeID = tId
                     End If
+
+                    TreeLogger.Debug(Space(5) & $"treeID xml='{tId}' control='{MyTree.treeID}'", "AplicareConfigurare")
                 Else
                     TreeLogger.Err("EROARE: Atributul 'treeId' nu poate fi gol în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Application.Exit()
@@ -141,19 +143,20 @@ Partial Public Class Tree
                 TreeLogger.Err("EROARE: Atributul 'treeId' este obligatoriu în configurație.", "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Application.Exit()
             End If
-            TreeLogger.Perf("Config [1] treeID", sw.ElapsedMilliseconds, "Config")
 
             ' --- BackColor ---
             If cfg.Attributes("BackColor") IsNot Nothing Then
                 Try
-                    Dim c As Color = ColorTranslator.FromHtml(cfg.Attributes("BackColor").Value)
+                    Dim xmlVal = cfg.Attributes("BackColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
                     MyTree.BackColor = c
                     Me.BackColor = c
+
+                    TreeLogger.Debug(Space(5) & $"BackColor xml='{xmlVal}' control='{MyTree.BackColor}'", "AplicareConfigurare")
                 Catch ex As Exception
                     TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
-            TreeLogger.Perf("Config [2] BackColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- BorderColor ---
             If cfg.Attributes("BorderColor") IsNot Nothing Then
@@ -162,38 +165,46 @@ Partial Public Class Tree
                     If v.StartsWith("#"c) Then
                         Dim c As Color = ColorTranslator.FromHtml(v)
                         MyTree.BorderColor = c
+                        TreeLogger.Debug(Space(5) & $"BorderColor xml='{v}' control='{MyTree.BorderColor}'", "AplicareConfigurare")
                     End If
                 Catch ex As Exception
                     TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
-            TreeLogger.Perf("Config [2] BorderColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- ForeColor ---
             If cfg.Attributes("ForeColor") IsNot Nothing Then
                 Try
-                    Dim c As Color = ColorTranslator.FromHtml(cfg.Attributes("ForeColor").Value)
+                    Dim xmlVal = cfg.Attributes("ForeColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
                     MyTree.ForeColor = c
+                    TreeLogger.Debug(Space(5) & $"ForeColor xml='{xmlVal}' control='{MyTree.ForeColor}'", "AplicareConfigurare")
                 Catch ex As Exception
                     TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 End Try
             End If
-            TreeLogger.Perf("Config [3] ForeColor", sw.ElapsedMilliseconds, "Config")
 
             ' --- RadioButtonLevel ---
             If cfg.Attributes("RadioButtonLevel") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("RadioButtonLevel").Value
                 Dim v As Integer = -1
-                Dim parsed = Integer.TryParse(cfg.Attributes("RadioButtonLevel").Value, v)
-                If parsed Then MyTree.RadioButtonLevel = v
+                Dim parsed = Integer.TryParse(xmlVal, v)
+                If parsed Then
+                    MyTree.RadioButtonLevel = v
+                    TreeLogger.Debug(Space(5) & $"RadioButtonLevel xml='{xmlVal}' control='{MyTree.RadioButtonLevel}'", "AplicareConfigurare")
+                End If
             End If
 
-            ' --- Checkboxes (doar daca nu are RadioButton ---
+            ' --- Checkboxes ---
             If MyTree.RadioButtonLevel = -1 AndAlso cfg.Attributes("CheckBoxes") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("CheckBoxes").Value
                 Dim v As Integer = 0
-                Dim parsed = Integer.TryParse(cfg.Attributes("CheckBoxes").Value, v)
-                If parsed Then MyTree.CheckBoxes = v = 1
+                Dim parsed = Integer.TryParse(xmlVal, v)
+                If parsed Then
+                    MyTree.CheckBoxes = v = 1
+                    TreeLogger.Debug(Space(5) & $"CheckBoxes xml='{xmlVal}' control='{MyTree.CheckBoxes}'", "AplicareConfigurare")
+                End If
             End If
-            TreeLogger.Perf("Config [4] CheckBoxes", sw.ElapsedMilliseconds, "Config")
 
             ' --- Font ---
             Dim fName As String = "Segoe UI"
@@ -202,83 +213,136 @@ Partial Public Class Tree
                 fName = MyTree.Font.Name
                 fSize = MyTree.Font.Size
             End If
-            If cfg.Attributes("FontName") IsNot Nothing Then fName = cfg.Attributes("FontName").Value
-            If cfg.Attributes("FontSize") IsNot Nothing Then
-                Single.TryParse(cfg.Attributes("FontSize").Value, NumberStyles.Any, culture, fSize)
+
+            Dim xmlFontName As String = Nothing
+            Dim xmlFontSize As String = Nothing
+
+            If cfg.Attributes("FontName") IsNot Nothing Then
+                xmlFontName = cfg.Attributes("FontName").Value
+                fName = xmlFontName
             End If
-            TreeLogger.Perf("Config [5] Pre-Font", sw.ElapsedMilliseconds, "Config")
+
+            If cfg.Attributes("FontSize") IsNot Nothing Then
+                xmlFontSize = cfg.Attributes("FontSize").Value
+                Single.TryParse(xmlFontSize, NumberStyles.Any, culture, fSize)
+            End If
+
             MyTree.Font = New Font(fName, fSize)
-            TreeLogger.Perf("Config [6] Post-Font", sw.ElapsedMilliseconds, "Config")
+
+            TreeLogger.Debug(Space(5) &
+            $"Font xmlName='{xmlFontName}' xmlSize='{xmlFontSize}' control='{MyTree.Font.Name} {MyTree.Font.Size}pt'",
+            "AplicareConfigurare")
 
             ' --- ItemHeight ---
             If cfg.Attributes("ItemHeight") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("ItemHeight").Value
                 Dim ih As Integer = 22
-                Dim v = Integer.TryParse(cfg.Attributes("ItemHeight").Value, ih)
-                If ih > 0 Then MyTree.ItemHeight = ih
+                Dim v = Integer.TryParse(xmlVal, ih)
+                If ih > 0 Then
+                    MyTree.ItemHeight = ih
+                    TreeLogger.Debug(Space(5) & $"ItemHeight xml='{xmlVal}' control='{MyTree.ItemHeight}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [7] După ItemHeight: {sw.ElapsedMilliseconds}ms")
 
-            ' --- NodeIcons ---
+            ' --- HasNodeIcons ---
             If cfg.Attributes("HasNodeIcons") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("HasNodeIcons").Value
                 Dim v As Integer = 0
-                Dim parsed = Integer.TryParse(cfg.Attributes("HasNodeIcons").Value, v)
-                If parsed Then MyTree.HasNodeIcons = v = 1
+                Dim parsed = Integer.TryParse(xmlVal, v)
+                If parsed Then
+                    MyTree.HasNodeIcons = v = 1
+                    TreeLogger.Debug(Space(5) & $"HasNodeIcons xml='{xmlVal}' control='{MyTree.HasNodeIcons}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [8] După HasNodeIcons: {sw.ElapsedMilliseconds}ms")
 
             ' --- PopupTree ---
             If cfg.Attributes("PopupTree") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("PopupTree").Value
                 Dim v As Integer = 0
-                Dim parsed = Integer.TryParse(cfg.Attributes("PopupTree").Value, v)
-                If parsed Then MyTree.IsPopupTree = v = 1
+                Dim parsed = Integer.TryParse(xmlVal, v)
+                If parsed Then
+                    MyTree.IsPopupTree = v = 1
+                    TreeLogger.Debug(Space(5) & $"PopupTree xml='{xmlVal}' control='{MyTree.IsPopupTree}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [9] După PopupTree: {sw.ElapsedMilliseconds}ms")
 
-            ' === LeftIconHeight ===
+            ' --- LeftIconHeight ---
             If cfg.Attributes("LeftIconHeight") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("LeftIconHeight").Value
                 Dim lih As Integer = 16
-                Dim v = Integer.TryParse(cfg.Attributes("LeftIconHeight").Value, lih)
-                If lih > 0 Then MyTree.LeftIconSize = New Size(lih, lih)
+                Dim v = Integer.TryParse(xmlVal, lih)
+                If lih > 0 Then
+                    MyTree.LeftIconSize = New Size(lih, lih)
+                    TreeLogger.Debug(Space(5) & $"LeftIconHeight xml='{xmlVal}' control='{MyTree.LeftIconSize}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [10] După LeftIconSize: {sw.ElapsedMilliseconds}ms")
 
-            ' === RightIconHeight ===
+            ' --- RightIconHeight ---
             If cfg.Attributes("RightIconHeight") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("RightIconHeight").Value
                 Dim rih As Integer = 16
-                Dim v = Integer.TryParse(cfg.Attributes("RightIconHeight").Value, rih)
-                If rih > 0 Then MyTree.RightIconSize = New Size(rih, rih)
+                Dim v = Integer.TryParse(xmlVal, rih)
+                If rih > 0 Then
+                    MyTree.RightIconSize = New Size(rih, rih)
+                    TreeLogger.Debug(Space(5) & $"RightIconHeight xml='{xmlVal}' control='{MyTree.RightIconSize}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [11] După RightIconSize: {sw.ElapsedMilliseconds}ms")
 
             ' --- CheckboxSize ---
             If cfg.Attributes("CheckboxSize") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("CheckboxSize").Value
                 Dim cs As Integer = 16
-                Dim v = Integer.TryParse(cfg.Attributes("CheckboxSize").Value, cs)
-                If cs > 0 Then MyTree.CheckBoxSize = cs
+                Dim v = Integer.TryParse(xmlVal, cs)
+                If cs > 0 Then
+                    MyTree.CheckBoxSize = cs
+                    TreeLogger.Debug(Space(5) & $"CheckboxSize xml='{xmlVal}' control='{MyTree.CheckBoxSize}'", "AplicareConfigurare")
+                End If
             End If
-            'debug.WriteLine($"  [12] După CheckboxSize: {sw.ElapsedMilliseconds}ms")
 
             ' --- RightClickFunc ---
             If cfg.Attributes("RightClickFunc") IsNot Nothing Then
-                Dim rcFunc As String = cfg.Attributes("RightClickFunc").Value
-                MyTree.RightClickFunction = rcFunc
+                Dim xmlVal As String = cfg.Attributes("RightClickFunc").Value
+                MyTree.RightClickFunction = xmlVal
+                TreeLogger.Debug(Space(5) & $"RightClickFunc xml='{xmlVal}' control='{MyTree.RightClickFunction}'", "AplicareConfigurare")
             End If
-            'debug.WriteLine($"  [13] FINAL: {sw.ElapsedMilliseconds}ms")
+
+            ' --- Indent ---
+            If cfg.Attributes("Indent") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("Indent").Value
+                Dim indentVal As Integer = 20
+                Dim v = Integer.TryParse(xmlVal, indentVal)
+                If indentVal >= 0 Then
+                    MyTree.Indent = indentVal
+                    TreeLogger.Debug(Space(5) & $"Indent xml='{xmlVal}' control='{MyTree.Indent}'", "AplicareConfigurare")
+                End If
+            End If
+
+            ' --- ExpanderSize ---
+            If cfg.Attributes("ExpanderSize") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("ExpanderSize").Value
+                Dim expSize As Integer = 12
+                Dim v = Integer.TryParse(xmlVal, expSize)
+                If expSize >= 0 Then
+                    MyTree.ExpanderSize = expSize
+                    TreeLogger.Debug(Space(5) & $"ExpanderSize xml='{xmlVal}' control='{MyTree.ExpanderSize}'", "AplicareConfigurare")
+                End If
+            End If
+
+            ' --- RootButton ---
+            If cfg.Attributes("RootButton") IsNot Nothing Then
+                Dim xmlVal = cfg.Attributes("RootButton").Value
+                Dim v As Integer = 0
+                Dim parsed = Integer.TryParse(xmlVal, v)
+                If parsed Then
+                    MyTree.RootButton = v = 1
+                    TreeLogger.Debug(Space(5) & $"RootButton xml='{xmlVal}' control='{MyTree.RootButton}'", "AplicareConfigurare")
+                End If
+            End If
 
             TreeLogger.Info($"Configurare aplicată cu succes în {sw.ElapsedMilliseconds}ms", "AplicareConfigurare")
-            TreeLogger.Debug("Proprietatile configurate: " &
-                System.Environment.NewLine & Space(5) & $"treeID={MyTree.treeID}, " &
-                System.Environment.NewLine & Space(5) & $"BackColor={MyTree.BackColor}, " &
-                System.Environment.NewLine & Space(5) & $"ForeColor={MyTree.ForeColor}, " &
-                System.Environment.NewLine & Space(5) & $"CheckBoxes={MyTree.CheckBoxes}, " &
-                System.Environment.NewLine & Space(5) & $"Font={MyTree.Font.Name} {MyTree.Font.Size}pt, " &
-                System.Environment.NewLine & Space(5) & $"ItemHeight={MyTree.ItemHeight}, " &
-                System.Environment.NewLine & Space(5) & $"HasNodeIcons={MyTree.HasNodeIcons}, " &
-                System.Environment.NewLine & Space(5) & $"PopupTree={MyTree.IsPopupTree}, " &
-                System.Environment.NewLine & Space(5) & $"LeftIconSize={MyTree.LeftIconSize}, " &
-                System.Environment.NewLine & Space(5) & $"RightIconSize={MyTree.RightIconSize}, " &
-                System.Environment.NewLine & Space(5) & $"CheckBoxSize={MyTree.CheckBoxSize}", "AplicareConfigurare")
+
             Return True
+
         Catch ex As Exception
             TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
@@ -411,7 +475,7 @@ Partial Public Class Tree
                 AddXmlNodeToTree(childNode, newItem)
             Next
 
-            'TreeLogger.Debug($"AddXmlNodeToTree - Adăugat nod: '{nodeCaption}' cu key='{nodeKey}' sub parent='{If(parentItem IsNot Nothing, parentItem.Caption, "ROOT")}'", "AddXmlNodeToTree")
+            'TreeLogger.Debug($"AddXmlNodeToTree - Adăugat nod '{nodeCaption}' cu key='{nodeKey}' sub parent='{If(parentItem IsNot Nothing, parentItem.Caption, "ROOT")}'", "AddXmlNodeToTree")
         Catch ex As Exception
             TreeLogger.Ex(ex, "AddXmlNodeToTree", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try

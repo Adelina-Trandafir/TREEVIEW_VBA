@@ -14,11 +14,11 @@ Partial Public Class AdvancedTreeControl
         e.Graphics.SmoothingMode = SmoothingMode.None
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
-        Dim y As Integer = Me.AutoScrollPosition.Y
+        Dim y As Integer = Me.AutoScrollPosition.Y + PADDING_TREE_TOP
         Dim visibleItems = GetVisibleItems()
 
         ' Ajustăm scrollbar-ul virtual
-        Me.AutoScrollMinSize = New Size(0, visibleItems.Count * ItemHeight)
+        Me.AutoScrollMinSize = New Size(0, visibleItems.Count * ItemHeight + PADDING_TREE_TOP)
 
         For Each it In visibleItems
             ' Desenăm doar ce este vizibil pe ecran (Clipping manual pentru performanță)

@@ -5,8 +5,6 @@
         Indeterminate = 2   ' Parțial bifat (pătrățel plin sau liniuță)
     End Enum
 
-    Public Indent As Integer = 20
-    Public ExpanderSize As Integer = 12
     Public treeID As String
 
     ' Nodes
@@ -20,6 +18,28 @@
 
     ' Tooltip
     Public TooltipDelayMs As Integer = 1000
+
+    Private m_ExpanderSize As Integer = 12
+    Public Property ExpanderSize As Integer
+        Get
+            Return m_ExpanderSize
+        End Get
+        Set(value As Integer)
+            m_ExpanderSize = value
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
+        End Set
+    End Property
+
+    Private m_Indent As Integer = 20
+    Public Property Indent As Integer
+        Get
+            Return m_Indent
+        End Get
+        Set(value As Integer)
+            m_Indent = value
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă setarea
+        End Set
+    End Property
 
     Private _checkBoxSize As Integer = 16
     Public Property CheckBoxSize As Integer

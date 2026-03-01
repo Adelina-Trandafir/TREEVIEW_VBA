@@ -94,11 +94,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(789794) '################
+                _formHwnd = New IntPtr(4655758) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(3409994)
-                _idTree = "EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\AVACONT\RES\tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(1181338)
+                _idTree = "frmFX_MAIN" '"EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\AVACONT\RES\tree_frmFX_MAIN.xml" 'tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -170,6 +170,10 @@ Partial Public Class Tree
             _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
             _MonitorTimer.Start()
 
+#If DEBUG Then
+            Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
+            OnVbaReady(prop)
+#Else
             ' Poll timer: verifică dacă VBA a pus SetProp("VBA_READY") pe _formHwnd
             _readyPollTimer = New Timer With {.Interval = 30}
             AddHandler _readyPollTimer.Tick, Sub(s, ev)
@@ -197,11 +201,13 @@ Partial Public Class Tree
                                                      _readyPollTimer.Dispose()
                                                      _readyPollTimer = Nothing
                                                      TreeLogger.Info($">>> VBA a confirmat că e ready {_idTree}!", "ReadyPoll")
-                                                     RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
+                                                     'RemoveProp(_formHwnd, "VBA_READY_" & _idTree)
                                                      OnVbaReady(prop)
                                                  End If
                                              End Sub
             _readyPollTimer.Start()
+
+#End If
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "Tree_Load")

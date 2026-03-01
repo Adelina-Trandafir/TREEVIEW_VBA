@@ -21,11 +21,24 @@ Partial Public Class AdvancedTreeControl
     Private _pendingMouseArgs As MouseEventArgs = Nothing
 
     ' Marginea globală din stânga a întregului arbore (să nu fie lipit de margine)
-    Private Const PADDING_TREE_START As Integer = 5
+    Private Const PADDING_TREE_START As Integer = 10
+
+    ' Marginea globală din VÂRFUL arborelui (spațiu înainte de primul nod)
+    Private Const PADDING_TREE_TOP As Integer = 5
+
+    ' Marginea globală din DREAPTA a întregului arbore
+    Private Const PADDING_TREE_END As Integer = 5
+
+    ' Raza colțurilor pentru selecție și hover
+    Private Const SELECTION_CORNER_RADIUS As Integer = 3
 
     ' SPAȚIUL DINTRE EXPANDER/LINIE ȘI CONȚINUT (Checkbox sau Icon)
     ' Mărește această valoare pentru a depărta bifa de liniile punctate!
     Private Const PADDING_EXPANDER_GAP As Integer = 12
+
+    ' Spațiu dintre capătul liniei orizontale și conținut (Checkbox/Icon)
+    ' Mărind această valoare, linia se oprește mai devreme față de conținut
+    Private Const TREE_LINE_H_MARGIN As Integer = 4
 
     ' Spațiu între Checkbox și următorul element (Icon/Text)
     Private Const PADDING_CHECKBOX_GAP As Integer = 8
@@ -108,7 +121,7 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     Private Function HitTestItem(p As Point) As TreeItem
-        Dim yRel = p.Y - Me.AutoScrollPosition.Y
+        Dim yRel = p.Y - Me.AutoScrollPosition.Y - PADDING_TREE_TOP
         Dim idx As Integer = yRel \ ItemHeight
         Dim visible = GetVisibleItems()
         If idx < 0 OrElse idx >= visible.Count Then Return Nothing
@@ -119,14 +132,17 @@ Partial Public Class AdvancedTreeControl
         If Not NodeHasCheckControl(it) Then Return Rectangle.Empty
 
         Dim y As Integer = GetItemY(it)
-        If y = -1 Then Return Rectangle.Empty ' Item invizibil
+        If y = -1 Then Return Rectangle.Empty
 
-        ' --- ACTUALIZARE LOGICĂ POZIȚIONARE ---
-        ' 1. Punctul de start al grilei (același ca la DrawItem)
         Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
-        ' 2. Checkbox-ul începe după Indent + PADDING_EXPANDER_GAP
-        Dim xChk As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
+        ' Level=0 fără RootButton → checkbox direct de la gridLeft (fără Indent/Expander gap)
+        Dim xChk As Integer
+        If it.Level = 0 AndAlso Not _rootButton Then
+            xChk = gridLeft
+        Else
+            xChk = gridLeft + Indent + PADDING_EXPANDER_GAP
+        End If
 
         Dim midY As Integer = y + (ItemHeight \ 2)
         Dim chkSize As Integer = _checkBoxSize
@@ -270,7 +286,13 @@ Partial Public Class AdvancedTreeControl
 
             ' 2. Calculăm poziția curentă X (cursorul virtual de desenare)
             '    Pornim de la zona de după Expander
-            Dim currentX As Integer = gridLeft + Indent + PADDING_EXPANDER_GAP
+            ' Level=0 fără RootButton → pornim direct de la gridLeft
+            Dim currentX As Integer
+            If it.Level = 0 AndAlso Not _rootButton Then
+                currentX = gridLeft
+            Else
+                currentX = gridLeft + Indent + PADDING_EXPANDER_GAP
+            End If
 
             ' 3. Adăugăm lățimea Checkbox-ului + Spațiul de după el (dacă e activ)
             If NodeHasCheckControl(it) Then
