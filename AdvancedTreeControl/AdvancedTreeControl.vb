@@ -168,7 +168,7 @@ Partial Public Class AdvancedTreeControl
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
-        Return Me.AutoScrollPosition.Y + idx * ItemHeight
+        Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + idx * ItemHeight  ' ← adăugat PADDING_TREE_TOP
     End Function
 
     ' Găsește ancestorul de pe RadioButtonLevel al unui nod

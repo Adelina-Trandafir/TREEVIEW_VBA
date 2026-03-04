@@ -227,19 +227,23 @@ Partial Public Class Tree
         End If
 
         ' --- POPUP: Închidere după click pe leaf ---
-        If MyTree.IsPopupTree AndAlso pItem.Children.Count = 0 AndAlso Not pItem.LazyNode Then
-            Me.BeginInvoke(Sub()
-                               TreeLogger.Debug("Leaf click în popup - trimit WM_CLOSE", "MyTree_NodeMouseUp")
-                               _MonitorTimer.Stop()
-                               SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
-                               If Not IsWindow(_formParentHwnd) Then
-                                   Application.Exit()
-                               End If
-                           End Sub)
-            Exit Sub
-        End If
+        'If MyTree.IsPopupTree AndAlso pItem.Children.Count = 0 AndAlso Not pItem.LazyNode Then
+        '    Me.BeginInvoke(Sub()
+        '                       TreeLogger.Debug("Leaf click în popup - trimit WM_CLOSE", "MyTree_NodeMouseUp")
+        '                       _MonitorTimer.Stop()
+        '                       SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
+        '                       If Not IsWindow(_formParentHwnd) Then
+        '                           Application.Exit()
+        '                       End If
+        '                   End Sub)
+        '    Exit Sub
+        'End If
 
         If e.Button = MouseButtons.Right Then
+            If MyTree.RaiseLeftClickOnRightClick Then
+                TrimiteMesajAccess("Click", pItem)
+            End If
+
             If Not String.IsNullOrEmpty(MyTree.RightClickFunction) AndAlso _accessApp IsNot Nothing Then
                 TrimiteMesajAccess("RightClickFunction", pItem)
             End If

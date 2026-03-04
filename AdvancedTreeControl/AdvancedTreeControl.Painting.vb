@@ -258,8 +258,8 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' B. Determinăm fontul: aplicăm Bold/Italic de pe nod
-        Dim nodeFont As Font = Me.Font
-        Dim nodeStyle As FontStyle = Me.Font.Style
+        Dim nodeFont As Font = Me.TreeFont
+        Dim nodeStyle As FontStyle = Me.TreeFont.Style
         If it.Bold Then nodeStyle = nodeStyle Or FontStyle.Bold
         If it.Italic Then nodeStyle = nodeStyle Or FontStyle.Italic
         If nodeStyle <> Me.Font.Style Then

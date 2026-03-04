@@ -268,8 +268,13 @@ Partial Public Class AdvancedTreeControl
             Return
         End If
 
-        If pSelectedItem Is pOldSelectedItem AndAlso e.Button = MouseButtons.Left Then Return
-        If pSelectedItem IsNot it AndAlso e.Button = MouseButtons.Right Then Return
+        If Not Me.ReRaiseClickOnSameNode Then
+            If pSelectedItem Is pOldSelectedItem AndAlso e.Button = MouseButtons.Left Then Return
+        End If
+
+        If Not Me.RaiseLeftClickOnRightClick Then
+            If pSelectedItem IsNot it AndAlso e.Button = MouseButtons.Right Then Return
+        End If
 
         If it IsNot Nothing Then
             _pendingClickItem = it

@@ -15,9 +15,48 @@
     Public HoverBackColor As Color = Color.FromArgb(230, 240, 255)
     Public SelectedBackColor As Color = Color.FromArgb(200, 220, 255)
     Public SelectedBorderColor As Color = Color.FromArgb(150, 180, 255)
+    Public RaiseLeftClickOnRightClick As Boolean = True
+    Public ReRaiseClickOnSameNode As Boolean = True
 
     ' Tooltip
     Public TooltipDelayMs As Integer = 1000
+
+    Private m_TreeFont = New Font("Consolas", 9)
+    Public Property TreeFont As Font
+        Get
+            Return m_TreeFont
+        End Get
+        Set(value As Font)
+            m_TreeFont = value
+            m_FontName = m_TreeFont.Name ' Actualizează numele fontului pentru a reflecta schimbarea
+            m_FontSize = m_TreeFont.Size ' Actualizează dimensiunea fontului pentru a reflecta schimbarea
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă fontul
+        End Set
+    End Property
+
+    Private m_FontName As String = "Consolas"
+    Public Property FontName As String
+        Get
+            Return m_FontName
+        End Get
+        Set(value As String)
+            m_FontName = value
+            m_TreeFont = New Font(m_FontName, TreeFont.Size) ' Actualizează fontul cu noul nume
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă fontul
+        End Set
+    End Property
+
+    Private m_FontSize As Single = 9
+    Public Property FontSize As Single
+        Get
+            Return m_FontSize
+        End Get
+        Set(value As Single)
+            m_FontSize = value
+            m_TreeFont = New Font(TreeFont.Name, m_FontSize) ' Actualizează fontul cu noua dimensiune
+            Me.Invalidate() ' Redesenează imediat controlul când se schimbă fontul
+        End Set
+    End Property
 
     Private m_ExpanderSize As Integer = 12
     Public Property ExpanderSize As Integer
