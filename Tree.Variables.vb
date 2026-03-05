@@ -37,7 +37,6 @@
 
     ' === POPUP GRACE ===
     Private _popupGraceActive As Boolean = False
-    Private _popupGraceMs As Integer = 1500       ' valoare implicită, suprascrisă din XML
     Private _popupGraceTimer As Timer = Nothing
 
     Public Class NodeDto

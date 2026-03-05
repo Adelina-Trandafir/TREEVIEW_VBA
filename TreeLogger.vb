@@ -10,6 +10,7 @@ Public Class TreeLogger
     Private Shared ReadOnly _lock As New Object()
     Private Shared _initialized As Boolean = False
     Private Shared _startTime As DateTime
+    Private Shared _minLevel As LogLevel = LogLevel.INFO
 
     Public Enum LogLevel
         DEBUG_ = 0
@@ -22,7 +23,9 @@ Public Class TreeLogger
     ''' Inițializează logger-ul. Apelat O SINGURĂ DATĂ la pornirea aplicației.
     ''' Suprascrie fișierul existent.
     ''' </summary>
-    Public Shared Sub Init(treeId As String)
+    Public Shared Sub Init(treeId As String, minLevel As LogLevel)
+        _minLevel = minLevel
+
         SyncLock _lock
             If _initialized Then Return
 
@@ -99,6 +102,7 @@ Public Class TreeLogger
 
     Private Shared Sub Write(level As LogLevel, message As String, source As String)
         If Not _initialized Then Return
+        If level < _minLevel Then Return
 
         Dim elapsed As TimeSpan = DateTime.Now - _startTime
         Dim levelStr As String = level.ToString().TrimEnd("_"c).PadRight(5)

@@ -344,6 +344,20 @@ Partial Public Class Tree
             End If
 
             '========================
+            ' PopupGraceMs
+            '========================
+            If cfg.Attributes("PopupGraceMs") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("PopupGraceMs").Value
+                Dim PopupGraceinMsVal As Integer = MyTree.PopupGraceMs
+                If Integer.TryParse(xmlVal, PopupGraceinMsVal) AndAlso PopupGraceinMsVal >= 0 Then
+                    If MyTree.PopupGraceMs <> PopupGraceinMsVal Then
+                        MyTree.PopupGraceMs = PopupGraceinMsVal
+                    End If
+                    TreeLogger.Debug(Space(5) & $"PopupGraceMs xml='{xmlVal}' control='{MyTree.PopupGraceMs}'", "AplicareConfigurare")
+                End If
+            End If
+
+            '========================
             ' LeftIconHeight -> LeftIconSize (patrat)
             '========================
             If cfg.Attributes("LeftIconHeight") IsNot Nothing Then

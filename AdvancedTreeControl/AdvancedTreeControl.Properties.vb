@@ -196,6 +196,16 @@
         End Set
     End Property
 
+    Private _popupGraceMs As Integer = 1500
+    Public Property PopupGraceMs() As Integer
+        Get
+            Return _popupGraceMs
+        End Get
+        Set(value As Integer)
+            _popupGraceMs = value
+        End Set
+    End Property
+
     Private _radioButtonLevel As Integer = -1  ' -1 = dezactivat
     Public Property RadioButtonLevel As Integer
         Get

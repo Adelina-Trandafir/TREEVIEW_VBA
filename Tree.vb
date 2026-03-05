@@ -54,27 +54,30 @@ Partial Public Class Tree
 
             ' Parsăm treeId din argumente ÎNAINTE de Init logger
             Dim earlyTreeId As String = "startup"
+            Dim debugSwitch As String = Nothing   ' Nothing = logging dezactivat
+
             For Each a As String In args
-                If a.StartsWith("/idt:", StringComparison.CurrentCultureIgnoreCase) Then
+                Dim aLow As String = a.ToLower()
+                If aLow.StartsWith("/idt:") Then
                     earlyTreeId = a.Substring(5)
-                    Exit For
+                ElseIf aLow = "/d" OrElse aLow = "/d2" Then
+                    debugSwitch = "D2"
+                ElseIf aLow = "/d1" Then
+                    debugSwitch = "D1"
+                ElseIf aLow = "/d3" Then
+                    debugSwitch = "D3"
                 End If
             Next
-            TreeLogger.Init(earlyTreeId)
-            TreeLogger.Info($"=== Aplicația pornește (v{version}) ===", "Tree_Load")
-            TreeLogger.Debug($"Args: {String.Join(" ", args)}", "Tree_Load")
 
-            ' Diagnostic: background thread care loghează la fiecare 200ms
-            'Dim diagThread As New System.Threading.Thread(Sub()
-            '                                                  For i As Integer = 1 To 20  ' 6 secunde de monitorizare
-            '                                                      TreeLogger.Debug($">>> HEARTBEAT #{i}", "BG_THREAD")
-            '                                                      System.Threading.Thread.Sleep(200)
-            '                                                  Next
-            '                                              End Sub)
-            'diagThread.IsBackground = True
-            'diagThread.Start()
+            If debugSwitch IsNot Nothing Then
+                Dim level As TreeLogger.LogLevel = TreeLogger.LogLevel.INFO  ' /D sau /D2
+                If debugSwitch = "D1" Then level = TreeLogger.LogLevel.WARN
+                If debugSwitch = "D3" Then level = TreeLogger.LogLevel.DEBUG_
 
-
+                TreeLogger.Init(earlyTreeId, level)
+                TreeLogger.Info($"=== Aplicația pornește (v{version}) [logging={debugSwitch}] ===", "Tree_Load")
+                TreeLogger.Debug($"Args: {String.Join(" ", args)}", "Tree_Load")
+            End If
 
             For Each arg As String In args
                 Dim lowerArg As String = arg.ToLower()
@@ -429,16 +432,16 @@ Partial Public Class Tree
         ' === POPUP: forțare focus + perioadă de grație ===
         If MyTree.IsPopupTree Then
             Dim focused = SetForegroundWindow(_formHwnd)
-            TreeLogger.Info($"Popup ready — SetForegroundWindow({_formHwnd:X}) = {focused}, grație {_popupGraceMs}ms", "OnVbaReady")
+            TreeLogger.Info($"Popup ready — SetForegroundWindow({_formHwnd:X}) = {focused}, grație {MyTree.PopupGraceMs}ms", "OnVbaReady")
 
             _popupGraceActive = True
-            _popupGraceTimer = New Timer With {.Interval = _popupGraceMs}
+            _popupGraceTimer = New Timer With {.Interval = MyTree.PopupGraceMs}
             AddHandler _popupGraceTimer.Tick, Sub(s, ev)
                                                   _popupGraceTimer.Stop()
                                                   _popupGraceTimer.Dispose()
                                                   _popupGraceTimer = Nothing
                                                   _popupGraceActive = False
-                                                  TreeLogger.Info($"Perioadă de grație expirată ({_popupGraceMs}ms) — pornesc monitorizarea focus", "PopupGrace")
+                                                  TreeLogger.Info($"Perioadă de grație expirată ({MyTree.PopupGraceMs}ms) — pornesc monitorizarea focus", "PopupGrace")
                                               End Sub
             _popupGraceTimer.Start()
         End If
