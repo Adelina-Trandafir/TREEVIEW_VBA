@@ -70,7 +70,7 @@ Partial Public Class AdvancedTreeControl
             If e.X < gridLeft Then
                 If it.Children.Count > 0 OrElse it.LazyNode Then
                     ' A. Protecție Root
-                    If it.Level = 0 AndAlso Not _rootButton Then
+                    If it.Level = 0 AndAlso Not _RootExpander Then
                         Return
                     End If
 
@@ -117,7 +117,7 @@ Partial Public Class AdvancedTreeControl
         If expRect.Contains(e.Location) AndAlso (it.Children.Count > 0 OrElse it.LazyNode) Then
 
             ' A. Verificare Protecție Root (dacă e activă)
-            If it.Level = 0 AndAlso Not _rootButton Then
+            If it.Level = 0 AndAlso Not _RootExpander Then
                 Return
             End If
 
@@ -305,7 +305,7 @@ Partial Public Class AdvancedTreeControl
         If it.Children.Count > 0 OrElse it.LazyNode Then
 
             ' --- PROTECȚIE ROOT ---
-            If it.Level = 0 AndAlso Not _rootButton Then
+            If it.Level = 0 AndAlso Not _RootExpander Then
                 Return
             End If
 
@@ -356,7 +356,7 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnMouseLeave(e As EventArgs)
         MyBase.OnMouseLeave(e)
         pHoveredItem = Nothing
-        pToolTip.Hide(Me)
+        HideAllTooltips()
         pTooltipTimer.Stop()
         Me.Invalidate()
     End Sub

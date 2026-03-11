@@ -19,9 +19,10 @@
     Public ReRaiseClickOnSameNode As Boolean = True
 
     ' Tooltip
-    Public TooltipDelayMs As Integer = 1000
+    Public AutoHideTooltipMs As Integer = 5000
 
     Private m_TreeFont = New Font("Consolas", 9)
+
     Public Property TreeFont As Font
         Get
             Return m_TreeFont
@@ -128,13 +129,13 @@
         End Set
     End Property
 
-    Private _rootButton As Boolean = True
-    Public Property RootButton As Boolean
+    Private _RootExpander As Boolean = True
+    Public Property RootExpander As Boolean
         Get
-            Return _rootButton
+            Return _RootExpander
         End Get
         Set(value As Boolean)
-            _rootButton = value
+            _RootExpander = value
             Me.Invalidate()
         End Set
     End Property
@@ -225,6 +226,17 @@
         Set(value As Color)
             m_BorderColor = value
             Me.Invalidate()
+        End Set
+    End Property
+
+    Private _tooltipDelayMs As Integer = 600
+    Public Property TooltipDelayMs As Integer
+        Get
+            Return _tooltipDelayMs
+        End Get
+        Set(value As Integer)
+            _tooltipDelayMs = value
+            pTooltipTimer.Interval = value
         End Set
     End Property
 End Class

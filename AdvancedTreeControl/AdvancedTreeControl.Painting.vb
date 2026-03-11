@@ -4,7 +4,7 @@ Imports System.Text.RegularExpressions
 Partial Public Class AdvancedTreeControl
     Private Sub DrawItem(g As Graphics, it As TreeItem, y As Integer)
         ' Forțăm expandarea root-ului dacă nu are expander permis
-        If it.Level = 0 AndAlso Not _rootButton AndAlso Not it.Expanded Then
+        If it.Level = 0 AndAlso Not _RootExpander AndAlso Not it.Expanded Then
             it.Expanded = True
         End If
 
@@ -27,7 +27,7 @@ Partial Public Class AdvancedTreeControl
         ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
         ' Aici se aplică distanțarea cerută
         Dim xBase As Integer
-        If it.Level = 0 AndAlso Not _rootButton Then
+        If it.Level = 0 AndAlso Not _RootExpander Then
             xBase = gridLeft
         Else
             xBase = gridLeft + Indent + PADDING_EXPANDER_GAP
@@ -36,11 +36,14 @@ Partial Public Class AdvancedTreeControl
         ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
         ' Calculăm selecția să înceapă de la limita vizuală a nivelului
         Dim selStartX As Integer
-        If it.Level = 0 AndAlso Not _rootButton Then
-            selStartX = gridLeft   ' Fără offset de expander
+        If it.Level = 0 AndAlso Not _RootExpander Then
+            selStartX = gridLeft                        ' root fără expander — neschimbat
+        ElseIf Not _RootExpander Then
+            selStartX = xBase                           ' child, fără RootExpander — aliniat cu conținutul
         Else
-            selStartX = gridLeft + ExpanderSize * 2 - 1
+            selStartX = gridLeft + ExpanderSize * 2 - 3 ' RootExpander=True — comportament existent neschimbat
         End If
+
         Dim selWidth As Integer = Me.ClientSize.Width - selStartX - PADDING_TREE_END
         If selWidth < 0 Then selWidth = 0
 
@@ -73,7 +76,7 @@ Partial Public Class AdvancedTreeControl
         g.SmoothingMode = oldSmooth
 
         ' -- [PASUL 2] LINII (TREE LINES) --
-        If Not (it.Level = 0 AndAlso Not _rootButton) Then
+        If Not (it.Level = 0 AndAlso Not _RootExpander) Then
             DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
         End If
 
@@ -204,7 +207,7 @@ Partial Public Class AdvancedTreeControl
 
         ' -- [PASUL 5] EXPANDER (+/-) --
         Dim showExpander As Boolean = (it.Children.Count > 0 OrElse it.LazyNode)
-        If it.Level = 0 AndAlso Not _rootButton Then showExpander = False
+        If it.Level = 0 AndAlso Not _RootExpander Then showExpander = False
 
         If showExpander Then
             g.FillRectangle(Brushes.White, expanderRect)
@@ -311,7 +314,7 @@ Partial Public Class AdvancedTreeControl
                 End If
             End If
 
-            ' Nodurile root fără _rootButton nu au trunchi ascendent → ieșim
+            ' Nodurile root fără _RootExpander nu au trunchi ascendent → ieșim
             If it.Level = 0 Then Return
 
             ' X-ul trunchiului vertical = coloana expanderului PĂRINTELUI

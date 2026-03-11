@@ -54,8 +54,9 @@ Partial Public Class AdvancedTreeControl
         ''' Afișează tooltip-ul cu RichText la poziția screen indicată.
         ''' text poate conține taguri: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;color=#hex&gt;, &lt;back=#hex&gt;
         ''' </summary>
-        Friend Sub ShowTooltip(text As String, baseFont As Font, baseColor As Color, screenPos As Point)
+        Friend Sub ShowTooltip(text As String, baseFont As Font, baseColor As Color, screenPos As Point, autoHideMs As Integer)
             _autoHideTimer.Stop()
+            _autoHideTimer.Interval = If(autoHideMs > 0, autoHideMs, 5000)
 
             Dim tooltipFont As New Font(TOOLTIP_FONT_NAME, TOOLTIP_FONT_SIZE, FontStyle.Regular, GraphicsUnit.Point)
 

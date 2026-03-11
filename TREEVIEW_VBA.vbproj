@@ -15,8 +15,8 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<FileVersion>16.0.0.0</FileVersion>
-		<AssemblyVersion>16.0.0.0</AssemblyVersion>
+		<FileVersion>17.0.0.0</FileVersion>
+		<AssemblyVersion>17.0.0.0</AssemblyVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(PlatformTarget)' == 'x64' Or '$(RuntimeIdentifier)' == 'win-x64'">

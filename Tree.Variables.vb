@@ -39,6 +39,8 @@
     Private _popupGraceActive As Boolean = False
     Private _popupGraceTimer As Timer = Nothing
 
+    Private _pendingSelectedNodeId As String = String.Empty
+
     Public Class NodeDto
         Public Property Key As String
         Public Property Caption As String

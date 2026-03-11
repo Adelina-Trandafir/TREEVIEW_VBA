@@ -37,6 +37,8 @@ Partial Public Class Tree
                 AddXmlNodeToTree(xNode, Nothing)
             Next
 
+            ApplyPendingSelectedNode()
+
             MyTree.Invalidate()
             Return True
 
@@ -87,21 +89,11 @@ Partial Public Class Tree
             End If
 
             'scroll la nodul activ dacă există
-            If cNodeKey <> "" Then
-                Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
-
-                ' Iterăm prin rădăcini pentru a găsi nodul (fix pentru eroarea cu 'root')
-                For Each rootItem In MyTree.Items
-                    foundNode = FindNodeByIdRecursive(rootItem, cNodeKey)
-                    If foundNode IsNot Nothing Then Exit For
-                Next
-
-                If foundNode IsNot Nothing Then
-                    MyTree.SelectedNode = foundNode
-                    foundNode.SetExpanded(True, True)
-                    ScrollToNode(foundNode)
-                End If
+            ' SelectedNodeId din XML are prioritate; altfel restaurăm selecția anterioară
+            If String.IsNullOrEmpty(_pendingSelectedNodeId) AndAlso Not String.IsNullOrEmpty(cNodeKey) Then
+                _pendingSelectedNodeId = cNodeKey
             End If
+            ApplyPendingSelectedNode()
 
             MyTree.Invalidate()
             Return True
@@ -449,17 +441,17 @@ Partial Public Class Tree
             End If
 
             '========================
-            ' RootButton
+            ' RootExpander
             '========================
-            If cfg.Attributes("RootButton") IsNot Nothing Then
-                Dim xmlVal As String = cfg.Attributes("RootButton").Value
-                Dim v As Integer = If(MyTree.RootButton, 1, 0)
+            If cfg.Attributes("RootExpander") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("RootExpander").Value
+                Dim v As Integer = If(MyTree.RootExpander, 1, 0)
                 If Integer.TryParse(xmlVal, v) Then
                     Dim newVal As Boolean = (v = 1)
-                    If MyTree.RootButton <> newVal Then
-                        MyTree.RootButton = newVal
+                    If MyTree.RootExpander <> newVal Then
+                        MyTree.RootExpander = newVal
                     End If
-                    TreeLogger.Debug(Space(5) & $"RootButton xml='{xmlVal}' control='{MyTree.RootButton}'", "AplicareConfigurare")
+                    TreeLogger.Debug(Space(5) & $"RootExpander xml='{xmlVal}' control='{MyTree.RootExpander}'", "AplicareConfigurare")
                 End If
             End If
 
@@ -495,7 +487,42 @@ Partial Public Class Tree
                 End If
             End If
 
-            TreeLogger.Info($"Configurare aplicată cu succes în {sw.ElapsedMilliseconds}ms", "AplicareConfigurare")
+            '========================
+            ' TooltipDelayMs
+            '========================
+            If cfg.Attributes("ToolTipDelayMs") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("ToolTipDelayMs").Value
+                Dim v As Integer = MyTree.TooltipDelayMs
+                If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+                    If MyTree.TooltipDelayMs <> v Then
+                        MyTree.TooltipDelayMs = v
+                    End If
+                    TreeLogger.Debug(Space(5) & $"ToolTipDelayMs xml='{xmlVal}' control='{MyTree.TooltipDelayMs}'", "AplicareConfigurare")
+                End If
+            End If
+
+            '========================
+            ' TooltipAutoHideMs
+            '========================
+            If cfg.Attributes("TooltipAutoHideMs") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("TooltipAutoHideMs").Value
+                Dim v As Integer = MyTree.AutoHideTooltipMs
+                If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+                    If MyTree.AutoHideTooltipMs <> v Then
+                        MyTree.AutoHideTooltipMs = v
+                    End If
+                    TreeLogger.Debug(Space(5) & $"AutoHideTooltipMs xml='{xmlVal}' control='{MyTree.AutoHideTooltipMs}'", "AplicareConfigurare")
+                End If
+            End If
+
+            '========================
+            ' SelectedNodeId
+            '========================
+            _pendingSelectedNodeId = String.Empty
+            If cfg.Attributes("SelectedNodeId") IsNot Nothing Then
+                _pendingSelectedNodeId = cfg.Attributes("SelectedNodeId").Value
+                TreeLogger.Debug(Space(5) & $"SelectedNodeId xml='{_pendingSelectedNodeId}'", "AplicareConfigurare")
+            End If
 
             Return True
 
@@ -686,4 +713,32 @@ Partial Public Class Tree
         TreeLogger.Debug($" Încărcat {count} imagini în cache.", "LoadImagesToCache")
     End Sub
 
+    Private Sub ApplyPendingSelectedNode()
+        If String.IsNullOrEmpty(_pendingSelectedNodeId) Then Return
+
+        Dim key As String = _pendingSelectedNodeId
+        _pendingSelectedNodeId = String.Empty
+
+        Dim foundNode As AdvancedTreeControl.TreeItem = Nothing
+        For Each rootItem In MyTree.Items
+            foundNode = FindNodeByIdRecursive(rootItem, key)
+            If foundNode IsNot Nothing Then Exit For
+        Next
+
+        If foundNode Is Nothing Then
+            TreeLogger.Debug($"SelectedNodeId '{key}' nu a fost găsit în arbore", "ApplyPendingSelectedNode")
+            Return
+        End If
+
+        ' Expandăm părinții silențios
+        Dim parent As AdvancedTreeControl.TreeItem = foundNode.Parent
+        While parent IsNot Nothing
+            parent.Expanded = True
+            parent = parent.Parent
+        End While
+
+        MyTree.SelectedNode = foundNode
+        ScrollToNode(foundNode)
+        TreeLogger.Debug($"SelectedNodeId '{key}' aplicat silențios", "ApplyPendingSelectedNode")
+    End Sub
 End Class

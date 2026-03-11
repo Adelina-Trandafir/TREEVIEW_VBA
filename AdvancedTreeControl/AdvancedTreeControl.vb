@@ -9,7 +9,6 @@ Partial Public Class AdvancedTreeControl
     Private pSelectedItem As TreeItem = Nothing
     Private pOldSelectedItem As TreeItem = Nothing
 
-    Private ReadOnly pToolTip As New ToolTip()
     Private ReadOnly pTooltipTimer As New Timer()
     Private pTooltipItem As TreeItem = Nothing
     Private pTooltipPopup As TooltipPopup = Nothing
@@ -80,7 +79,6 @@ Partial Public Class AdvancedTreeControl
         Me.Font = New Font("Segoe UI", 9)
         Me.Enabled = True
         'Me._rightIconSize = Me._rightIconSize * CInt(Me.DeviceDpi) / 96
-        pToolTip.ShowAlways = False
         pTooltipTimer.Interval = TooltipDelayMs
         AddHandler pTooltipTimer.Tick, AddressOf TooltipTimerTick
 
@@ -136,9 +134,9 @@ Partial Public Class AdvancedTreeControl
 
         Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
 
-        ' Level=0 fără RootButton → checkbox direct de la gridLeft (fără Indent/Expander gap)
+        ' Level=0 fără RootExpander → checkbox direct de la gridLeft (fără Indent/Expander gap)
         Dim xChk As Integer
-        If it.Level = 0 AndAlso Not _rootButton Then
+        If it.Level = 0 AndAlso Not _RootExpander Then
             xChk = gridLeft
         Else
             xChk = gridLeft + Indent + PADDING_EXPANDER_GAP
@@ -216,7 +214,6 @@ Partial Public Class AdvancedTreeControl
     ' TOOLTIP LOGIC
     ' ======================================================
     Private Sub HideAllTooltips()
-        pToolTip.Hide(Me)
         If pTooltipPopup IsNot Nothing AndAlso Not pTooltipPopup.IsDisposed Then
             pTooltipPopup.Hide()
         End If
@@ -260,17 +257,13 @@ Partial Public Class AdvancedTreeControl
         Try
             Dim screenPt As Point = Cursor.Position
 
-            If Not String.IsNullOrEmpty(pTooltipItem.Tooltip) Then
-                ' Tooltip custom cu RichText - popup form
-                If pTooltipPopup Is Nothing OrElse pTooltipPopup.IsDisposed Then
-                    pTooltipPopup = New TooltipPopup()
-                End If
-                pTooltipPopup.ShowTooltip(pTooltipItem.Tooltip, Me.Font, Me.ForeColor, screenPt)
-            Else
-                ' Tooltip standard (caption trunchiat)
-                Dim ptClient As Point = Me.PointToClient(Cursor.Position)
-                pToolTip.Show(pTooltipItem.Caption, Me, ptClient.X, ptClient.Y + 20, 4000)
+            If pTooltipPopup Is Nothing OrElse pTooltipPopup.IsDisposed Then
+                pTooltipPopup = New TooltipPopup()
             End If
+            Dim tooltipText As String = If(Not String.IsNullOrEmpty(pTooltipItem.Tooltip),
+                               pTooltipItem.Tooltip,
+                               pTooltipItem.Caption)
+            pTooltipPopup.ShowTooltip(tooltipText, Me.Font, Me.ForeColor, screenPt, AutoHideTooltipMs)
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "TooltipTimerTick")
@@ -286,9 +279,9 @@ Partial Public Class AdvancedTreeControl
 
             ' 2. Calculăm poziția curentă X (cursorul virtual de desenare)
             '    Pornim de la zona de după Expander
-            ' Level=0 fără RootButton → pornim direct de la gridLeft
+            ' Level=0 fără RootExpander → pornim direct de la gridLeft
             Dim currentX As Integer
-            If it.Level = 0 AndAlso Not _rootButton Then
+            If it.Level = 0 AndAlso Not _RootExpander Then
                 currentX = gridLeft
             Else
                 currentX = gridLeft + Indent + PADDING_EXPANDER_GAP
