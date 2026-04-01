@@ -3,50 +3,61 @@ Imports System.Text.RegularExpressions
 
 Partial Public Class AdvancedTreeControl
     Private Sub DrawItem(g As Graphics, it As TreeItem, y As Integer)
-        ' Forțăm expandarea root-ului dacă nu are expander permis
-        If it.Level = 0 AndAlso Not _RootExpander AndAlso Not it.Expanded Then
-            it.Expanded = True
-        End If
+        ' Normalizare
+        If it.Level = 0 AndAlso Not _RootExpander AndAlso Not it.Expanded Then it.Expanded = True
+        If Me.ExpanderSize Mod 2 <> 0 Then Me.ExpanderSize -= 1
+        If Me.ItemHeight Mod 2 <> 0 Then Me.ItemHeight -= 1
 
-        ' 0.
-        If Me.ExpanderSize Mod 2 <> 0 Then Me.ExpanderSize = Me.ExpanderSize - 1
-        If Me.ItemHeight Mod 2 <> 0 Then Me.ItemHeight = Me.ItemHeight - 1
-
-        ' 1. Punctul de start al grilei pentru nivelul curent (linia din stânga a nivelului)
+        ' ── Calcul layout comun ──────────────────────────────────────────────────
         Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
-
-        ' 2. Expander-ul este centrat în coloana de indentare
         Dim expanderCenterX As Integer = gridLeft + (Indent \ 2)
         Dim midY As Integer = y + (ItemHeight \ 2)
         Dim expanderRect As New Rectangle(
-                                        expanderCenterX - (ExpanderSize \ 2),
-                                        midY - (ExpanderSize \ 2),
-                                        ExpanderSize,
-                                        ExpanderSize)
+        expanderCenterX - (ExpanderSize \ 2),
+        midY - (ExpanderSize \ 2),
+        ExpanderSize, ExpanderSize)
+        Dim xBase As Integer = If(it.Level = 0 AndAlso Not _RootExpander,
+                              gridLeft,
+                              gridLeft + Indent + PADDING_EXPANDER_GAP)
 
-        ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
-        ' Aici se aplică distanțarea cerută
-        Dim xBase As Integer
-        If it.Level = 0 AndAlso Not _RootExpander Then
-            xBase = gridLeft
-        Else
-            xBase = gridLeft + Indent + PADDING_EXPANDER_GAP
+        ' ── Pasul 1: Selecție & Hover ──────────────────────────────────────────── 
+        DrawSelection(g, it, y, gridLeft, xBase)
+
+        ' ── Pasul 2: Linii arbore ──────────────────────────────────────────────── 
+        If Not (it.Level = 0 AndAlso Not _RootExpander) Then
+            DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
         End If
 
-        ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
-        ' Calculăm selecția să înceapă de la limita vizuală a nivelului
+        ' ── Loader (ieșire anticipată) ─────────────────────────────────────────── 
+        If it.IsLoader Then
+            DrawLoaderItem(g, it, y, xBase)
+            Return
+        End If
+
+        ' ── Pasul 3: Checkbox / RadioButton ─────────────────────────────────────- 
+        xBase = DrawCheckbox(g, it, y, xBase, midY)
+
+        ' ── Pasul 5: Expander ──────────────────────────────────────────────────── 
+        DrawExpander(g, it, expanderRect, expanderCenterX, midY)
+
+        ' ── Pasul 6: Conținut (icon stânga + text) ─────────────────────────────── 
+        DrawContent(g, it, y, xBase)
+
+        ' ── Pasul 7: Iconiță dreapta ───────────────────────────────────────────── 
+        DrawRightIcon(g, it, y)
+    End Sub
+
+    Private Sub DrawSelection(g As Graphics, it As TreeItem, y As Integer, gridLeft As Integer, xBase As Integer)
         Dim selStartX As Integer
         If it.Level = 0 AndAlso Not _RootExpander Then
-            selStartX = gridLeft                        ' root fără expander — neschimbat
+            selStartX = gridLeft
         ElseIf Not _RootExpander Then
-            selStartX = xBase                           ' child, fără RootExpander — aliniat cu conținutul
+            selStartX = xBase
         Else
-            selStartX = gridLeft + ExpanderSize * 2 - 3 ' RootExpander=True — comportament existent neschimbat
+            selStartX = gridLeft + ExpanderSize * 2 - 3
         End If
 
-        Dim selWidth As Integer = Me.ClientSize.Width - selStartX - PADDING_TREE_END
-        If selWidth < 0 Then selWidth = 0
-
+        Dim selWidth As Integer = Math.Max(0, Me.ClientSize.Width - selStartX - PADDING_TREE_END)
         Dim fullRowRect As New Rectangle(selStartX, y, selWidth, ItemHeight)
 
         Dim oldSmooth = g.SmoothingMode
@@ -57,10 +68,9 @@ Partial Public Class AdvancedTreeControl
                 Using brush As New SolidBrush(SelectedBackColor)
                     g.FillPath(brush, path)
                 End Using
-                Using pen As New Pen(SelectedBorderColor)
-                    ' Border-ul trebuie inset cu 1px pentru a nu ieși din path
-                    Dim borderRect As New Rectangle(fullRowRect.X, fullRowRect.Y, fullRowRect.Width - 1, fullRowRect.Height - 1)
-                    Using borderPath As GraphicsPath = GetRoundedRect(borderRect, SELECTION_CORNER_RADIUS)
+                Dim borderRect As New Rectangle(fullRowRect.X, fullRowRect.Y, fullRowRect.Width - 1, fullRowRect.Height - 1)
+                Using borderPath As GraphicsPath = GetRoundedRect(borderRect, SELECTION_CORNER_RADIUS)
+                    Using pen As New Pen(SelectedBorderColor)
                         g.DrawPath(pen, borderPath)
                     End Using
                 End Using
@@ -74,223 +84,149 @@ Partial Public Class AdvancedTreeControl
         End If
 
         g.SmoothingMode = oldSmooth
+    End Sub
 
-        ' -- [PASUL 2] LINII (TREE LINES) --
-        If Not (it.Level = 0 AndAlso Not _RootExpander) Then
-            DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
-        End If
+    Private Sub DrawLoaderItem(g As Graphics, it As TreeItem, y As Integer, xBase As Integer)
+        Dim loaderY As Integer = y + (ItemHeight - 14) \ 2
+        Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
 
-        ' === LOGICĂ DESENARE LOADER (REVIZUITĂ) ===
-        If it.IsLoader Then
-            ' 1. Recalculăm poziția X exactă bazată pe nivelul nodului curent
-            ' gridLeft este marginea stângă a nivelului. Adăugăm Indentarea și Spațiul de Expander.
-            Dim currentGridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
-            Dim loaderX As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP
+        Dim oldSmooth = g.SmoothingMode
+        g.SmoothingMode = SmoothingMode.AntiAlias
 
-            ' 2. Calculăm poziția Y Centrată (pentru spinner și text)
-            Dim loaderY As Integer = y + (ItemHeight - 14) \ 2
-            Dim textY_Local As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
+        Using p As New Pen(Color.DimGray, 2)
+            g.DrawArc(p, xBase, loaderY, 14, 14, _loadingAngle, 300)
+        End Using
+        g.DrawString("Se încarcă...", Me.Font, Brushes.Gray, xBase + 20, textY)
 
-            ' 3. Setăm Grafica
-            Dim oldSmoothing = g.SmoothingMode
-            g.SmoothingMode = SmoothingMode.AntiAlias
+        g.SmoothingMode = oldSmooth
+    End Sub
 
-            ' 4. Desenăm Spinner-ul (La poziția loaderX)
-            Using p As New Pen(Color.DimGray, 2)
-                g.DrawArc(p, loaderX, loaderY, 14, 14, _loadingAngle, 300)
-            End Using
+    Private Function DrawCheckbox(g As Graphics, it As TreeItem, y As Integer, xBase As Integer, midY As Integer) As Integer
+        If Not NodeHasCheckControl(it) Then Return xBase
 
-            ' 5. Desenăm Textul (La loaderX + 20px spațiu)
-            g.DrawString("Se încarcă...", Me.Font, Brushes.Gray, loaderX + 20, textY_Local)
+        Dim chkSize As Integer = _checkBoxSize
+        Dim chkRect As New Rectangle(xBase, midY - (chkSize \ 2), chkSize, chkSize)
+        Dim accentColor As Color = Color.DodgerBlue
+        Dim borderColor As Color = Color.FromArgb(180, 180, 180)
 
-            ' 6. Restore și Ieșire
-            g.SmoothingMode = oldSmoothing
-            Return
-        End If
-        ' ===========================================
+        Dim oldSmooth = g.SmoothingMode
+        g.SmoothingMode = SmoothingMode.AntiAlias
 
-        ' -- [PASUL 3] CHECKBOX / RADIOBUTTON --
-        If NodeHasCheckControl(it) Then
-            Dim chkSize As Integer = _checkBoxSize
-            Dim chkY As Integer = midY - (chkSize \ 2)
-            Dim chkRect As New Rectangle(xBase, chkY, chkSize, chkSize)
-
-            Dim oldSmoothing = g.SmoothingMode
-            g.SmoothingMode = SmoothingMode.AntiAlias
-
-            Dim accentColor As Color = Color.DodgerBlue
-            Dim borderColor As Color = Color.FromArgb(180, 180, 180)
-
-            If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
-                ' *** RADIO BUTTON ***
-                If it.IsRadioSelected Then
-                    Using brush As New SolidBrush(accentColor)
-                        g.FillEllipse(brush, chkRect)
-                    End Using
-                    Using pen As New Pen(accentColor)
-                        g.DrawEllipse(pen, chkRect)
-                    End Using
-                    Dim dotMargin As Integer = CInt(chkSize * 0.28F)
-                    Dim dotRect As New Rectangle(chkRect.X + dotMargin, chkRect.Y + dotMargin,
+        If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
+            ' *** RADIO BUTTON ***
+            If it.IsRadioSelected Then
+                Using brush As New SolidBrush(accentColor) : g.FillEllipse(brush, chkRect) : End Using
+                Using pen As New Pen(accentColor) : g.DrawEllipse(pen, chkRect) : End Using
+                Dim dotMargin As Integer = CInt(chkSize * 0.28F)
+                Dim dotRect As New Rectangle(chkRect.X + dotMargin, chkRect.Y + dotMargin,
                                          chkSize - dotMargin * 2, chkSize - dotMargin * 2)
-                    Using brush As New SolidBrush(Color.White)
-                        g.FillEllipse(brush, dotRect)
-                    End Using
-                Else
-                    g.FillEllipse(Brushes.White, chkRect)
-                    Using pen As New Pen(borderColor, 1)
-                        g.DrawEllipse(pen, chkRect)
-                    End Using
-                End If
-
+                Using brush As New SolidBrush(Color.White) : g.FillEllipse(brush, dotRect) : End Using
             Else
-                ' *** CHECKBOX STANDARD (sub radio level SAU mod normal) ***
-                Dim cornerRadius As Integer = 3
-                Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
-                    If it.CheckState = TreeCheckState.Checked Then
-                        Using brush As New SolidBrush(accentColor)
-                            g.FillPath(brush, path)
-                        End Using
-                        Using pen As New Pen(accentColor)
-                            g.DrawPath(pen, path)
-                        End Using
+                g.FillEllipse(Brushes.White, chkRect)
+                Using pen As New Pen(borderColor, 1) : g.DrawEllipse(pen, chkRect) : End Using
+            End If
+        Else
+            ' *** CHECKBOX STANDARD ***
+            Using path As GraphicsPath = GetRoundedRect(chkRect, 3)
+                Select Case it.CheckState
+                    Case TreeCheckState.Checked
+                        Using brush As New SolidBrush(accentColor) : g.FillPath(brush, path) : End Using
+                        Using pen As New Pen(accentColor) : g.DrawPath(pen, path) : End Using
                         Using penTick As New Pen(Color.White, 2.0F)
                             penTick.StartCap = LineCap.Round
                             penTick.EndCap = LineCap.Round
                             penTick.LineJoin = LineJoin.Round
-                            Dim p1 As New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F)
-                            Dim p2 As New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F)
-                            Dim p3 As New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
-                            g.DrawLines(penTick, {p1, p2, p3})
+                            g.DrawLines(penTick, {
+                            New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F),
+                            New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F),
+                            New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
+                        })
                         End Using
-                    ElseIf it.CheckState = TreeCheckState.Indeterminate Then
-                        Using brush As New SolidBrush(accentColor)
-                            g.FillPath(brush, path)
-                        End Using
-                        Using pen As New Pen(accentColor)
-                            g.DrawPath(pen, path)
-                        End Using
+
+                    Case TreeCheckState.Indeterminate
+                        Using brush As New SolidBrush(accentColor) : g.FillPath(brush, path) : End Using
+                        Using pen As New Pen(accentColor) : g.DrawPath(pen, path) : End Using
                         Using penDash As New Pen(Color.White, 2.0F)
                             penDash.StartCap = LineCap.Round
                             penDash.EndCap = LineCap.Round
+                            Dim yMid As Single = chkRect.Y + (chkRect.Height / 2.0F)
                             Dim margin As Single = chkSize * 0.25F
-                            Dim yMidLine As Single = chkRect.Y + (chkRect.Height / 2.0F)
-                            g.DrawLine(penDash, chkRect.X + margin, yMidLine, chkRect.Right - margin, yMidLine)
+                            g.DrawLine(penDash, chkRect.X + margin, yMid, chkRect.Right - margin, yMid)
                         End Using
-                    Else
+
+                    Case Else ' Unchecked
                         g.FillPath(Brushes.White, path)
-                        Using pen As New Pen(borderColor, 1)
-                            g.DrawPath(pen, path)
-                        End Using
-                    End If
-                End Using
-            End If
-
-            g.SmoothingMode = oldSmoothing
-            xBase += chkSize + PADDING_CHECKBOX_GAP
-        ElseIf Me.CheckBoxes Then 'copacul are checkbox-uri, dar nodul curent nu are → decalăm conținutul în continuare pentru aliniarea textului
-            'Dim chkSize As Integer = _checkBoxSize
-
-            'xBase += chkSize + PADDING_CHECKBOX_GAP
-
-        End If
-
-        ' -- [PASUL 4] CALCUL CONȚINUT (Icon + Caption) --
-        Dim leftIconY As Integer = y + (ItemHeight - LeftIconSize.Height) \ 2
-        Dim leftIconRect As New Rectangle(xBase, leftIconY, LeftIconSize.Width, LeftIconSize.Height)
-
-        If it.TextWidth = -1 Then it.TextWidth = CInt(g.MeasureString(it.Caption, Me.Font).Width)
-
-        ' Calcul poziție text cu PADDING_ICON_GAP
-        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing AndAlso _hasNodeIcons, leftIconRect.Right + PADDING_ICON_GAP, xBase)
-        Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
-
-        ' -- [PASUL 5] EXPANDER (+/-) --
-        Dim showExpander As Boolean = (it.Children.Count > 0 OrElse it.LazyNode)
-        If it.Level = 0 AndAlso Not _RootExpander Then showExpander = False
-
-        If showExpander Then
-            g.FillRectangle(Brushes.White, expanderRect)
-            g.DrawRectangle(New Pen(LineColor), expanderRect)
-            g.DrawLine(Pens.Black, expanderRect.Left + 2, midY, expanderRect.Right - 2, midY)
-            If Not it.Expanded Then
-                g.DrawLine(Pens.Black, expanderCenterX, expanderRect.Top + 2, expanderCenterX, expanderRect.Bottom - 2)
-            End If
-        End If
-
-        ' -- [PASUL 6] DESENARE CONȚINUT FINAL --
-        If _hasNodeIcons Then
-            If it.Expanded Then
-                If it.LeftIconOpen IsNot Nothing Then g.DrawImage(it.LeftIconOpen, leftIconRect)
-            Else
-                If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
-            End If
-        End If
-
-        ' === CALCUL LIMITĂ TEXT (Clipping) ===
-        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
-
-        ' Limita din dreapta a controlului (minus padding 6px)
-        Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
-
-        ' Dacă există RightIcon, limita se mută mai la stânga (lățime icon + încă 6px padding)
-        If it.RightIcon IsNot Nothing Then
-            maxRightX -= (RightIconSize.Width + 6)
-        End If
-
-        ' Calculăm lățimea disponibilă pentru text
-        Dim availableTextWidth As Integer = maxRightX - textX
-        If availableTextWidth < 0 Then availableTextWidth = 0
-
-        ' Salvăm starea curentă a "foarfecii" (Clip)
-        Dim oldClip As Region = g.Clip.Clone()
-
-        ' Setăm noua zonă de tăiere: Textul se va desena DOAR în acest dreptunghi
-        Dim clipRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
-        g.SetClip(clipRect)
-
-        ' --- DESENARE TEXT ---
-        ' A. Determinăm culoarea textului: Nod → Control → Negru
-        Dim baseTextColor As Color
-        If it.NodeForeColor <> Color.Empty Then
-            baseTextColor = it.NodeForeColor
-        ElseIf Me.ForeColor <> Color.Empty Then
-            baseTextColor = Me.ForeColor
-        Else
-            baseTextColor = Color.Black
-        End If
-
-        ' B. Determinăm fontul: aplicăm Bold/Italic de pe nod
-        Dim nodeFont As Font = Me.TreeFont
-        Dim nodeStyle As FontStyle = Me.TreeFont.Style
-        If it.Bold Then nodeStyle = nodeStyle Or FontStyle.Bold
-        If it.Italic Then nodeStyle = nodeStyle Or FontStyle.Italic
-        If nodeStyle <> Me.Font.Style Then
-            nodeFont = New Font(Me.Font, nodeStyle)
-        End If
-
-        ' C. BackColor per nod — VARIANTA A: doar zona textului
-        If it.NodeBackColor <> Color.Empty AndAlso it IsNot pSelectedItem Then
-            Dim textBgRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
-            Using bgBrush As New SolidBrush(it.NodeBackColor)
-                g.FillRectangle(bgBrush, textBgRect)
+                        Using pen As New Pen(borderColor, 1) : g.DrawPath(pen, path) : End Using
+                End Select
             End Using
         End If
 
-        DrawRichText(g, it.Caption, textX, y, nodeFont, baseTextColor, availableTextWidth)
-        ' ---------------------
+        g.SmoothingMode = oldSmooth
+        Return xBase + chkSize + PADDING_CHECKBOX_GAP
+    End Function
 
-        ' Restaurăm "foarfeca" originală pentru a putea desena RightIcon (care e în afara zonei de text)
-        g.Clip = oldClip
+    Private Sub DrawExpander(g As Graphics, it As TreeItem, expanderRect As Rectangle, expanderCenterX As Integer, midY As Integer)
+        Dim showExpander As Boolean = (it.Children.Count > 0 OrElse it.LazyNode)
+        If it.Level = 0 AndAlso Not _RootExpander Then showExpander = False
+        If Not showExpander Then Return
 
-
-        ' -- [PASUL 7] ICONIȚĂ DREAPTA --
-        If it.RightIcon IsNot Nothing Then
-            ' Recalculăm poziția exact cum am calculat limita mai sus
-            Dim rx As Integer = Me.Width - RightIconSize.Width - 6 - PADDING_TREE_END - scrollW
-            Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
-            g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
+        g.FillRectangle(Brushes.White, expanderRect)
+        g.DrawRectangle(New Pen(LineColor), expanderRect)
+        g.DrawLine(Pens.Black, expanderRect.Left + 2, midY, expanderRect.Right - 2, midY)
+        If Not it.Expanded Then
+            g.DrawLine(Pens.Black, expanderCenterX, expanderRect.Top + 2, expanderCenterX, expanderRect.Bottom - 2)
         End If
+    End Sub
+
+    Private Sub DrawContent(g As Graphics, it As TreeItem, y As Integer, xBase As Integer)
+        ' ── Icon stânga ──────────────────────────────────────────────────────────
+        Dim leftIconRect As New Rectangle(xBase, y + (ItemHeight - LeftIconSize.Height) \ 2,
+                                      LeftIconSize.Width, LeftIconSize.Height)
+        If it.TextWidth = -1 Then it.TextWidth = CInt(g.MeasureString(it.Caption, Me.Font).Width)
+
+        If _hasNodeIcons Then
+            Dim icon As Image = If(it.Expanded, it.LeftIconOpen, it.LeftIconClosed)
+            If icon IsNot Nothing Then g.DrawImage(icon, leftIconRect)
+        End If
+
+        ' ── Calcul limite text ───────────────────────────────────────────────────
+        Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing AndAlso _hasNodeIcons,
+                                 leftIconRect.Right + PADDING_ICON_GAP, xBase)
+        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+        Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
+        If it.RightIcon IsNot Nothing Then maxRightX -= (RightIconSize.Width + PADDING_RIGHT_ICON_GAP)
+        Dim availableTextWidth As Integer = Math.Max(0, maxRightX - textX)
+
+        ' ── Font & culoare ───────────────────────────────────────────────────────
+        Dim baseTextColor As Color = If(it.NodeForeColor <> Color.Empty, it.NodeForeColor,
+                                 If(Me.ForeColor <> Color.Empty, Me.ForeColor, Color.Black))
+
+        Dim nodeStyle As FontStyle = Me.TreeFont.Style
+        If it.Bold Then nodeStyle = nodeStyle Or FontStyle.Bold
+        If it.Italic Then nodeStyle = nodeStyle Or FontStyle.Italic
+        Dim nodeFont As Font = If(nodeStyle <> Me.Font.Style, New Font(Me.Font, nodeStyle), Me.TreeFont)
+
+        ' ── BackColor per nod ────────────────────────────────────────────────────
+        If it.NodeBackColor <> Color.Empty AndAlso it IsNot pSelectedItem Then
+            Using bgBrush As New SolidBrush(it.NodeBackColor)
+                g.FillRectangle(bgBrush, New Rectangle(textX, y, availableTextWidth, ItemHeight))
+            End Using
+        End If
+
+        ' ── Clip + text ──────────────────────────────────────────────────────────
+        Dim oldClip As Region = g.Clip.Clone()
+        g.SetClip(New Rectangle(textX, y, availableTextWidth, ItemHeight))
+        DrawRichText(g, it.Caption, textX, y, nodeFont, baseTextColor, availableTextWidth)
+        g.Clip = oldClip
+    End Sub
+
+    Private Sub DrawRightIcon(g As Graphics, it As TreeItem, y As Integer)
+        If it.RightIcon Is Nothing Then Return
+
+        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+        Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
+        Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
+        g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
     End Sub
 
     Private Sub DrawTreeLines(g As Graphics, it As TreeItem, y As Integer, expCenterX As Integer, midY As Integer, currentGridLeft As Integer)
@@ -356,13 +292,15 @@ Partial Public Class AdvancedTreeControl
 
         End Using
     End Sub
+
     ' =================================================================================
     ' SUPORT RICH TEXT (BOLD, ITALIC, COLOR)
     ' =================================================================================
     ' AdvancedTreeControl.Painting.vb
 
-    Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer, defaultFont As Font, defaultColor As Color, availableWidth As Integer)
-        ' 1. Verificăm separatorul
+    Private Sub DrawRichText(g As Graphics, text As String, x As Integer, y As Integer,
+                          defaultFont As Font, defaultColor As Color, availableWidth As Integer)
+        ' ── 1. Split separator ──────────────────────────────────────────────────
         Dim leftText As String = text
         Dim rightText As String = ""
         Dim hasSplit As Boolean = False
@@ -374,67 +312,97 @@ Partial Public Class AdvancedTreeControl
             hasSplit = True
         End If
 
-        ' Formatare text
         Dim fmt As StringFormat = StringFormat.GenericTypographic
         fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
 
-        ' --- DESENARE PARTEA STÂNGĂ ---
-        Dim leftParts As List(Of RichTextPart) = ParseRichText(leftText, defaultFont, defaultColor)
-        Dim currentX As Single = x
+        Dim rightEdgeX As Single = CSng(x) + CSng(availableWidth)
+        Dim hasLeftProp As Boolean = (m_LeftTextWidth > 0)
+        Dim hasRightProp As Boolean = (m_RightTextWidth > 0)
 
-        For Each part In leftParts
-            Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+        ' ── 2. Calcul zone stânga/dreapta ────────────────────────────────────────
+        Dim leftBudget As Single = availableWidth
+        Dim rightZoneStart As Single = rightEdgeX
+        Dim rightBudget As Single = 0
+        Dim caseA As Boolean = False
 
-            ' Background
-            If part.HasBackColor Then
-                Using b As New SolidBrush(part.BackColor)
-                    g.FillRectangle(b, currentX, y, size.Width, ItemHeight)
-                End Using
+        If hasSplit Then
+            If Not hasLeftProp AndAlso Not hasRightProp Then
+                ' Case A: nicio constrângere — stânga liberă, dreapta show/hide
+                caseA = True
+                leftBudget = availableWidth
+
+            ElseIf hasLeftProp AndAlso hasRightProp Then
+                ' Case B: ambele setate — stânga prioritate
+                leftBudget = Math.Min(CSng(m_LeftTextWidth), CSng(availableWidth))
+                Dim naturalRS = rightEdgeX - CSng(m_RightTextWidth)
+                Dim forcedRS = CSng(x) + leftBudget + PADDING_SEPARATOR_GAP
+                rightZoneStart = Math.Max(naturalRS, forcedRS)
+                rightBudget = Math.Max(0, rightEdgeX - rightZoneStart)
+
+            ElseIf hasRightProp Then
+                ' Case C: doar dreapta setată — rezervare fixă din dreapta
+                rightBudget = CSng(m_RightTextWidth)
+                rightZoneStart = rightEdgeX - rightBudget
+                leftBudget = Math.Max(0, rightZoneStart - CSng(x) - PADDING_SEPARATOR_GAP)
+
+            Else
+                ' Case D: doar stânga setată — stânga are budget fix
+                leftBudget = Math.Min(CSng(m_LeftTextWidth), CSng(availableWidth))
+                rightZoneStart = CSng(x) + leftBudget + PADDING_SEPARATOR_GAP
+                rightBudget = Math.Max(0, rightEdgeX - rightZoneStart)
             End If
+        End If
 
-            ' Text
-            Using b As New SolidBrush(part.ForeColor)
-                Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
-                g.DrawString(part.Text, part.Font, b, currentX, textY, fmt)
-            End Using
+        ' ── 3. Desenare stânga ───────────────────────────────────────────────────
+        Dim leftParts As List(Of RichTextPart) = ParseRichText(leftText, defaultFont, defaultColor)
+        Dim currentX As Single
 
-            currentX += size.Width
-        Next
-
-        ' --- DESENARE PARTEA DREAPTĂ (Dacă există) ---
-        If hasSplit AndAlso Not String.IsNullOrEmpty(rightText) Then
-            Dim rightParts As List(Of RichTextPart) = ParseRichText(rightText, defaultFont, defaultColor)
-
-            ' A. Calculăm lățimea totală a textului din dreapta pentru a ști de unde începem
-            Dim rightTotalWidth As Single = 0
-            For Each part In rightParts
-                Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
-                rightTotalWidth += size.Width
-            Next
-
-            ' B. Setăm punctul de start (Marginea Dreaptă - Lățimea Textului)
-            ' x este punctul de start al textului, availableWidth este lățimea maximă permisă
-            Dim rightStartX As Single = (x + availableWidth) - rightTotalWidth
-
-            ' Opțional: Dacă textul din stânga se suprapune cu cel din dreapta, cel din dreapta are prioritate (se desenează peste)
-            ' Sau poți opri desenarea stângă mai devreme. Momentan se desenează peste.
-
-            For Each part In rightParts
-                Dim size As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
-
+        If Not hasSplit OrElse caseA Then
+            ' Case A / fără separator: desenare liberă (clipping extern gestionează limita)
+            currentX = CSng(x)
+            For Each part In leftParts
+                Dim sz As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
                 If part.HasBackColor Then
                     Using b As New SolidBrush(part.BackColor)
-                        g.FillRectangle(b, rightStartX, y, size.Width, ItemHeight)
+                        g.FillRectangle(b, currentX, y, sz.Width, ItemHeight)
                     End Using
                 End If
-
                 Using b As New SolidBrush(part.ForeColor)
-                    Dim textY As Single = y + (ItemHeight - part.Font.Height) / 2
-                    g.DrawString(part.Text, part.Font, b, rightStartX, textY, fmt)
+                    g.DrawString(part.Text, part.Font, b, currentX, y + (ItemHeight - part.Font.Height) / 2.0F, fmt)
                 End Using
-
-                rightStartX += size.Width
+                currentX += sz.Width
             Next
+        Else
+            ' Cases B/C/D: desenare cu budget explicit și trunchiere posibilă
+            currentX = DrawRichPartsInZone(g, leftParts, y, CSng(x), leftBudget, fmt)
+        End If
+
+        If Not hasSplit OrElse String.IsNullOrEmpty(rightText) Then Return
+
+        ' ── 4. Desenare dreapta ──────────────────────────────────────────────────
+        Dim rightParts As List(Of RichTextPart) = ParseRichText(rightText, defaultFont, defaultColor)
+        Dim rightTotal As Single = 0
+        For Each part In rightParts
+            rightTotal += g.MeasureString(part.Text, part.Font, PointF.Empty, fmt).Width
+        Next
+
+        If caseA Then
+            ' Case A: afișăm dreapta DOAR dacă încape complet după stânga
+            Dim dynamicStart As Single = currentX + PADDING_SEPARATOR_GAP
+            If dynamicStart + rightTotal > rightEdgeX Then Return ' nu încape — skip total
+            ' Right-aligned în spațiul rămas
+            DrawRichPartsSimple(g, rightParts, y, rightEdgeX - rightTotal, fmt)
+        Else
+            ' Cases B/C/D: right-aligned în zona rezervată sau trunchiat cu "..."
+            If rightBudget <= 0 Then Return
+            If rightTotal <= rightBudget Then
+                ' Încape: right-aligned (nu mai la stânga de rightZoneStart)
+                Dim raStart As Single = Math.Max(rightZoneStart, rightEdgeX - rightTotal)
+                DrawRichPartsSimple(g, rightParts, y, raStart, fmt)
+            Else
+                ' Nu încape: trunchiăm de la rightZoneStart cu "..." la rightEdgeX
+                DrawRichPartsInZone(g, rightParts, y, rightZoneStart, rightBudget, fmt)
+            End If
         End If
     End Sub
 
@@ -527,6 +495,108 @@ Partial Public Class AdvancedTreeControl
         Return list
     End Function
 
+    ' Desenează RichTextParts în zona [startX, startX+budget].
+    ' Dacă textul nu încape → trunchiază cu "..." fix la capătul drept al zonei.
+    ' Returnează X-ul după ultimul caracter desenat.
+    Private Function DrawRichPartsInZone(g As Graphics, parts As List(Of RichTextPart),
+                                      y As Integer, startX As Single, budget As Single,
+                                      fmt As StringFormat) As Single
+        If budget <= 0 OrElse parts.Count = 0 Then Return startX
+
+        ' Calculăm lățimea totală
+        Dim totalWidth As Single = 0
+        For Each part In parts
+            totalWidth += g.MeasureString(part.Text, part.Font, PointF.Empty, fmt).Width
+        Next
+
+        If totalWidth <= budget Then
+            ' Încape integral — desenare simplă
+            DrawRichPartsSimple(g, parts, y, startX, fmt)
+            Return startX + totalWidth
+        End If
+
+        ' Nu încape — trunchiăm cu "..."
+        Dim lastPart As RichTextPart = parts(parts.Count - 1)
+        Dim ellipsisFont As Font = lastPart.Font
+        Dim ellipsisColor As Color = lastPart.ForeColor
+        Dim ellipsisWidth As Single = g.MeasureString("...", ellipsisFont, PointF.Empty, fmt).Width
+        Dim spaceForText As Single = Math.Max(0, budget - ellipsisWidth)
+
+        Dim rx As Single = startX
+        Dim drawnSoFar As Single = 0
+        Dim truncated As Boolean = False
+
+        For Each part In parts
+            If truncated Then Exit For
+
+            Dim partWidth As Single = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt).Width
+
+            If drawnSoFar + partWidth <= spaceForText Then
+                ' Întregul part încape
+                If part.HasBackColor Then
+                    Using b As New SolidBrush(part.BackColor)
+                        g.FillRectangle(b, rx, y, partWidth, ItemHeight)
+                    End Using
+                End If
+                Using b As New SolidBrush(part.ForeColor)
+                    g.DrawString(part.Text, part.Font, b, rx, y + (ItemHeight - part.Font.Height) / 2.0F, fmt)
+                End Using
+                rx += partWidth
+                drawnSoFar += partWidth
+            Else
+                ' Câte caractere mai încap
+                Dim spaceLeft As Single = spaceForText - drawnSoFar
+                Dim fitted As Integer = 0
+                For c As Integer = 1 To part.Text.Length
+                    If g.MeasureString(part.Text.AsSpan(0, c), part.Font, PointF.Empty, fmt).Width <= spaceLeft Then
+                        fitted = c
+                    Else
+                        Exit For
+                    End If
+                Next
+                If fitted > 0 Then
+                    Dim part2 As String = part.Text.Substring(0, fitted)
+                    Dim partialW As Single = g.MeasureString(part2, part.Font, PointF.Empty, fmt).Width
+                    If part.HasBackColor Then
+                        Using b As New SolidBrush(part.BackColor)
+                            g.FillRectangle(b, rx, y, partialW, ItemHeight)
+                        End Using
+                    End If
+                    Using b As New SolidBrush(part.ForeColor)
+                        g.DrawString(part2, part.Font, b, rx, y + (ItemHeight - part.Font.Height) / 2.0F, fmt)
+                    End Using
+                End If
+                truncated = True
+            End If
+        Next
+
+        ' "..." fix la capătul drept al zonei
+        Using b As New SolidBrush(ellipsisColor)
+            g.DrawString("...", ellipsisFont, b,
+                     startX + budget - ellipsisWidth,
+                     y + (ItemHeight - ellipsisFont.Height) / 2.0F, fmt)
+        End Using
+
+        Return startX + budget
+    End Function
+
+    ' Desenează o listă de RichTextParts fără trunchiere, pornind de la startX.
+    Private Sub DrawRichPartsSimple(g As Graphics, parts As List(Of RichTextPart),
+                                 y As Integer, startX As Single, fmt As StringFormat)
+        Dim rx As Single = startX
+        For Each part In parts
+            Dim sz As SizeF = g.MeasureString(part.Text, part.Font, PointF.Empty, fmt)
+            If part.HasBackColor Then
+                Using b As New SolidBrush(part.BackColor)
+                    g.FillRectangle(b, rx, y, sz.Width, ItemHeight)
+                End Using
+            End If
+            Using b As New SolidBrush(part.ForeColor)
+                g.DrawString(part.Text, part.Font, b, rx, y + (ItemHeight - part.Font.Height) / 2.0F, fmt)
+            End Using
+            rx += sz.Width
+        Next
+    End Sub
     Private Function GetRoundedRect(rect As Rectangle, radius As Integer) As GraphicsPath
         Dim path As New GraphicsPath()
         Dim diameter As Integer = radius * 2
@@ -552,10 +622,303 @@ Partial Public Class AdvancedTreeControl
     Friend Shared Function ParseColor(val As String, defaultColor As Color) As Color
         Try
             If String.IsNullOrEmpty(val) Then Return defaultColor
-            If val.StartsWith("#") Then Return ColorTranslator.FromHtml(val)
+            If val.StartsWith("#"c) Then Return ColorTranslator.FromHtml(val)
             Return Color.FromName(val)
         Catch
             Return defaultColor
         End Try
     End Function
 End Class
+
+'VESITGIAL:
+
+'Private Sub DrawItem(g As Graphics, it As TreeItem, y As Integer)
+'    ' Forțăm expandarea root-ului dacă nu are expander permis
+'    If it.Level = 0 AndAlso Not _RootExpander AndAlso Not it.Expanded Then
+'        it.Expanded = True
+'    End If
+
+'    ' 0.
+'    If Me.ExpanderSize Mod 2 <> 0 Then Me.ExpanderSize = Me.ExpanderSize - 1
+'    If Me.ItemHeight Mod 2 <> 0 Then Me.ItemHeight = Me.ItemHeight - 1
+
+'    ' 1. Punctul de start al grilei pentru nivelul curent (linia din stânga a nivelului)
+'    Dim gridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+
+'    ' 2. Expander-ul este centrat în coloana de indentare
+'    Dim expanderCenterX As Integer = gridLeft + (Indent \ 2)
+'    Dim midY As Integer = y + (ItemHeight \ 2)
+'    Dim expanderRect As New Rectangle(
+'                                    expanderCenterX - (ExpanderSize \ 2),
+'                                    midY - (ExpanderSize \ 2),
+'                                    ExpanderSize,
+'                                    ExpanderSize)
+
+'    ' 3. Conținutul (Checkbox/Text) începe DUPĂ indentare + SPAȚIUL SUPLIMENTAR (PADDING_EXPANDER_GAP)
+'    ' Aici se aplică distanțarea cerută
+'    Dim xBase As Integer
+'    If it.Level = 0 AndAlso Not _RootExpander Then
+'        xBase = gridLeft
+'    Else
+'        xBase = gridLeft + Indent + PADDING_EXPANDER_GAP
+'    End If
+
+'    ' -- [PASUL 1] SELECȚIE & HOVER (FULL ROW) --
+'    ' Calculăm selecția să înceapă de la limita vizuală a nivelului
+'    Dim selStartX As Integer
+'    If it.Level = 0 AndAlso Not _RootExpander Then
+'        selStartX = gridLeft                        ' root fără expander — neschimbat
+'    ElseIf Not _RootExpander Then
+'        selStartX = xBase                           ' child, fără RootExpander — aliniat cu conținutul
+'    Else
+'        selStartX = gridLeft + ExpanderSize * 2 - 3 ' RootExpander=True — comportament existent neschimbat
+'    End If
+
+'    Dim selWidth As Integer = Me.ClientSize.Width - selStartX - PADDING_TREE_END
+'    If selWidth < 0 Then selWidth = 0
+
+'    Dim fullRowRect As New Rectangle(selStartX, y, selWidth, ItemHeight)
+
+'    Dim oldSmooth = g.SmoothingMode
+'    g.SmoothingMode = SmoothingMode.AntiAlias
+
+'    If it Is pSelectedItem Then
+'        Using path As GraphicsPath = GetRoundedRect(fullRowRect, SELECTION_CORNER_RADIUS)
+'            Using brush As New SolidBrush(SelectedBackColor)
+'                g.FillPath(brush, path)
+'            End Using
+'            Using pen As New Pen(SelectedBorderColor)
+'                ' Border-ul trebuie inset cu 1px pentru a nu ieși din path
+'                Dim borderRect As New Rectangle(fullRowRect.X, fullRowRect.Y, fullRowRect.Width - 1, fullRowRect.Height - 1)
+'                Using borderPath As GraphicsPath = GetRoundedRect(borderRect, SELECTION_CORNER_RADIUS)
+'                    g.DrawPath(pen, borderPath)
+'                End Using
+'            End Using
+'        End Using
+'    ElseIf it Is pHoveredItem Then
+'        Using path As GraphicsPath = GetRoundedRect(fullRowRect, SELECTION_CORNER_RADIUS)
+'            Using brush As New SolidBrush(HoverBackColor)
+'                g.FillPath(brush, path)
+'            End Using
+'        End Using
+'    End If
+
+'    g.SmoothingMode = oldSmooth
+
+'    ' -- [PASUL 2] LINII (TREE LINES) --
+'    If Not (it.Level = 0 AndAlso Not _RootExpander) Then
+'        DrawTreeLines(g, it, y, expanderCenterX, midY, gridLeft)
+'    End If
+
+'    ' === LOGICĂ DESENARE LOADER (REVIZUITĂ) ===
+'    If it.IsLoader Then
+'        ' 1. Recalculăm poziția X exactă bazată pe nivelul nodului curent
+'        ' gridLeft este marginea stângă a nivelului. Adăugăm Indentarea și Spațiul de Expander.
+'        Dim currentGridLeft As Integer = (it.Level * Indent) + Me.AutoScrollPosition.X + PADDING_TREE_START
+'        Dim loaderX As Integer = currentGridLeft + Indent + PADDING_EXPANDER_GAP
+
+'        ' 2. Calculăm poziția Y Centrată (pentru spinner și text)
+'        Dim loaderY As Integer = y + (ItemHeight - 14) \ 2
+'        Dim textY_Local As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
+
+'        ' 3. Setăm Grafica
+'        Dim oldSmoothing = g.SmoothingMode
+'        g.SmoothingMode = SmoothingMode.AntiAlias
+
+'        ' 4. Desenăm Spinner-ul (La poziția loaderX)
+'        Using p As New Pen(Color.DimGray, 2)
+'            g.DrawArc(p, loaderX, loaderY, 14, 14, _loadingAngle, 300)
+'        End Using
+
+'        ' 5. Desenăm Textul (La loaderX + 20px spațiu)
+'        g.DrawString("Se încarcă...", Me.Font, Brushes.Gray, loaderX + 20, textY_Local)
+
+'        ' 6. Restore și Ieșire
+'        g.SmoothingMode = oldSmoothing
+'        Return
+'    End If
+'    ' ===========================================
+
+'    ' -- [PASUL 3] CHECKBOX / RADIOBUTTON --
+'    If NodeHasCheckControl(it) Then
+'        Dim chkSize As Integer = _checkBoxSize
+'        Dim chkY As Integer = midY - (chkSize \ 2)
+'        Dim chkRect As New Rectangle(xBase, chkY, chkSize, chkSize)
+
+'        Dim oldSmoothing = g.SmoothingMode
+'        g.SmoothingMode = SmoothingMode.AntiAlias
+
+'        Dim accentColor As Color = Color.DodgerBlue
+'        Dim borderColor As Color = Color.FromArgb(180, 180, 180)
+
+'        If _radioButtonLevel >= 0 AndAlso it.Level = _radioButtonLevel Then
+'            ' *** RADIO BUTTON ***
+'            If it.IsRadioSelected Then
+'                Using brush As New SolidBrush(accentColor)
+'                    g.FillEllipse(brush, chkRect)
+'                End Using
+'                Using pen As New Pen(accentColor)
+'                    g.DrawEllipse(pen, chkRect)
+'                End Using
+'                Dim dotMargin As Integer = CInt(chkSize * 0.28F)
+'                Dim dotRect As New Rectangle(chkRect.X + dotMargin, chkRect.Y + dotMargin,
+'                                     chkSize - dotMargin * 2, chkSize - dotMargin * 2)
+'                Using brush As New SolidBrush(Color.White)
+'                    g.FillEllipse(brush, dotRect)
+'                End Using
+'            Else
+'                g.FillEllipse(Brushes.White, chkRect)
+'                Using pen As New Pen(borderColor, 1)
+'                    g.DrawEllipse(pen, chkRect)
+'                End Using
+'            End If
+
+'        Else
+'            ' *** CHECKBOX STANDARD (sub radio level SAU mod normal) ***
+'            Dim cornerRadius As Integer = 3
+'            Using path As GraphicsPath = GetRoundedRect(chkRect, cornerRadius)
+'                If it.CheckState = TreeCheckState.Checked Then
+'                    Using brush As New SolidBrush(accentColor)
+'                        g.FillPath(brush, path)
+'                    End Using
+'                    Using pen As New Pen(accentColor)
+'                        g.DrawPath(pen, path)
+'                    End Using
+'                    Using penTick As New Pen(Color.White, 2.0F)
+'                        penTick.StartCap = LineCap.Round
+'                        penTick.EndCap = LineCap.Round
+'                        penTick.LineJoin = LineJoin.Round
+'                        Dim p1 As New PointF(chkRect.X + chkSize * 0.22F, chkRect.Y + chkSize * 0.52F)
+'                        Dim p2 As New PointF(chkRect.X + chkSize * 0.42F, chkRect.Y + chkSize * 0.72F)
+'                        Dim p3 As New PointF(chkRect.X + chkSize * 0.78F, chkRect.Y + chkSize * 0.28F)
+'                        g.DrawLines(penTick, {p1, p2, p3})
+'                    End Using
+'                ElseIf it.CheckState = TreeCheckState.Indeterminate Then
+'                    Using brush As New SolidBrush(accentColor)
+'                        g.FillPath(brush, path)
+'                    End Using
+'                    Using pen As New Pen(accentColor)
+'                        g.DrawPath(pen, path)
+'                    End Using
+'                    Using penDash As New Pen(Color.White, 2.0F)
+'                        penDash.StartCap = LineCap.Round
+'                        penDash.EndCap = LineCap.Round
+'                        Dim margin As Single = chkSize * 0.25F
+'                        Dim yMidLine As Single = chkRect.Y + (chkRect.Height / 2.0F)
+'                        g.DrawLine(penDash, chkRect.X + margin, yMidLine, chkRect.Right - margin, yMidLine)
+'                    End Using
+'                Else
+'                    g.FillPath(Brushes.White, path)
+'                    Using pen As New Pen(borderColor, 1)
+'                        g.DrawPath(pen, path)
+'                    End Using
+'                End If
+'            End Using
+'        End If
+
+'        g.SmoothingMode = oldSmoothing
+'        xBase += chkSize + PADDING_CHECKBOX_GAP
+'    ElseIf Me.CheckBoxes Then 'copacul are checkbox-uri, dar nodul curent nu are → decalăm conținutul în continuare pentru aliniarea textului
+'        'Dim chkSize As Integer = _checkBoxSize
+
+'        'xBase += chkSize + PADDING_CHECKBOX_GAP
+
+'    End If
+
+'    ' -- [PASUL 4] CALCUL CONȚINUT (Icon + Caption) --
+'    Dim leftIconY As Integer = y + (ItemHeight - LeftIconSize.Height) \ 2
+'    Dim leftIconRect As New Rectangle(xBase, leftIconY, LeftIconSize.Width, LeftIconSize.Height)
+
+'    If it.TextWidth = -1 Then it.TextWidth = CInt(g.MeasureString(it.Caption, Me.Font).Width)
+
+'    ' Calcul poziție text cu PADDING_ICON_GAP
+'    Dim textX As Integer = If(it.LeftIconClosed IsNot Nothing AndAlso _hasNodeIcons, leftIconRect.Right + PADDING_ICON_GAP, xBase)
+'    Dim textY As Integer = y + (ItemHeight - Me.Font.Height) \ 2 + 1
+
+'    ' -- [PASUL 5] EXPANDER (+/-) --
+'    Dim showExpander As Boolean = (it.Children.Count > 0 OrElse it.LazyNode)
+'    If it.Level = 0 AndAlso Not _RootExpander Then showExpander = False
+
+'    If showExpander Then
+'        g.FillRectangle(Brushes.White, expanderRect)
+'        g.DrawRectangle(New Pen(LineColor), expanderRect)
+'        g.DrawLine(Pens.Black, expanderRect.Left + 2, midY, expanderRect.Right - 2, midY)
+'        If Not it.Expanded Then
+'            g.DrawLine(Pens.Black, expanderCenterX, expanderRect.Top + 2, expanderCenterX, expanderRect.Bottom - 2)
+'        End If
+'    End If
+
+'    ' -- [PASUL 6] DESENARE CONȚINUT FINAL --
+'    If _hasNodeIcons Then
+'        If it.Expanded Then
+'            If it.LeftIconOpen IsNot Nothing Then g.DrawImage(it.LeftIconOpen, leftIconRect)
+'        Else
+'            If it.LeftIconClosed IsNot Nothing Then g.DrawImage(it.LeftIconClosed, leftIconRect)
+'        End If
+'    End If
+
+'    ' === CALCUL LIMITĂ TEXT (Clipping) ===
+'    Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+
+'    ' Limita din dreapta a controlului (minus padding 6px)
+'    Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
+
+'    ' Dacă există RightIcon, limita se mută mai la stânga (lățime icon + încă 6px padding)
+'    If it.RightIcon IsNot Nothing Then
+'        maxRightX -= (RightIconSize.Width + PADDING_RIGHT_ICON_GAP)
+'    End If
+
+'    ' Calculăm lățimea disponibilă pentru text
+'    Dim availableTextWidth As Integer = maxRightX - textX
+'    If availableTextWidth < 0 Then availableTextWidth = 0
+
+'    ' Salvăm starea curentă a "foarfecii" (Clip)
+'    Dim oldClip As Region = g.Clip.Clone()
+
+'    ' Setăm noua zonă de tăiere: Textul se va desena DOAR în acest dreptunghi
+'    Dim clipRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
+'    g.SetClip(clipRect)
+
+'    ' --- DESENARE TEXT ---
+'    ' A. Determinăm culoarea textului: Nod → Control → Negru
+'    Dim baseTextColor As Color
+'    If it.NodeForeColor <> Color.Empty Then
+'        baseTextColor = it.NodeForeColor
+'    ElseIf Me.ForeColor <> Color.Empty Then
+'        baseTextColor = Me.ForeColor
+'    Else
+'        baseTextColor = Color.Black
+'    End If
+
+'    ' B. Determinăm fontul: aplicăm Bold/Italic de pe nod
+'    Dim nodeFont As Font = Me.TreeFont
+'    Dim nodeStyle As FontStyle = Me.TreeFont.Style
+'    If it.Bold Then nodeStyle = nodeStyle Or FontStyle.Bold
+'    If it.Italic Then nodeStyle = nodeStyle Or FontStyle.Italic
+'    If nodeStyle <> Me.Font.Style Then
+'        nodeFont = New Font(Me.Font, nodeStyle)
+'    End If
+
+'    ' C. BackColor per nod — VARIANTA A: doar zona textului
+'    If it.NodeBackColor <> Color.Empty AndAlso it IsNot pSelectedItem Then
+'        Dim textBgRect As New Rectangle(textX, y, availableTextWidth, ItemHeight)
+'        Using bgBrush As New SolidBrush(it.NodeBackColor)
+'            g.FillRectangle(bgBrush, textBgRect)
+'        End Using
+'    End If
+
+'    DrawRichText(g, it.Caption, textX, y, nodeFont, baseTextColor, availableTextWidth)
+'    ' ---------------------
+
+'    ' Restaurăm "foarfeca" originală pentru a putea desena RightIcon (care e în afara zonei de text)
+'    g.Clip = oldClip
+
+
+'    ' -- [PASUL 7] ICONIȚĂ DREAPTA --
+'    If it.RightIcon IsNot Nothing Then
+'        ' Recalculăm poziția exact cum am calculat limita mai sus
+'        Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
+'        Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
+'        g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
+'    End If
+'End Sub

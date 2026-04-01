@@ -52,6 +52,12 @@ Partial Public Class AdvancedTreeControl
     Private WithEvents _loadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
     Private _loadingAngle As Single = 0
 
+    ' Gap minim între capătul textului stâng și începutul textului drept (separator ~~~)
+    Private Const PADDING_SEPARATOR_GAP As Integer = 12
+
+    ' Padding între zona de text și iconița din dreapta
+    Private Const PADDING_RIGHT_ICON_GAP As Integer = 8
+
     ' Proprietate publică - folosită de Tree.vb pentru whitelist în MonitorTimer
     Public ReadOnly Property TooltipPopupHandle As IntPtr
         Get
@@ -229,7 +235,7 @@ Partial Public Class AdvancedTreeControl
         ' Nu afișăm tooltip dacă mouse-ul e pe zona RightIcon
         If it.RightIcon IsNot Nothing AndAlso mouseX >= 0 Then
             Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
-            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - scrollW
             If mouseX >= rightIconMinX Then Return
         End If
 

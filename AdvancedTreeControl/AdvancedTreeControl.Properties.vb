@@ -239,4 +239,28 @@
             pTooltipTimer.Interval = value
         End Set
     End Property
+
+    Private m_leftTextWidth As Integer = 0
+    Public Property LeftTextWidth As Integer
+        Get
+            Return m_leftTextWidth
+        End Get
+        Set(value As Integer)
+            m_leftTextWidth = Math.Max(0, value)
+            Me.Invalidate()
+        End Set
+    End Property
+
+    ' Lățime fixă rezervată pentru textul drept din caption cu separator ~~~
+    ' 0 = nelimitat (dinamic)
+    Private m_rightTextWidth As Integer = 0
+    Public Property RightTextWidth As Integer
+        Get
+            Return m_rightTextWidth
+        End Get
+        Set(value As Integer)
+            m_rightTextWidth = Math.Max(0, value)
+            Me.Invalidate()
+        End Set
+    End Property
 End Class

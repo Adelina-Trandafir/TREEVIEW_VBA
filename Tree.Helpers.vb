@@ -116,8 +116,77 @@ Partial Public Class Tree
         TreeLogger.Debug("Curățare resurse completă. Iesire din aplicatie.", "CurataResurseSiIesi", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
 
+    'Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
+    '    ' === HANDSHAKE: Dacă VBA nu e gata, punem în coadă ===
+    '    If Not _vbaReady Then
+    '        If _pendingMessages.Count = 0 Then
+    '            TreeLogger.Info($"VBA not ready — mesajele se pun în coadă (primul: {Action})", "TrimiteMesajAccess")
+    '            _handshakeStart = DateTime.Now
+    '        End If
+    '        Dim capturedAction As String = Action
+    '        Dim capturedItem As AdvancedTreeControl.TreeItem = pItem
+    '        Dim capturedExtra As String = ExtraInfo
+    '        _pendingMessages.Enqueue(Sub() TrimiteMesajAccess(capturedAction, capturedItem, capturedExtra))
+    '        Return
+    '    End If
+
+    '    ' === FLOW NORMAL ===
+    '    If pItem Is Nothing Then
+    '        If _accessApp IsNot Nothing Then
+    '            Try
+    '                Me.BeginInvoke(Sub()
+    '                                   Try
+    '                                       If _formHwnd <> IntPtr.Zero Then
+    '                                           _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
+    '                                       End If
+    '                                   Catch comEx As Runtime.InteropServices.COMException
+    '                                       ' VBA ocupată — re-enqueue silențios cu retry
+    '                                       Dim retryTimer As New Timer With {.Interval = 100}
+    '                                       AddHandler retryTimer.Tick, Sub(s, ev)
+    '                                                                       retryTimer.Stop()
+    '                                                                       retryTimer.Dispose()
+    '                                                                       TrimiteMesajAccess(Action, Nothing, ExtraInfo)
+    '                                                                   End Sub
+    '                                       retryTimer.Start()
+    '                                   Catch ex As Exception
+    '                                       TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
+    '                                   End Try
+    '                               End Sub)
+    '            Catch ex As Exception
+    '                TreeLogger.Ex(ex, "TrimiteMesajAccess")
+    '            End Try
+    '        End If
+    '    Else
+    '        Dim nodeKey As String = If(pItem IsNot Nothing, pItem.Key.ToString(), "")
+    '        Dim nodeCaption As String = If(pItem IsNot Nothing, pItem.Caption, "")
+
+    '        If _accessApp IsNot Nothing Then
+    '            Try
+    '                Me.BeginInvoke(Sub()
+    '                                   Try
+    '                                       If _formHwnd <> IntPtr.Zero Then
+    '                                           _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
+    '                                       End If
+    '                                   Catch comEx As Runtime.InteropServices.COMException
+    '                                       Dim retryTimer As New Timer With {.Interval = 100}
+    '                                       AddHandler retryTimer.Tick, Sub(s, ev)
+    '                                                                       retryTimer.Stop()
+    '                                                                       retryTimer.Dispose()
+    '                                                                       TrimiteMesajAccess(Action, pItem, ExtraInfo)
+    '                                                                   End Sub
+    '                                       retryTimer.Start()
+    '                                   Catch ex As Exception
+    '                                       TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
+    '                                   End Try
+    '                               End Sub)
+    '            Catch ex As Exception
+    '                TreeLogger.Ex(ex, "TrimiteMesajAccess")
+    '            End Try
+    '        End If
+    '    End If
+    'End Sub
     Private Sub TrimiteMesajAccess(Action As String, pItem As AdvancedTreeControl.TreeItem, Optional ExtraInfo As String = "")
-        ' === HANDSHAKE: Dacă VBA nu e gata, punem în coadă ===
+        ' === HANDSHAKE: Dacă VBA nu e gata, punem în coadă (neschimbat) ===
         If Not _vbaReady Then
             If _pendingMessages.Count = 0 Then
                 TreeLogger.Info($"VBA not ready — mesajele se pun în coadă (primul: {Action})", "TrimiteMesajAccess")
@@ -130,6 +199,16 @@ Partial Public Class Tree
             Return
         End If
 
+        ' === BUSY GUARD: Dacă VBA procesează deja un eveniment, punem în coadă ===
+        If _vbaBusy Then
+            Dim capturedAction As String = Action
+            Dim capturedItem As AdvancedTreeControl.TreeItem = pItem
+            Dim capturedExtra As String = ExtraInfo
+            _eventQueue.Enqueue(Sub() TrimiteMesajAccess(capturedAction, capturedItem, capturedExtra))
+            Return
+        End If
+        _vbaBusy = True
+
         ' === FLOW NORMAL ===
         If pItem Is Nothing Then
             If _accessApp IsNot Nothing Then
@@ -138,9 +217,13 @@ Partial Public Class Tree
                                        Try
                                            If _formHwnd <> IntPtr.Zero Then
                                                _accessApp.Run("OnTreeEvent", _idTree, Action, "", "", ExtraInfo)
+                                               _vbaBusy = False
+                                               If _eventQueue.Count > 0 Then _eventQueue.Dequeue().Invoke()
+                                           Else
+                                               _vbaBusy = False
                                            End If
                                        Catch comEx As Runtime.InteropServices.COMException
-                                           ' VBA ocupată — re-enqueue silențios cu retry
+                                           _vbaBusy = False
                                            Dim retryTimer As New Timer With {.Interval = 100}
                                            AddHandler retryTimer.Tick, Sub(s, ev)
                                                                            retryTimer.Stop()
@@ -149,10 +232,13 @@ Partial Public Class Tree
                                                                        End Sub
                                            retryTimer.Start()
                                        Catch ex As Exception
+                                           _vbaBusy = False
+                                           If _eventQueue.Count > 0 Then _eventQueue.Dequeue().Invoke()
                                            TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
                                        End Try
                                    End Sub)
                 Catch ex As Exception
+                    _vbaBusy = False
                     TreeLogger.Ex(ex, "TrimiteMesajAccess")
                 End Try
             End If
@@ -166,8 +252,13 @@ Partial Public Class Tree
                                        Try
                                            If _formHwnd <> IntPtr.Zero Then
                                                _accessApp.Run("OnTreeEvent", _idTree, Action, nodeKey, nodeCaption, ExtraInfo)
+                                               _vbaBusy = False
+                                               If _eventQueue.Count > 0 Then _eventQueue.Dequeue().Invoke()
+                                           Else
+                                               _vbaBusy = False
                                            End If
                                        Catch comEx As Runtime.InteropServices.COMException
+                                           _vbaBusy = False
                                            Dim retryTimer As New Timer With {.Interval = 100}
                                            AddHandler retryTimer.Tick, Sub(s, ev)
                                                                            retryTimer.Stop()
@@ -176,16 +267,18 @@ Partial Public Class Tree
                                                                        End Sub
                                            retryTimer.Start()
                                        Catch ex As Exception
+                                           _vbaBusy = False
+                                           If _eventQueue.Count > 0 Then _eventQueue.Dequeue().Invoke()
                                            TreeLogger.Debug("Err TrimiteMesajAccess Inner: " & ex.Message, "TrimiteMesajAccess")
                                        End Try
                                    End Sub)
                 Catch ex As Exception
+                    _vbaBusy = False
                     TreeLogger.Ex(ex, "TrimiteMesajAccess")
                 End Try
             End If
         End If
     End Sub
-
     ' =============================================================
     ' PROCESARE COMENZI EXTERNE
     ' =============================================================

@@ -353,7 +353,8 @@ Partial Public Class Tree
         For level As Integer = 0 To maxLevels - 1
             If currentHwnd = IntPtr.Zero Then Exit For
 
-            GetClassName(currentHwnd, className, 256)
+            Dim v = GetClassName(currentHwnd, className, 256)
+
             Dim cls As String = className.ToString()
             TreeLogger.Info($"  Nivel {level}: class='{cls}' {GetWindowInfo(currentHwnd)}", "GetAccessFormParent")
 
@@ -411,6 +412,45 @@ Partial Public Class Tree
         ' Totul trimis
         Dim elapsed As TimeSpan = DateTime.Now - _handshakeStart
         TreeLogger.Info($"Flush complet — {elapsed.TotalMilliseconds:F0}ms de la prima punere în coadă", "FlushPending")
+    End Sub
+
+    Private Sub RunOnVBA(action As String, nodeKey As String, nodeCaption As String, extraInfo As String)
+        If _vbaBusy Then
+            ' Capturam parametrii, nu referinta la variabile locale
+            Dim a = action, k = nodeKey, c = nodeCaption, x = extraInfo
+            _eventQueue.Enqueue(Sub() RunOnVBA(a, k, c, x))
+            Return
+        End If
+
+        _vbaBusy = True
+        Dim succeeded As Boolean = False
+
+        Try
+            _accessApp.Run("OnTreeEvent", _idTree, action, nodeKey, nodeCaption, extraInfo)
+            succeeded = True
+        Catch comEx As Runtime.InteropServices.COMException
+            ' VBA ocupata neasteptat (race extern) — retry dupa 100ms
+            Dim a = action, k = nodeKey, c = nodeCaption, x = extraInfo
+            Dim retryTimer As New Timer With {.Interval = 100}
+            AddHandler retryTimer.Tick, Sub(s, ev)
+                                            retryTimer.Stop()
+                                            retryTimer.Dispose()
+                                            _vbaBusy = False
+                                            RunOnVBA(a, k, c, x)
+                                        End Sub
+            retryTimer.Start()
+            Return  ' _vbaBusy ramane True pana la retry
+        Catch ex As Exception
+            TreeLogger.Debug("RunOnVBA Err: " & ex.Message, "RunOnVBA")
+            succeeded = True  ' eroare non-COM, eliberam oricum
+        End Try
+
+        If succeeded Then
+            _vbaBusy = False
+            If _eventQueue.Count > 0 Then
+                _eventQueue.Dequeue().Invoke()
+            End If
+        End If
     End Sub
 
     Private Sub OnVbaReady(newFormHwnd As IntPtr)

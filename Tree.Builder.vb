@@ -524,6 +524,34 @@ Partial Public Class Tree
                 TreeLogger.Debug(Space(5) & $"SelectedNodeId xml='{_pendingSelectedNodeId}'", "AplicareConfigurare")
             End If
 
+            '========================
+            ' LeftTextWidth
+            '========================
+            If cfg.Attributes("LeftTextWidth") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("LeftTextWidth").Value
+                Dim leftTxtWidth As Integer = MyTree.LeftTextWidth
+                If Integer.TryParse(xmlVal, leftTxtWidth) AndAlso leftTxtWidth > 0 Then
+                    If MyTree.LeftTextWidth <> leftTxtWidth Then
+                        MyTree.LeftTextWidth = leftTxtWidth
+                    End If
+                    TreeLogger.Debug(Space(5) & $"LeftTextWidth xml='{xmlVal}' control='{MyTree.LeftTextWidth}'", "AplicareConfigurare")
+                End If
+            End If
+
+            '========================
+            ' RightTextWidth
+            '========================
+            If cfg.Attributes("RightTextWidth") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("RightTextWidth").Value
+                Dim rightTxtWidth As Integer = MyTree.RightTextWidth
+                If Integer.TryParse(xmlVal, rightTxtWidth) AndAlso rightTxtWidth > 0 Then
+                    If MyTree.RightTextWidth <> rightTxtWidth Then
+                        MyTree.RightTextWidth = rightTxtWidth
+                    End If
+                    TreeLogger.Debug(Space(5) & $"RightTextWidth xml='{xmlVal}' control='{MyTree.RightTextWidth}'", "AplicareConfigurare")
+                End If
+            End If
+
             Return True
 
         Catch ex As Exception

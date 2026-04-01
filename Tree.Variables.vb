@@ -33,6 +33,10 @@
     Private _readyPollTimer As Timer = Nothing
     Private _handshakeStart As DateTime
 
+    ' === NORMAL VBA COMMUNICATION ===
+    Private _vbaBusy As Boolean = False
+    Private _eventQueue As New Queue(Of Action)
+
     Private Const WM_APP_READY As Integer = &H8001  ' WM_APP + 1 (safe custom range)
 
     ' === POPUP GRACE ===
