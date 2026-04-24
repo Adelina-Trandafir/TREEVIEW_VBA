@@ -10,11 +10,6 @@
     ' Nodes
     Public ReadOnly Items As New List(Of TreeItem)
 
-    ' Culori
-    Public LineColor As Color = Color.FromArgb(160, 160, 160)
-    Public HoverBackColor As Color = Color.FromArgb(230, 240, 255)
-    Public SelectedBackColor As Color = Color.FromArgb(200, 220, 255)
-    Public SelectedBorderColor As Color = Color.FromArgb(150, 180, 255)
     Public RaiseLeftClickOnRightClick As Boolean = True
     Public ReRaiseClickOnSameNode As Boolean = True
 
@@ -229,6 +224,50 @@
         End Set
     End Property
 
+    Private m_HoverBackColor As Color = Color.FromArgb(230, 240, 255)
+    Public Property HoverBackColor As Color
+        Get
+            Return m_HoverBackColor
+        End Get
+        Set(value As Color)
+            m_HoverBackColor = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private m_SelectedBackColor As Color = Color.FromArgb(200, 220, 255)
+    Public Property SelectedBackColor As Color
+        Get
+            Return m_SelectedBackColor
+        End Get
+        Set(value As Color)
+            m_SelectedBackColor = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private m_SelectedBorderColor As Color = Color.FromArgb(150, 180, 255)
+    Public Property SelectedBorderColor As Color
+        Get
+            Return m_SelectedBorderColor
+        End Get
+        Set(value As Color)
+            m_SelectedBorderColor = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private m_LineColor As Color = Color.FromArgb(160, 160, 160)
+    Public Property LineColor As Color
+        Get
+            Return m_LineColor
+        End Get
+        Set(value As Color)
+            m_LineColor = value
+            Me.Invalidate()
+        End Set
+    End Property
+
     Private _tooltipDelayMs As Integer = 600
     Public Property TooltipDelayMs As Integer
         Get
@@ -263,4 +302,10 @@
             Me.Invalidate()
         End Set
     End Property
+    Public ReadOnly Property OldSelectedNode As TreeItem
+        Get
+            Return pOldSelectedItem
+        End Get
+    End Property
+
 End Class

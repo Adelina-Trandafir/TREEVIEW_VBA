@@ -97,11 +97,11 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(4655758) '################
+                _formHwnd = New IntPtr(1378598) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(1181338)
-                _idTree = "frmFX_MAIN" '"EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
-                _fisier = "C:\AVACONT\RES\tree_frmFX_MAIN.xml" 'tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
+                _mainAccessHwnd = New IntPtr(656888)
+                _idTree = "Clasificatii" '"EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
+                _fisier = "C:\AVACONT\RES\tree_Clasificatii.xml" 'tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If
 #Else
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
@@ -227,31 +227,17 @@ Partial Public Class Tree
     Private Sub MyTree_NodeMouseUp(pItem As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeMouseUp
         If e.Button = MouseButtons.Left Then
             TrimiteMesajAccess("Click", pItem)
-        End If
 
-        ' --- POPUP: Închidere după click pe leaf ---
-        'If MyTree.IsPopupTree AndAlso pItem.Children.Count = 0 AndAlso Not pItem.LazyNode Then
-        '    Me.BeginInvoke(Sub()
-        '                       TreeLogger.Debug("Leaf click în popup - trimit WM_CLOSE", "MyTree_NodeMouseUp")
-        '                       _MonitorTimer.Stop()
-        '                       SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
-        '                       If Not IsWindow(_formParentHwnd) Then
-        '                           Application.Exit()
-        '                       End If
-        '                   End Sub)
-        '    Exit Sub
-        'End If
-
-        If e.Button = MouseButtons.Right Then
-            If MyTree.RaiseLeftClickOnRightClick Then
+        ElseIf e.Button = MouseButtons.Right Then
+            If MyTree.RaiseLeftClickOnRightClick OrElse pItem IsNot MyTree.OldSelectedNode Then
                 TrimiteMesajAccess("Click", pItem)
             End If
 
             If Not String.IsNullOrEmpty(MyTree.RightClickFunction) AndAlso _accessApp IsNot Nothing Then
                 TrimiteMesajAccess("RightClickFunction", pItem)
+            Else
+                TrimiteMesajAccess("RightClick", pItem, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
             End If
-
-            TrimiteMesajAccess("RightClick", pItem, String.Join(",", e.Location.X.ToString(), e.Location.Y.ToString()))
         End If
     End Sub
 

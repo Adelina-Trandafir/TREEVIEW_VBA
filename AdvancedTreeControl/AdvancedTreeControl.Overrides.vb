@@ -101,11 +101,8 @@ Partial Public Class AdvancedTreeControl
         End If
         ' -------------------------------------------------------------------------------
 
-        ' --- Logica Nod Loader ---
-        If it.IsLoader Then
-            ' Nu permitem interacțiuni cu nodurile loader
-            Return
-        End If
+        ' --- Logica Nod Loader (Nu permitem interacțiuni cu nodurile loader) ---
+        If it.IsLoader Then Return
 
         ' =================================================================
         ' 2. PRIORITATE ZERO: EXPANDER (+/-)
@@ -218,13 +215,13 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' =================================================================
-        ' =================================================================
         ' 4. PRIORITATE DOI: SELECȚIE RÂND (TEXT / ICON)
         ' =================================================================
         pSelectedItem = it
         RaiseEvent NodeMouseDown(it, e)
 
-        ' 3.5. PRIORITATE: RIGHT ICON CLICK
+        ' =================================================================
+        ' 5. PRIORITATE: RIGHT ICON CLICK
         ' =================================================================
         If it.RightIcon IsNot Nothing Then
             Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
@@ -272,9 +269,16 @@ Partial Public Class AdvancedTreeControl
             If pSelectedItem Is pOldSelectedItem AndAlso e.Button = MouseButtons.Left Then Return
         End If
 
-        If Not Me.RaiseLeftClickOnRightClick Then
-            If pSelectedItem IsNot it AndAlso e.Button = MouseButtons.Right Then Return
-        End If
+        ' SCHIMBARE:
+        ' Daca e activat RaiseLeftClickOnRightClick, se permite trigger-ul orice ar fi
+        ' Daca NU e activat, atunci la Click Dreapta, daca nodul selectat NU e cel pe care am dat click,
+        ' atunci se ridica trigger-ul left, orice ar fi, ca sa se selecteze nodul curent mai intai  
+        'If Not RaiseLeftClickOnRightClick AndAlso e.Button = MouseButtons.Right Then
+        '    If it IsNot Nothing AndAlso it IsNot pSelectedItem Then
+        '        pSelectedItem = it
+        '        RaiseEvent NodeMouseDown(it, New MouseEventArgs(MouseButtons.Left, 1, e.X, e.Y, 0))
+        '    End If
+        'End If
 
         If it IsNot Nothing Then
             _pendingClickItem = it

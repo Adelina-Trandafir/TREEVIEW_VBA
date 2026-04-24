@@ -197,6 +197,78 @@ Partial Public Class Tree
             End If
 
             '========================
+            ' HoverColor
+            '========================
+            If cfg.Attributes("HoverBackColor") IsNot Nothing Then
+                Try
+                    Dim xmlVal As String = cfg.Attributes("HoverBackColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+
+                    If MyTree.HoverBackColor <> c Then
+                        MyTree.HoverBackColor = c
+                    End If
+
+                    TreeLogger.Debug(Space(5) & $"HoverBackColor xml='{xmlVal}' control='{MyTree.HoverBackColor}'", "AplicareConfigurare")
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
+            End If
+
+            '========================
+            ' SelectedBackColor
+            '========================
+            If cfg.Attributes("SelectedBackColor") IsNot Nothing Then
+                Try
+                    Dim xmlVal As String = cfg.Attributes("SelectedBackColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+
+                    If MyTree.SelectedBackColor <> c Then
+                        MyTree.SelectedBackColor = c
+                    End If
+
+                    TreeLogger.Debug(Space(5) & $"SelectedBackColor xml='{xmlVal}' control='{MyTree.SelectedBackColor}'", "AplicareConfigurare")
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
+            End If
+
+            '========================
+            ' SelectedBorderColor
+            '========================
+            If cfg.Attributes("SelectedBorderColor") IsNot Nothing Then
+                Try
+                    Dim xmlVal As String = cfg.Attributes("SelectedBorderColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+
+                    If MyTree.SelectedBorderColor <> c Then
+                        MyTree.SelectedBorderColor = c
+                    End If
+
+                    TreeLogger.Debug(Space(5) & $"SelectedBorderColor xml='{xmlVal}' control='{MyTree.SelectedBorderColor}'", "AplicareConfigurare")
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
+            End If
+
+            '========================
+            ' LineColor
+            '========================
+            If cfg.Attributes("LineColor") IsNot Nothing Then
+                Try
+                    Dim xmlVal As String = cfg.Attributes("LineColor").Value
+                    Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+
+                    If MyTree.LineColor <> c Then
+                        MyTree.LineColor = c
+                    End If
+
+                    TreeLogger.Debug(Space(5) & $"LineColor xml='{xmlVal}' control='{MyTree.LineColor}'", "AplicareConfigurare")
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
+            End If
+
+            '========================
             ' RadioButtonLevel
             '========================
             If cfg.Attributes("RadioButtonLevel") IsNot Nothing Then
