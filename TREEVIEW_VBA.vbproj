@@ -15,8 +15,8 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<FileVersion>20.0.0.0</FileVersion>
-		<AssemblyVersion>20.0.0.0</AssemblyVersion>
+		<FileVersion>21.0.0.0</FileVersion>
+		<AssemblyVersion>21.0.0.0</AssemblyVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(PlatformTarget)' == 'x64' Or '$(RuntimeIdentifier)' == 'win-x64'">
@@ -57,6 +57,14 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Update="Tree.Variables.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.XML.vb">
+			<SubType>Code</SubType>
+			<DependentUpon>Tree.vb</DependentUpon>
+		</Compile>
+		<Compile Update="Tree.Node.XML.vb">
 			<SubType>Code</SubType>
 			<DependentUpon>Tree.vb</DependentUpon>
 		</Compile>

@@ -68,6 +68,26 @@ Partial Public Class AdvancedTreeControl
         End Get
     End Property
 
+    ' ══════════════ HEADER ══════════════
+    Private _headerSearchIconRect As Rectangle = Rectangle.Empty
+    Private _headerRightIconRect As Rectangle = Rectangle.Empty
+
+    ' ══════════════ SEARCH ══════════════
+    Private _isSearchMode As Boolean = False
+    Private _searchResults As New List(Of SearchResultItem)()
+    Private _searchResultHoveredIdx As Integer = -1
+    Private _searchTextBox As TextBox = Nothing
+    Private WithEvents _searchDebounceTimer As New Timer() With {.Interval = 300}
+
+    Friend Structure SearchResultItem
+        Public Item As TreeItem
+        Public IsDimmed As Boolean
+        Public Sub New(item As TreeItem, dimmed As Boolean)
+            Me.Item = item
+            Me.IsDimmed = dimmed
+        End Sub
+    End Structure
+
     Friend Structure RichTextPart
         Public Text As String
         Public Font As Font
@@ -75,6 +95,22 @@ Partial Public Class AdvancedTreeControl
         Public BackColor As Color
         Public HasBackColor As Boolean
     End Structure
+
+    Public Enum en_Tree_SearchType
+        SearchType_Contains = 0
+        SearchType_StartsWith = 1
+    End Enum
+
+    Public Enum en_Tree_SearchIn
+        SearchIn_Caption = 0
+        SearchIn_Tag = 1
+        SearchIn_Both = 2
+    End Enum
+
+    Public Enum en_Tree_SearchMode
+        SearchMode_Tree = 0
+        SearchMode_List = 1
+    End Enum
 
     ' INIȚIALIZARE
     Public Sub New()
@@ -125,7 +161,10 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     Private Function HitTestItem(p As Point) As TreeItem
-        Dim yRel = p.Y - Me.AutoScrollPosition.Y - PADDING_TREE_TOP
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
+        ' Ignore clicks in header area
+        If _headerVisible AndAlso p.Y < _headerHeight Then Return Nothing
+        Dim yRel = p.Y - Me.AutoScrollPosition.Y - PADDING_TREE_TOP - headerOff
         Dim idx As Integer = yRel \ ItemHeight
         Dim visible = GetVisibleItems()
         If idx < 0 OrElse idx >= visible.Count Then Return Nothing
@@ -172,7 +211,8 @@ Partial Public Class AdvancedTreeControl
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
-        Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + idx * ItemHeight  ' ← adăugat PADDING_TREE_TOP
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
+        Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff + idx * ItemHeight
     End Function
 
     ' Găsește ancestorul de pe RadioButtonLevel al unui nod

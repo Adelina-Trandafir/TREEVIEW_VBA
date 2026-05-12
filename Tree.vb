@@ -254,6 +254,30 @@ Partial Public Class Tree
         TrimiteMesajAccess("NodeRadio", nodeOn, nodeOffKey)
     End Sub
 
+    Private Sub MyTree_SearchFinished(matchingItems As List(Of AdvancedTreeControl.TreeItem), searchText As String) Handles MyTree.SearchFinished
+        Dim sb As New System.Text.StringBuilder()
+        sb.Append("[")
+        For i As Integer = 0 To matchingItems.Count - 1
+            Dim n = matchingItems(i)
+            Dim parentKey As String = If(n.Parent IsNot Nothing, n.Parent.Key, "")
+            Dim rootKey As String = GetNodeRootKey(n)
+
+            sb.Append("{")
+            sb.Append($"""Key"":""{EscapeJson(n.Key)}"",")
+            sb.Append($"""ParentKey"":""{EscapeJson(parentKey)}"",")
+            sb.Append($"""RootKey"":""{EscapeJson(rootKey)}""")
+            sb.Append("}")
+            If i < matchingItems.Count - 1 Then sb.Append(",")
+        Next
+        sb.Append("]")
+
+        TrimiteMesajAccess("SearchFinished", Nothing, searchText & "||" & sb.ToString())
+    End Sub
+
+    Private Sub MyTree_HeaderRightIconClicked(e As MouseEventArgs) Handles MyTree.HeaderRightIconClicked
+        TrimiteMesajAccess("HeaderRightIconClicked", Nothing)
+    End Sub
+
     ' =============================================================
     ' TIMER MONITORIZARE RESIZE & FOCUS
     ' =============================================================
@@ -473,4 +497,15 @@ Partial Public Class Tree
         End If
     End Sub
 
+    Private Function GetNodeRootKey(item As AdvancedTreeControl.TreeItem) As String
+        Dim current As AdvancedTreeControl.TreeItem = item
+        While current.Parent IsNot Nothing
+            current = current.Parent
+        End While
+        Return current.Key
+    End Function
+
+    Private Function EscapeJson(s As String) As String
+        Return s.Replace("\", "\\").Replace("""", "\""")
+    End Function
 End Class

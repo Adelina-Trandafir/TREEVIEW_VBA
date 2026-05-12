@@ -321,4 +321,178 @@
             Me.Invalidate()
         End Set
     End Property
+
+    ' ══════════════════════════════════════════════════
+    ' HEADER PROPERTIES
+    ' ══════════════════════════════════════════════════
+
+    Private _headerVisible As Boolean = False
+    Public Property HeaderVisible As Boolean
+        Get
+            Return _headerVisible
+        End Get
+        Set(value As Boolean)
+            _headerVisible = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private _headerHeight As Integer = 32
+    Public Property HeaderHeight As Integer
+        Get
+            Return _headerHeight
+        End Get
+        Set(value As Integer)
+            _headerHeight = Math.Max(16, value)
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private _headerCaption As String = ""
+    Public Property HeaderCaption As String
+        Get
+            Return _headerCaption
+        End Get
+        Set(value As String)
+            _headerCaption = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    ' Resolved images — set directly or via ResolveHeaderIcons()
+    Private _headerLeftIcon As Image = Nothing
+    Private _headerRightIcon As Image = Nothing
+    Private _headerSearchIcon As Image = Nothing
+
+    Public Property HeaderLeftIcon As Image
+        Get
+            Return _headerLeftIcon
+        End Get
+        Set(value As Image)
+            _headerLeftIcon = value : Me.Invalidate()
+        End Set
+    End Property
+    Public Property HeaderRightIcon As Image
+        Get
+            Return _headerRightIcon
+        End Get
+        Set(value As Image)
+            _headerRightIcon = value
+            Me.Invalidate()
+        End Set
+    End Property
+    Public Property HeaderSearchIcon As Image
+        Get
+            Return _headerSearchIcon
+        End Get
+        Set(value As Image)
+            _headerSearchIcon = value
+            Me.Invalidate()
+        End Set
+    End Property
+
+    ' Icon keys — stored for resolution after image cache is loaded
+    Private _headerLeftIconKey As String = ""
+    Private _headerRightIconKey As String = ""
+    Private _headerSearchIconKey As String = ""
+
+    Public Property HeaderLeftIconKey As String
+        Get
+            Return _headerLeftIconKey
+        End Get
+        Set(value As String)
+            _headerLeftIconKey = value
+        End Set
+    End Property
+    Public Property HeaderRightIconKey As String
+        Get
+            Return _headerRightIconKey
+        End Get
+        Set(value As String)
+            _headerRightIconKey = value
+        End Set
+    End Property
+    Public Property HeaderSearchIconKey As String
+        Get
+            Return _headerSearchIconKey
+        End Get
+        Set(value As String)
+            _headerSearchIconKey = value
+        End Set
+    End Property
+
+    Private _headerIconSize As New Size(16, 16)
+    Public Property HeaderIconSize As Size
+        Get
+            Return _headerIconSize
+        End Get
+        Set(value As Size)
+            _headerIconSize = value : Me.Invalidate()
+        End Set
+    End Property
+
+    Private _headerBackColor As Color = Color.FromArgb(240, 240, 245)
+    Public Property HeaderBackColor As Color
+        Get
+            Return _headerBackColor
+        End Get
+        Set(value As Color)
+            _headerBackColor = value : Me.Invalidate()
+        End Set
+    End Property
+
+    Private _headerForeColor As Color = Color.FromArgb(50, 50, 60)
+    Public Property HeaderForeColor As Color
+        Get
+            Return _headerForeColor
+        End Get
+        Set(value As Color)
+            _headerForeColor = value
+            Me.Invalidate() : End Set
+    End Property
+
+    ' ══════════════════════════════════════════════════
+    ' SEARCH PROPERTIES
+    ' ══════════════════════════════════════════════════
+
+    Private _searchType As en_Tree_SearchType = en_Tree_SearchType.SearchType_Contains
+    Public Property SearchType As en_Tree_SearchType
+        Get
+            Return _searchType
+        End Get
+        Set(value As en_Tree_SearchType)
+            _searchType = value
+        End Set
+    End Property
+
+    Private _searchIn As en_Tree_SearchIn = en_Tree_SearchIn.SearchIn_Caption
+    Public Property SearchIn As en_Tree_SearchIn
+        Get
+            Return _searchIn
+        End Get
+        Set(value As en_Tree_SearchIn)
+            _searchIn = value
+        End Set
+    End Property
+
+    Private _searchMode As en_Tree_SearchMode = en_Tree_SearchMode.SearchMode_Tree
+    Public Property SearchMode As en_Tree_SearchMode
+        Get
+            Return _searchMode
+        End Get
+        Set(value As en_Tree_SearchMode)
+            _searchMode = value
+        End Set
+    End Property
+
+    Private _searchDropdownHeight As Integer = 220
+    Public Property SearchDropdownHeight As Integer
+        Get
+            Return _searchDropdownHeight
+        End Get
+        Set(value As Integer)
+            _searchDropdownHeight = Math.Max(60, value)
+            Me.Invalidate()
+        End Set
+    End Property
 End Class

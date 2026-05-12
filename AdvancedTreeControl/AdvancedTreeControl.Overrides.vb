@@ -9,15 +9,21 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnPaint(e As PaintEventArgs)
         MyBase.OnPaint(e)
         e.Graphics.Clear(Me.BackColor)
-
-        ' Setări pentru linii clare
         e.Graphics.SmoothingMode = SmoothingMode.None
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
-        Dim y As Integer = Me.AutoScrollPosition.Y + PADDING_TREE_TOP
-        Dim visibleItems = GetVisibleItems()
+        ' ── Header (drawn first, fixed — not scrollable) ─────────────────
+        If _headerVisible Then
+            DrawHeader(e.Graphics)
+        End If
 
-        ' Ajustăm scrollbar-ul virtual
+        ' ── Tree nodes (clipped below header) ─────────────────────────────
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
+        Dim oldClip = e.Graphics.Clip.Clone()
+        e.Graphics.SetClip(New Rectangle(0, headerOff, Me.Width, Me.Height - headerOff))
+
+        Dim y As Integer = Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff
+        Dim visibleItems = GetVisibleItems()
         Me.AutoScrollMinSize = New Size(0, visibleItems.Count * ItemHeight + PADDING_TREE_TOP)
 
         For Each it In visibleItems
@@ -27,6 +33,13 @@ Partial Public Class AdvancedTreeControl
             End If
             y += ItemHeight
         Next
+
+        e.Graphics.Clip = oldClip
+
+        ' ── Search overlay (drawn on top of tree, below header) ───────────
+        If _isSearchMode Then
+            DrawSearchOverlay(e.Graphics)
+        End If
 
         ' --- MASCĂ PENTRU STAREA DISABLED ---
         If Not Me.Enabled Then
@@ -52,6 +65,30 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnMouseDown(e As MouseEventArgs)
         MyBase.OnMouseDown(e)
         Me.Focus()
+
+        ' ── Header area clicks ───────────────────────────────────────────────
+        If _headerVisible AndAlso e.Y < _headerHeight Then
+            If _headerSearchIconRect.Contains(e.Location) AndAlso _headerSearchIcon IsNot Nothing Then
+                If _isSearchMode Then CloseSearchMode() Else OpenSearchMode()
+            ElseIf _headerRightIconRect.Contains(e.Location) AndAlso _headerRightIcon IsNot Nothing Then
+                RaiseEvent HeaderRightIconClicked(e)
+            End If
+            Return
+        End If
+
+        ' ── Search overlay area clicks ────────────────────────────────────────
+        If _isSearchMode Then
+            Dim idx = OverlayResultIndexAt(e.Location)
+            If idx >= 0 Then
+                Dim result = _searchResults(idx)
+                If Not result.IsDimmed Then
+                    pSelectedItem = result.Item
+                    RaiseEvent NodeMouseDown(result.Item, e)
+                    CloseSearchMode()
+                End If
+            End If
+            Return  ' consume all clicks while overlay is open
+        End If
 
         Dim it = HitTestItem(e.Location)
         If it Is Nothing Then
@@ -331,6 +368,16 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
         MyBase.OnMouseMove(e)
 
+        ' ── Overlay hover ────────────────────────────────────────────────────
+        If _isSearchMode Then
+            Dim newIdx = OverlayResultIndexAt(e.Location)
+            If newIdx <> _searchResultHoveredIdx Then
+                _searchResultHoveredIdx = newIdx
+                Me.Invalidate()
+            End If
+            Return
+        End If
+
         Dim it = HitTestItem(e.Location)
 
         ' --- Logică Zonă Moartă ---
@@ -359,10 +406,24 @@ Partial Public Class AdvancedTreeControl
 
     Protected Overrides Sub OnMouseLeave(e As EventArgs)
         MyBase.OnMouseLeave(e)
+
+        If _isSearchMode Then
+            If _searchResultHoveredIdx <> -1 Then
+                _searchResultHoveredIdx = -1
+                Me.Invalidate()
+            End If
+            Return
+        End If
+
         pHoveredItem = Nothing
         HideAllTooltips()
         pTooltipTimer.Stop()
         Me.Invalidate()
+    End Sub
+
+    Protected Overrides Sub OnScroll(se As ScrollEventArgs)
+        MyBase.OnScroll(se)
+        PositionSearchTextBox()
     End Sub
 
 End Class
