@@ -1,0 +1,512 @@
+﻿Imports System.Globalization
+Imports System.Xml
+
+Friend NotInheritable Class TreeXmlAppliers
+
+    ' -------------------------------------------------------
+    ' CULORI
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_BackColor(cfg As XmlNode,
+                                      tree As AdvancedTreeControl,
+                                      host As Control)
+        If cfg.Attributes("BackColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("BackColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.BackColor <> c Then tree.BackColor = c
+            If host.BackColor <> c Then host.BackColor = c
+            TreeLogger.Debug(Space(5) & $"BackColor xml='{xmlVal}' control='{tree.BackColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_BorderColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("BorderColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("BorderColor").Value
+            If xmlVal.StartsWith("#"c) Then
+                Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+                If tree.BorderColor <> c Then tree.BorderColor = c
+                TreeLogger.Debug(Space(5) & $"BorderColor xml='{xmlVal}' control='{tree.BorderColor}'", "AplicareConfigurare")
+            End If
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_ForeColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ForeColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("ForeColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.ForeColor <> c Then tree.ForeColor = c
+            TreeLogger.Debug(Space(5) & $"ForeColor xml='{xmlVal}' control='{tree.ForeColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_HoverBackColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HoverBackColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("HoverBackColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.HoverBackColor <> c Then tree.HoverBackColor = c
+            TreeLogger.Debug(Space(5) & $"HoverBackColor xml='{xmlVal}' control='{tree.HoverBackColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_SelectedBackColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SelectedBackColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("SelectedBackColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.SelectedBackColor <> c Then tree.SelectedBackColor = c
+            TreeLogger.Debug(Space(5) & $"SelectedBackColor xml='{xmlVal}' control='{tree.SelectedBackColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_SelectedBorderColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SelectedBorderColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("SelectedBorderColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.SelectedBorderColor <> c Then tree.SelectedBorderColor = c
+            TreeLogger.Debug(Space(5) & $"SelectedBorderColor xml='{xmlVal}' control='{tree.SelectedBorderColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Friend Shared Sub Apply_LineColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("LineColor") Is Nothing Then Exit Sub
+        Try
+            Dim xmlVal As String = cfg.Attributes("LineColor").Value
+            Dim c As Color = ColorTranslator.FromHtml(xmlVal)
+            If tree.LineColor <> c Then tree.LineColor = c
+            TreeLogger.Debug(Space(5) & $"LineColor xml='{xmlVal}' control='{tree.LineColor}'", "AplicareConfigurare")
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "AplicareConfigurare", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    ' -------------------------------------------------------
+    ' CHECKBOX / RADIOBUTTON
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_RadioButtonLevel(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RadioButtonLevel") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RadioButtonLevel").Value
+        Dim v As Integer = tree.RadioButtonLevel
+        If Integer.TryParse(xmlVal, v) Then
+            If tree.RadioButtonLevel <> v Then tree.RadioButtonLevel = v
+            TreeLogger.Debug(Space(5) & $"RadioButtonLevel xml='{xmlVal}' control='{tree.RadioButtonLevel}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_CheckBoxes(cfg As XmlNode, tree As AdvancedTreeControl)
+        If tree.RadioButtonLevel <> -1 Then Exit Sub
+        If cfg.Attributes("CheckBoxes") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("CheckBoxes").Value
+        Dim v As Integer = If(tree.CheckBoxes, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.CheckBoxes <> nv Then tree.CheckBoxes = nv
+            TreeLogger.Debug(Space(5) & $"CheckBoxes xml='{xmlVal}' control='{tree.CheckBoxes}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_CheckboxSize(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("CheckboxSize") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("CheckboxSize").Value
+        Dim v As Integer = If(tree.CheckBoxSize > 0, tree.CheckBoxSize, 16)
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.CheckBoxSize <> v Then tree.CheckBoxSize = v
+            TreeLogger.Debug(Space(5) & $"CheckboxSize xml='{xmlVal}' control='{tree.CheckBoxSize}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    ' -------------------------------------------------------
+    ' FONT
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_Font(cfg As XmlNode,
+                                 tree As AdvancedTreeControl,
+                                 culture As CultureInfo)
+        Dim curFontName As String = If(tree.Font IsNot Nothing, tree.Font.Name, "Segoe UI")
+        Dim curFontSize As Single = If(tree.Font IsNot Nothing, tree.Font.Size, 9.0F)
+        Dim fName As String = curFontName
+        Dim fSize As Single = curFontSize
+        Dim xmlFontName As String = Nothing
+        Dim xmlFontSize As String = Nothing
+        Dim hasFontChange As Boolean = False
+
+        If cfg.Attributes("FontName") IsNot Nothing Then
+            xmlFontName = cfg.Attributes("FontName").Value
+            fName = xmlFontName
+            hasFontChange = True
+        End If
+
+        If cfg.Attributes("FontSize") IsNot Nothing Then
+            xmlFontSize = cfg.Attributes("FontSize").Value
+            Dim tmp As Single = fSize
+            If Single.TryParse(xmlFontSize, NumberStyles.Any, culture, tmp) Then
+                fSize = tmp
+                hasFontChange = True
+            End If
+        End If
+
+        If hasFontChange Then
+            Dim needSet As Boolean =
+                (tree.Font Is Nothing) OrElse
+                (tree.Font.Name <> fName) OrElse
+                (Math.Abs(tree.Font.Size - fSize) > 0.001F)
+            If needSet Then tree.Font = New Font(fName, fSize)
+            TreeLogger.Debug(Space(5) &
+                $"Font xmlName='{xmlFontName}' xmlSize='{xmlFontSize}' control='{tree.Font.Name} {tree.Font.Size}pt'",
+                "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_FontName(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("FontName") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("FontName").Value
+        If tree.FontName <> xmlVal Then tree.FontName = xmlVal
+        TreeLogger.Debug(Space(5) & $"FontName xml='{xmlVal}' control='{tree.FontName}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_FontSize(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("FontSize") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("FontSize").Value
+        Dim v As Integer = tree.FontSize
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.FontSize <> v Then tree.FontSize = v
+            TreeLogger.Debug(Space(5) & $"FontSize xml='{xmlVal}' control='{tree.FontSize}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    ' -------------------------------------------------------
+    ' DIMENSIUNI / LAYOUT
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_ItemHeight(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ItemHeight") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ItemHeight").Value
+        Dim v As Integer = tree.ItemHeight
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.ItemHeight <> v Then tree.ItemHeight = v
+            TreeLogger.Debug(Space(5) & $"ItemHeight xml='{xmlVal}' control='{tree.ItemHeight}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_Indent(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("Indent") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("Indent").Value
+        Dim v As Integer = tree.Indent
+        If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+            If tree.Indent <> v Then tree.Indent = v
+            TreeLogger.Debug(Space(5) & $"Indent xml='{xmlVal}' control='{tree.Indent}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_ExpanderSize(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ExpanderSize") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ExpanderSize").Value
+        Dim v As Integer = tree.ExpanderSize
+        If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+            If tree.ExpanderSize <> v Then tree.ExpanderSize = v
+            TreeLogger.Debug(Space(5) & $"ExpanderSize xml='{xmlVal}' control='{tree.ExpanderSize}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_LeftIconHeight(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("LeftIconHeight") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("LeftIconHeight").Value
+        Dim v As Integer = If(tree.LeftIconSize.Height > 0, tree.LeftIconSize.Height, 16)
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            Dim ns As New Size(v, v)
+            If tree.LeftIconSize <> ns Then tree.LeftIconSize = ns
+            TreeLogger.Debug(Space(5) & $"LeftIconHeight xml='{xmlVal}' control='{tree.LeftIconSize}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_RightIconHeight(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RightIconHeight") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RightIconHeight").Value
+        Dim v As Integer = If(tree.RightIconSize.Height > 0, tree.RightIconSize.Height, 16)
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            Dim ns As New Size(v, v)
+            If tree.RightIconSize <> ns Then tree.RightIconSize = ns
+            TreeLogger.Debug(Space(5) & $"RightIconHeight xml='{xmlVal}' control='{tree.RightIconSize}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_LeftTextWidth(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("LeftTextWidth") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("LeftTextWidth").Value
+        Dim v As Integer = tree.LeftTextWidth
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.LeftTextWidth <> v Then tree.LeftTextWidth = v
+            TreeLogger.Debug(Space(5) & $"LeftTextWidth xml='{xmlVal}' control='{tree.LeftTextWidth}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_RightTextWidth(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RightTextWidth") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RightTextWidth").Value
+        Dim v As Integer = tree.RightTextWidth
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.RightTextWidth <> v Then tree.RightTextWidth = v
+            TreeLogger.Debug(Space(5) & $"RightTextWidth xml='{xmlVal}' control='{tree.RightTextWidth}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    ' -------------------------------------------------------
+    ' COMPORTAMENT
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_HasNodeIcons(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HasNodeIcons") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HasNodeIcons").Value
+        Dim v As Integer = If(tree.HasNodeIcons, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.HasNodeIcons <> nv Then tree.HasNodeIcons = nv
+            TreeLogger.Debug(Space(5) & $"HasNodeIcons xml='{xmlVal}' control='{tree.HasNodeIcons}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_PopupTree(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("PopupTree") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("PopupTree").Value
+        Dim v As Integer = If(tree.IsPopupTree, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.IsPopupTree <> nv Then tree.IsPopupTree = nv
+            TreeLogger.Debug(Space(5) & $"PopupTree xml='{xmlVal}' control='{tree.IsPopupTree}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_PopupGraceMs(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("PopupGraceMs") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("PopupGraceMs").Value
+        Dim v As Integer = tree.PopupGraceMs
+        If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+            If tree.PopupGraceMs <> v Then tree.PopupGraceMs = v
+            TreeLogger.Debug(Space(5) & $"PopupGraceMs xml='{xmlVal}' control='{tree.PopupGraceMs}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_ShowRightIconOnHover(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ShowRightIconOnHover") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ShowRightIconOnHover").Value
+        Dim v As Integer = If(tree.ShowRightIconOnHover, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.ShowRightIconOnHover <> nv Then tree.ShowRightIconOnHover = nv
+            TreeLogger.Debug(Space(5) & $"ShowRightIconOnHover xml='{xmlVal}' control='{tree.ShowRightIconOnHover}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_RightClickFunc(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RightClickFunc") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RightClickFunc").Value
+        If tree.RightClickFunction <> xmlVal Then tree.RightClickFunction = xmlVal
+        TreeLogger.Debug(Space(5) & $"RightClickFunc xml='{xmlVal}' control='{tree.RightClickFunction}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_RootExpander(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RootExpander") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RootExpander").Value
+        Dim v As Integer = If(tree.RootExpander, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.RootExpander <> nv Then tree.RootExpander = nv
+            TreeLogger.Debug(Space(5) & $"RootExpander xml='{xmlVal}' control='{tree.RootExpander}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_ReRaiseClickOnSameNode(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ReRaiseClickOnSameNode") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ReRaiseClickOnSameNode").Value
+        Dim v As Integer = If(tree.ReRaiseClickOnSameNode, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.ReRaiseClickOnSameNode <> nv Then tree.ReRaiseClickOnSameNode = nv
+            TreeLogger.Debug(Space(5) & $"ReRaiseClickOnSameNode xml='{xmlVal}' control='{tree.ReRaiseClickOnSameNode}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_RaiseLeftClickOnRightClick(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RaiseLeftClickOnRightClick") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RaiseLeftClickOnRightClick").Value
+        Dim v As Integer = If(tree.RaiseLeftClickOnRightClick, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.RaiseLeftClickOnRightClick <> nv Then tree.RaiseLeftClickOnRightClick = nv
+            TreeLogger.Debug(Space(5) & $"RaiseLeftClickOnRightClick xml='{xmlVal}' control='{tree.RaiseLeftClickOnRightClick}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    ' -------------------------------------------------------
+    ' TOOLTIP
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_ToolTipDelayMs(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ToolTipDelayMs") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ToolTipDelayMs").Value
+        Dim v As Integer = tree.TooltipDelayMs
+        If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+            If tree.TooltipDelayMs <> v Then tree.TooltipDelayMs = v
+            TreeLogger.Debug(Space(5) & $"ToolTipDelayMs xml='{xmlVal}' control='{tree.TooltipDelayMs}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_TooltipAutoHideMs(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("TooltipAutoHideMs") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("TooltipAutoHideMs").Value
+        Dim v As Integer = tree.AutoHideTooltipMs
+        If Integer.TryParse(xmlVal, v) AndAlso v >= 0 Then
+            If tree.AutoHideTooltipMs <> v Then tree.AutoHideTooltipMs = v
+            TreeLogger.Debug(Space(5) & $"TooltipAutoHideMs xml='{xmlVal}' control='{tree.AutoHideTooltipMs}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    ' -------------------------------------------------------
+    ' SELECTED NODE
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_SelectedNodeId(cfg As XmlNode,
+                                           ByRef pendingSelectedNodeId As String)
+        pendingSelectedNodeId = String.Empty
+        If cfg.Attributes("SelectedNodeId") Is Nothing Then Exit Sub
+        pendingSelectedNodeId = cfg.Attributes("SelectedNodeId").Value
+        TreeLogger.Debug(Space(5) & $"SelectedNodeId xml='{pendingSelectedNodeId}'", "AplicareConfigurare")
+    End Sub
+
+    ' -------------------------------------------------------
+    ' HEADER
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_HeaderVisible(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderVisible") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderVisible").Value
+        Dim v As Integer = If(tree.HeaderVisible, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.HeaderVisible <> nv Then tree.HeaderVisible = nv
+            TreeLogger.Debug(Space(5) & $"HeaderVisible xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_HeaderHeight(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderHeight") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderHeight").Value
+        Dim v As Integer = tree.HeaderHeight
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.HeaderHeight <> v Then tree.HeaderHeight = v
+            TreeLogger.Debug(Space(5) & $"HeaderHeight xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_HeaderCaption(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderCaption") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderCaption").Value
+        If tree.HeaderCaption <> xmlVal Then tree.HeaderCaption = xmlVal
+        TreeLogger.Debug(Space(5) & $"HeaderCaption xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_HeaderIconSize(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderIconSize") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderIconSize").Value
+        Dim v As Integer = tree.HeaderIconSize.Width
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            Dim ns As New Size(v, v)
+            If tree.HeaderIconSize <> ns Then tree.HeaderIconSize = ns
+            TreeLogger.Debug(Space(5) & $"HeaderIconSize xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_HeaderBackColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderBackColor") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderBackColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.HeaderBackColor)
+        If tree.HeaderBackColor <> c Then tree.HeaderBackColor = c
+    End Sub
+
+    Friend Shared Sub Apply_HeaderForeColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderForeColor") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("HeaderForeColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.HeaderForeColor)
+        If tree.HeaderForeColor <> c Then tree.HeaderForeColor = c
+    End Sub
+
+    Friend Shared Sub Apply_HeaderLeftIcon(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderLeftIcon") Is Nothing Then Exit Sub
+        tree.HeaderLeftIconKey = cfg.Attributes("HeaderLeftIcon").Value
+    End Sub
+
+    Friend Shared Sub Apply_HeaderRightIcon(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderRightIcon") Is Nothing Then Exit Sub
+        tree.HeaderRightIconKey = cfg.Attributes("HeaderRightIcon").Value
+    End Sub
+
+    Friend Shared Sub Apply_HeaderSearchIcon(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("HeaderSearchIcon") Is Nothing Then Exit Sub
+        tree.HeaderSearchIconKey = cfg.Attributes("HeaderSearchIcon").Value
+    End Sub
+
+    ' -------------------------------------------------------
+    ' SEARCH
+    ' -------------------------------------------------------
+
+    Friend Shared Sub Apply_SearchType(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchType") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("SearchType").Value
+        Dim v As Integer = CInt(tree.SearchType)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv = CType(v, AdvancedTreeControl.en_Tree_SearchType)
+            If tree.SearchType <> nv Then tree.SearchType = nv
+            TreeLogger.Debug(Space(5) & $"SearchType xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchIn(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchIn") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("SearchIn").Value
+        Dim v As Integer = CInt(tree.SearchIn)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv = CType(v, AdvancedTreeControl.en_Tree_SearchIn)
+            If tree.SearchIn <> nv Then tree.SearchIn = nv
+            TreeLogger.Debug(Space(5) & $"SearchIn xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchMode(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchMode") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("SearchMode").Value
+        Dim v As Integer = CInt(tree.SearchMode)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv = CType(v, AdvancedTreeControl.en_Tree_SearchMode)
+            If tree.SearchMode <> nv Then tree.SearchMode = nv
+            TreeLogger.Debug(Space(5) & $"SearchMode xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchDropdownHeight(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchDropdownHeight") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("SearchDropdownHeight").Value
+        Dim v As Integer = tree.SearchDropdownHeight
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.SearchDropdownHeight <> v Then tree.SearchDropdownHeight = v
+            TreeLogger.Debug(Space(5) & $"SearchDropdownHeight xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+End Class

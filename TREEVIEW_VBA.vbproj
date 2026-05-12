@@ -60,14 +60,6 @@
 			<SubType>Code</SubType>
 			<DependentUpon>Tree.vb</DependentUpon>
 		</Compile>
-		<Compile Update="Tree.XML.vb">
-			<SubType>Code</SubType>
-			<DependentUpon>Tree.vb</DependentUpon>
-		</Compile>
-		<Compile Update="Tree.Node.XML.vb">
-			<SubType>Code</SubType>
-			<DependentUpon>Tree.vb</DependentUpon>
-		</Compile>
 		<Compile Update="Tree.Window.vb">
 			<DependentUpon>Tree.vb</DependentUpon>
 		</Compile>
