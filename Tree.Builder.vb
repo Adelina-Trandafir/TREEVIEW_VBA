@@ -456,6 +456,21 @@ Partial Public Class Tree
             End If
 
             '========================
+            ' ShowRightIconOnHover
+            '========================
+            If cfg.Attributes("ShowRightIconOnHover") IsNot Nothing Then
+                Dim xmlVal As String = cfg.Attributes("ShowRightIconOnHover").Value
+                Dim v As Integer = If(MyTree.ShowRightIconOnHover, 1, 0)
+                If Integer.TryParse(xmlVal, v) Then
+                    Dim newVal As Boolean = (v = 1)
+                    If MyTree.ShowRightIconOnHover <> newVal Then
+                        MyTree.ShowRightIconOnHover = newVal
+                    End If
+                    TreeLogger.Debug(Space(5) & $"ShowRightIconOnHover xml='{xmlVal}' control='{MyTree.ShowRightIconOnHover}'", "AplicareConfigurare")
+                End If
+            End If
+
+            '========================
             ' CheckboxSize
             '========================
             If cfg.Attributes("CheckboxSize") IsNot Nothing Then
@@ -731,6 +746,13 @@ Partial Public Class Tree
                 Dim valStr As String = xNode.Attributes("HasCheckbox").Value.Trim().ToLower()
                 Dim newVal As Boolean = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
                 If newItem.HasCheckBox <> newVal Then newItem.HasCheckBox = newVal
+            End If
+
+            ' --- ShowRightIconOnHover per nod ---
+            If xNode.Attributes("ShowRightIconOnHover") IsNot Nothing Then
+                Dim valStr As String = xNode.Attributes("ShowRightIconOnHover").Value.Trim().ToLower()
+                Dim newVal As Boolean = (valStr = "1" OrElse valStr = "-1" OrElse valStr = "true")
+                If newItem.ShowRightIconOnHover <> newVal Then newItem.ShowRightIconOnHover = newVal
             End If
 
             ' --- CheckState ---

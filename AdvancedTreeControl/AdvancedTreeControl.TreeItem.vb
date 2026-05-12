@@ -20,10 +20,15 @@
         Public Tooltip As String = ""   ' ControlTipText din VBA - apare ÎNTOTDEAUNA dacă e setat
         Public HasCheckBox As Boolean = False
 
+        ' Dacă True, iconița din dreapta e vizibilă DOAR la hover pe acest nod,
+        ' indiferent de setarea globală ShowRightIconOnHover de pe control.
+        Public ShowRightIconOnHover As Boolean = False
+
         Private _tag As Object
 
         ' Cache pentru lățimea textului (performanță la desenare)
         Friend TextWidth As Integer = -1
+
 
         ' Proprietate critică pentru desenarea corectă a liniilor verticale
         Public ReadOnly Property IsLastSibling As Boolean

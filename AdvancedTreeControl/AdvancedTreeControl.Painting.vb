@@ -94,7 +94,7 @@ Partial Public Class AdvancedTreeControl
         g.SmoothingMode = SmoothingMode.AntiAlias
 
         Using p As New Pen(Color.DimGray, 2)
-            g.DrawArc(p, xBase, loaderY, 14, 14, _loadingAngle, 300)
+            g.DrawArc(p, xBase, loaderY, 14, 14, loadingAngle, 300)
         End Using
         g.DrawString("Se încarcă...", Me.Font, Brushes.Gray, xBase + 20, textY)
 
@@ -222,6 +222,12 @@ Partial Public Class AdvancedTreeControl
 
     Private Sub DrawRightIcon(g As Graphics, it As TreeItem, y As Integer)
         If it.RightIcon Is Nothing Then Return
+
+        ' Hover-only: activat global SAU per nod
+        ' Spațiul din dreapta e rezervat întotdeauna (DrawContent verifică it.RightIcon IsNot Nothing),
+        ' deci textul NU sare la hover — Varianta A garantată fără modificări în DrawContent.
+        Dim hoverOnly As Boolean = _showRightIconOnHover OrElse it.ShowRightIconOnHover
+        If hoverOnly AndAlso it IsNot pHoveredItem Then Return
 
         Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
         Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
@@ -727,7 +733,7 @@ End Class
 
 '        ' 4. Desenăm Spinner-ul (La poziția loaderX)
 '        Using p As New Pen(Color.DimGray, 2)
-'            g.DrawArc(p, loaderX, loaderY, 14, 14, _loadingAngle, 300)
+'            g.DrawArc(p, loaderX, loaderY, 14, 14, loadingAngle, 300)
 '        End Using
 
 '        ' 5. Desenăm Textul (La loaderX + 20px spațiu)

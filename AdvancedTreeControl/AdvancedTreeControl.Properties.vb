@@ -308,4 +308,17 @@
         End Get
     End Property
 
+    ' Când True, iconița din dreapta este vizibilă DOAR la hover pe nodul respectiv.
+    ' Spațiul din dreapta e rezervat întotdeauna (textul nu sare la hover).
+    ' Per-nod: TreeItem.ShowRightIconOnHover suprascrie globalul DOAR pentru nodul respectiv.
+    Private _showRightIconOnHover As Boolean = False
+    Public Property ShowRightIconOnHover As Boolean
+        Get
+            Return _showRightIconOnHover
+        End Get
+        Set(value As Boolean)
+            _showRightIconOnHover = value
+            Me.Invalidate()
+        End Set
+    End Property
 End Class

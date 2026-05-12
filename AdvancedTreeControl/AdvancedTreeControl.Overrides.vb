@@ -85,7 +85,7 @@ Partial Public Class AdvancedTreeControl
                 }
                         it.Children.Add(loader)
                         it.Expanded = True
-                        If Not _loadingTimer.Enabled Then _loadingTimer.Start()
+                        If Not LoadingTimer.Enabled Then LoadingTimer.Start()
                         Me.Invalidate()
                         RaiseEvent RequestLazyLoad(Me, it)
                         Return
@@ -140,7 +140,7 @@ Partial Public Class AdvancedTreeControl
                 it.Expanded = True
 
                 ' 3. Pornim animația dacă nu merge deja
-                If Not _loadingTimer.Enabled Then _loadingTimer.Start()
+                If Not LoadingTimer.Enabled Then LoadingTimer.Start()
 
                 ' 4. Forțăm redesenarea pentru a apărea loaderul
                 Me.Invalidate()

@@ -49,8 +49,8 @@ Partial Public Class AdvancedTreeControl
     Private Shared ReadOnly separator As String() = New String() {"||"}
 
     ' Timer pentru animația de încărcare / Nod
-    Private WithEvents _loadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
-    Private _loadingAngle As Single = 0
+    Private WithEvents LoadingTimer As New Timer() With {.Interval = 50} ' 20 FPS
+    Private loadingAngle As Single = 0
 
     ' Gap minim între capătul textului stâng și începutul textului drept (separator ~~~)
     Private Const PADDING_SEPARATOR_GAP As Integer = 12
@@ -432,9 +432,9 @@ Partial Public Class AdvancedTreeControl
         Next
     End Sub
 
-    Private Sub LoadingTimer_Tick(sender As Object, e As EventArgs) Handles _loadingTimer.Tick
-        _loadingAngle += 15
-        If _loadingAngle >= 360 Then _loadingAngle = 0
+    Private Sub LoadingTimer_Tick(sender As Object, e As EventArgs) Handles LoadingTimer.Tick
+        loadingAngle += 15
+        If loadingAngle >= 360 Then loadingAngle = 0
 
         ' Invalidăm doar zona vizibilă pentru a redesena animația
         ' Optimizare: Am putea invalida doar nodurile loader, dar Invalidate() e suficient pentru început

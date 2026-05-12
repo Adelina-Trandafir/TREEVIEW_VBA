@@ -823,6 +823,33 @@ Partial Public Class Tree
         TrimiteMesajAccess("BEFORE_EXPAND", item)
     End Sub
 
+    ' ── ProcessCmdKey ────────────────────────────────────────────────────────────
+    ' Interceptează Alt+literă / Alt+cifră și le trimite la VBA ca eveniment KEYPRESS.
+    ' Restul combinațiilor (Alt+F4, Alt+Space, Alt+Enter etc.) trec normal.
+    Protected Overrides Function ProcessCmdKey(ByRef msg As Message, keyData As Keys) As Boolean
+        If (keyData And Keys.Alt) <> 0 Then
+            Dim keyCode As Keys = keyData And Keys.KeyCode
+            Dim keyChar As String = Nothing
+
+            If keyCode >= Keys.A AndAlso keyCode <= Keys.Z Then
+                keyChar = keyCode.ToString()                              ' "A".."Z"
+            ElseIf keyCode >= Keys.D0 AndAlso keyCode <= Keys.D9 Then
+                keyChar = CStr(CInt(keyCode) - CInt(Keys.D0))            ' "0".."9"
+            ElseIf keyCode >= Keys.NumPad0 AndAlso keyCode <= Keys.NumPad9 Then
+                keyChar = CStr(CInt(keyCode) - CInt(Keys.NumPad0))       ' "0".."9"
+            End If
+
+            If keyChar IsNot Nothing Then
+                Dim combo As String = "ALT+" & keyChar
+                ' BeginInvoke → nu blocăm ProcessCmdKey, evităm reentrancy COM
+                Me.BeginInvoke(Sub() TrimiteMesajAccess("KEYPRESS", Nothing, combo))
+                Return True   ' Consumăm tasta — nu ajunge nicăieri altundeva
+            End If
+        End If
+
+        Return MyBase.ProcessCmdKey(msg, keyData)
+    End Function
+
     ' =============================================================
     ' WNDPROC - INTERCEPTARE DISTRUGERE FORTATA
     ' =============================================================
