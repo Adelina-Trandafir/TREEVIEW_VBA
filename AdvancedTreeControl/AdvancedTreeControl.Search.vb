@@ -1,8 +1,17 @@
-﻿Imports System.DirectoryServices
+Imports System.DirectoryServices
 Imports System.Drawing.Drawing2D
 Imports System.Text.RegularExpressions
 
 Partial Public Class AdvancedTreeControl
+
+    ' ── Filter state (inline search — no overlay) ────────────────────────
+    Private _filterActive As Boolean = False
+    Private _filterSet As New HashSet(Of TreeItem)()
+
+    ' Search bar row state
+    Private _searchBarHeight As Integer = 0
+    Private _searchBarLabel As Label = Nothing
+    Private _searchPlaceholderActive As Boolean = False
 
     ' ══════════════════════════════════════════════════════════════════
     ' HEADER — DRAWING
@@ -77,6 +86,17 @@ Partial Public Class AdvancedTreeControl
         Using sep As New Pen(Color.FromArgb(60, _headerForeColor))
             g.DrawLine(sep, 0, _headerHeight - 1, Me.Width, _headerHeight - 1)
         End Using
+
+        ' ── Search bar row (below header, when search is active and no caption) ──
+        If _isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption) AndAlso _searchBarHeight > 0 Then
+            Using bg As New SolidBrush(_headerBackColor)
+                g.FillRectangle(bg, 0, _headerHeight, Me.Width, _searchBarHeight)
+            End Using
+            Using sep As New Pen(Color.FromArgb(60, _headerForeColor))
+                g.DrawLine(sep, 0, _headerHeight + _searchBarHeight - 1,
+                           Me.Width, _headerHeight + _searchBarHeight - 1)
+            End Using
+        End If
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
@@ -94,6 +114,12 @@ Partial Public Class AdvancedTreeControl
         If Not String.IsNullOrEmpty(_headerSearchIconKey) Then
             If cache.TryGetValue(_headerSearchIconKey, img) Then _headerSearchIcon = img
         End If
+
+        ' Auto-open: SearchShow = True și nu există iconiță toggle
+        If _searchShow AndAlso _headerSearchIcon Is Nothing Then
+            OpenSearchMode()
+        End If
+
         Me.Invalidate()
     End Sub
 
@@ -108,52 +134,112 @@ Partial Public Class AdvancedTreeControl
                 .Font = Me.Font
             }
             AddHandler _searchTextBox.TextChanged, AddressOf OnSearchTextChanged
+            AddHandler _searchTextBox.GotFocus, AddressOf OnSearchTextBoxGotFocus
+            AddHandler _searchTextBox.LostFocus, AddressOf OnSearchTextBoxLostFocus
+            AddHandler _searchTextBox.KeyDown, AddressOf OnSearchTextBoxKeyDown
             Me.Controls.Add(_searchTextBox)
         End If
+        UpdateSearchTextBoxFont()
 
         _searchTextBox.BackColor = Me.BackColor
         _searchTextBox.ForeColor = Me.ForeColor
         _searchTextBox.Text = ""
+
+        If String.IsNullOrEmpty(_headerCaption) Then
+            ' ── Ramura fără caption: label + textbox în rândul de sub header ──
+            If _searchBarLabel Is Nothing Then
+                _searchBarLabel = New Label() With {
+                    .AutoSize = True,
+                    .Text = _searchBarLabelText,
+                    .ForeColor = If(_searchBarLabelForeColor <> Color.Empty, _searchBarLabelForeColor, _headerForeColor),
+                    .BackColor = _headerBackColor
+                }
+                UpdateSearchBarLabelFont()
+                Me.Controls.Add(_searchBarLabel)
+            End If
+            _searchBarHeight = Math.Max(ItemHeight + 8, Me.Font.Height + 10)
+            If _searchBarHeight > _headerHeight Then _headerHeight = _searchBarHeight
+
+            _searchBarLabel.Left = PADDING_TREE_START
+            _searchBarLabel.Top = _headerHeight + (_searchBarHeight - _searchBarLabel.Height) \ 2
+            _searchBarLabel.Visible = True
+            _searchBarLabel.BringToFront()
+
+            _searchTextBox.Top = _headerHeight + (_searchBarHeight - _searchTextBox.PreferredHeight) \ 2
+            _searchTextBox.Left = _searchBarLabel.Right + 4
+            _searchTextBox.Width = Math.Max(40, Me.Width - _searchBarLabel.Right - 4 - PADDING_TREE_END)
+            _searchTextBox.Height = _searchTextBox.PreferredHeight
+        Else
+            ' ── Ramura cu caption: textbox în header row, dreapta, 1/4 lățime ──
+            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        End If
+
         PositionSearchTextBox()
         _searchTextBox.Visible = True
         _searchTextBox.BringToFront()
-        _searchTextBox.Focus()
 
         _isSearchMode = True
-        _searchResultHoveredIdx = -1
         _searchResults.Clear()
+        ApplySearchPlaceholder()
         Me.Invalidate()
+        _searchTextBox.Focus()
     End Sub
 
     Friend Sub CloseSearchMode()
-        If _searchTextBox IsNot Nothing Then
-            _searchTextBox.Visible = False
-        End If
+        ' Guard: persistent dacă SearchShow = True și nu există iconiță toggle
+        If _searchShow AndAlso _headerSearchIcon Is Nothing Then Return
+
+        If _searchTextBox IsNot Nothing Then _searchTextBox.Visible = False
+        If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        _filterActive = False
+        _filterSet.Clear()
         _isSearchMode = False
-        _searchResultHoveredIdx = -1
+        _searchPlaceholderActive = False
         _searchResults.Clear()
         Me.Invalidate()
     End Sub
 
-    ' Compensates for AutoScrollPosition so TextBox stays fixed below header
     Private Sub PositionSearchTextBox()
         If _searchTextBox Is Nothing Then Return
         Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
 
-        ' Left boundary: after header left icon (if any)
-        Dim left As Integer = PADDING_TREE_START
-        If _headerLeftIcon IsNot Nothing Then left += _headerIconSize.Width + PADDING_ICON_GAP
+        If String.IsNullOrEmpty(_headerCaption) Then
+            ' ── Ramura 1: fără caption — textbox în header, lățime maximă disponibilă ──
+            Dim left As Integer = PADDING_TREE_START
+            If _headerLeftIcon IsNot Nothing Then left += _headerIconSize.Width + PADDING_ICON_GAP
 
-        ' Right boundary: before header right icon (if any)
-        Dim right As Integer = Me.Width - PADDING_TREE_END - scrollW
-        If _headerRightIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
-        If _headerSearchIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
+            Dim right As Integer = Me.Width - PADDING_TREE_END - scrollW
+            If _headerRightIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
+            If _headerSearchIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
 
-        ' Compensate for AutoScrollPosition (ScrollableControl offsets children)
-        _searchTextBox.Left = left - Me.AutoScrollPosition.X
-        _searchTextBox.Top = (_headerHeight + 4) - Me.AutoScrollPosition.Y
-        _searchTextBox.Width = Math.Max(40, right - left)
-        _searchTextBox.Height = ItemHeight
+            _searchTextBox.Left = left - Me.AutoScrollPosition.X
+            _searchTextBox.Top = (_headerHeight - _searchTextBox.PreferredHeight) \ 2
+            _searchTextBox.Width = Math.Max(40, right - left)
+            _searchTextBox.Height = _searchTextBox.PreferredHeight
+
+            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        Else
+            ' ── Ramura 2: cu caption — textbox în header, dreapta, 1/4 lățime ──
+            Dim total As Integer = Me.Width - PADDING_TREE_END - scrollW
+            Dim tbWidth As Integer
+
+            If _headerRightIcon IsNot Nothing Then
+                Dim available As Integer = total - _headerIconSize.Width - PADDING_ICON_GAP
+                tbWidth = available \ 3
+            Else
+                tbWidth = total \ 4
+            End If
+
+            Dim tbLeft As Integer = Me.Width - PADDING_TREE_END - scrollW - tbWidth
+            If _headerRightIcon IsNot Nothing Then tbLeft -= _headerIconSize.Width + PADDING_ICON_GAP
+
+            _searchTextBox.Left = tbLeft
+            _searchTextBox.Top = (_headerHeight - _searchTextBox.PreferredHeight) \ 2
+            _searchTextBox.Width = tbWidth
+            _searchTextBox.Height = _searchTextBox.PreferredHeight
+
+            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        End If
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
@@ -161,12 +247,14 @@ Partial Public Class AdvancedTreeControl
     ' ══════════════════════════════════════════════════════════════════
 
     Private Sub OnSearchTextChanged(sender As Object, e As EventArgs)
+        If _searchPlaceholderActive Then Return
         _searchDebounceTimer.Stop()
         If _searchTextBox Is Nothing Then Return
         Dim txt = _searchTextBox.Text
         If txt.Length < 3 Then
+            _filterActive = False
+            _filterSet.Clear()
             _searchResults.Clear()
-            _searchResultHoveredIdx = -1
             Me.Invalidate()
         Else
             _searchDebounceTimer.Start()
@@ -186,28 +274,38 @@ Partial Public Class AdvancedTreeControl
 
     Private Sub PerformSearch(searchText As String)
         _searchResults.Clear()
+        _filterSet.Clear()
+
         If String.IsNullOrEmpty(searchText) OrElse searchText.Length < 3 Then
+            _filterActive = False
             Me.Invalidate()
             Return
         End If
 
-        If _searchMode = en_Tree_SearchMode.SearchMode_Tree Then
-            BuildTreeSearchResults(searchText)
-        Else
-            BuildListSearchResults(searchText)
-        End If
+        ' 1. Găsește nodurile care se potrivesc direct
+        Dim matchSet As New HashSet(Of TreeItem)()
+        CollectMatchingNodes(Items, searchText, matchSet)
 
-        _searchResultHoveredIdx = -1
+        ' 2. filterSet = matches + toți ancestorii lor
+        For Each node In matchSet
+            _filterSet.Add(node)
+            Dim p = node.Parent
+            While p IsNot Nothing
+                _filterSet.Add(p)
+                p = p.Parent
+            End While
+        Next
+
+        ' 3. Populează _searchResults pentru date suplimentare
+        BuildTreeSearchResults(searchText)
+
+        ' 4. Activează filtrul
+        _filterActive = (_filterSet.Count > 0)
+
+        ' 5. Ridică evenimentul
+        RaiseEvent SearchFinished(matchSet.ToList(), searchText)
+
         Me.Invalidate()
-
-        ' Ridică evenimentul cu nodurile găsite (non-dimmed = match real, nu ancestor)
-        If searchText.Length >= 3 Then
-            Dim matching = _searchResults.
-                Where(Function(r) Not r.IsDimmed).
-                Select(Function(r) r.Item).
-                ToList()
-            RaiseEvent SearchFinished(matching, searchText)
-        End If
     End Sub
 
     Private Function MatchesSearch(it As TreeItem, searchText As String) As Boolean
@@ -294,169 +392,53 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
-    ' SEARCH — OVERLAY PAINTING
+    ' SEARCH — PLACEHOLDER
     ' ══════════════════════════════════════════════════════════════════
 
-    ' Constants for overlay layout (derived, not configurable — keeps surface small)
-    Private ReadOnly Property SearchResultsTop As Integer
-        Get
-            Return _headerHeight + ItemHeight + 8
-        End Get
-    End Property
-
-    Friend Sub DrawSearchOverlay(g As Graphics)
-        Dim overlayRect As New Rectangle(0, _headerHeight, Me.Width, _searchDropdownHeight)
-
-        ' ── Background ───────────────────────────────────────────────
-        Using bg As New SolidBrush(Me.BackColor)
-            g.FillRectangle(bg, overlayRect)
-        End Using
-
-        ' ── Input row border (around TextBox) ────────────────────────
-        If _searchTextBox IsNot Nothing AndAlso _searchTextBox.Visible Then
-            Dim tbr As New Rectangle(
-                _searchTextBox.Left + Me.AutoScrollPosition.X - 1,
-                _searchTextBox.Top + Me.AutoScrollPosition.Y - 1,
-                _searchTextBox.Width + 2,
-                _searchTextBox.Height + 2)
-            Using pen As New Pen(Color.FromArgb(150, LineColor))
-                g.DrawRectangle(pen, tbr)
-            End Using
-        End If
-
-        ' ── Separator between input and results ───────────────────────
-        Dim sepY = SearchResultsTop - 2
-        Using sep As New Pen(Color.FromArgb(60, LineColor))
-            g.DrawLine(sep, PADDING_TREE_START, sepY, Me.Width - PADDING_TREE_END, sepY)
-        End Using
-
-        ' ── Bottom border of overlay ──────────────────────────────────
-        Dim bottomY = _headerHeight + _searchDropdownHeight - 1
-        Using sep As New Pen(Color.FromArgb(80, LineColor))
-            g.DrawLine(sep, 0, bottomY, Me.Width, bottomY)
-        End Using
-
-        ' ── No results / hint text ────────────────────────────────────
-        If _searchResults.Count = 0 Then
-            Dim hint As String = ""
-            If _searchTextBox IsNot Nothing Then
-                If _searchTextBox.Text.Length > 0 AndAlso _searchTextBox.Text.Length < 3 Then
-                    hint = "Minim 3 caractere..."
-                ElseIf _searchTextBox.Text.Length >= 3 Then
-                    hint = "Niciun rezultat."
-                End If
-            End If
-            If Not String.IsNullOrEmpty(hint) Then
-                Using hintBrush As New SolidBrush(Color.Gray)
-                    g.DrawString(hint, Me.Font, hintBrush, PADDING_TREE_START, SearchResultsTop + 4)
-                End Using
-            End If
-            Return
-        End If
-
-        ' ── Results ───────────────────────────────────────────────────
-        Dim maxBottom As Integer = _headerHeight + _searchDropdownHeight
-        Dim oldClip = g.Clip.Clone()
-        g.SetClip(New Rectangle(0, SearchResultsTop, Me.Width, maxBottom - SearchResultsTop))
-
-        Dim isListMode As Boolean = (_searchMode = en_Tree_SearchMode.SearchMode_List)
-        Dim y As Integer = SearchResultsTop
-        For idx As Integer = 0 To _searchResults.Count - 1
-            If y + ItemHeight > maxBottom Then Exit For
-            Dim r = _searchResults(idx)
-            DrawSearchResultRow(g, r.Item, y,
-                                isHovered:=(idx = _searchResultHoveredIdx),
-                                isDimmed:=r.IsDimmed,
-                                flatMode:=isListMode)
-            y += ItemHeight
-        Next
-
-        g.Clip = oldClip
+    Friend Sub ApplySearchPlaceholder()
+        If _searchTextBox Is Nothing OrElse String.IsNullOrEmpty(_searchDefaultText) Then Return
+        If _searchTextBox.Focused Then Return
+        _searchTextBox.Text = _searchDefaultText
+        _searchTextBox.ForeColor = Color.Gray
+        _searchPlaceholderActive = True
     End Sub
 
-    Private Sub DrawSearchResultRow(g As Graphics, it As TreeItem, y As Integer,
-                                    isHovered As Boolean, isDimmed As Boolean,
-                                    flatMode As Boolean)
-        ' Indentation
-        Dim level As Integer = If(flatMode, 0, it.Level)
-        Dim gridLeft As Integer = level * Indent + PADDING_TREE_START
-        Dim x As Integer = If(level = 0 AndAlso Not _RootExpander,
-                              gridLeft,
-                              gridLeft + Indent + PADDING_EXPANDER_GAP)
+    Private Sub RemoveSearchPlaceholder()
+        If Not _searchPlaceholderActive Then Return
+        _searchTextBox.Text = ""
+        _searchTextBox.ForeColor = Me.ForeColor
+        _searchPlaceholderActive = False
+    End Sub
 
-        ' ── Hover background (only for selectable = non-dimmed) ──────
-        If isHovered AndAlso Not isDimmed Then
-            Dim hw = Math.Max(0, Me.ClientSize.Width - gridLeft - PADDING_TREE_END)
-            Using hb As New SolidBrush(HoverBackColor)
-                g.FillRectangle(hb, gridLeft, y, hw, ItemHeight)
-            End Using
-        End If
+    Private Sub OnSearchTextBoxGotFocus(sender As Object, e As EventArgs)
+        RemoveSearchPlaceholder()
+    End Sub
 
-        ' ── Left icon ────────────────────────────────────────────────
-        If _hasNodeIcons Then
-            Dim icon As Image = If(it.Expanded, it.LeftIconOpen, it.LeftIconClosed)
-            If icon IsNot Nothing Then
-                Dim iy = y + (ItemHeight - LeftIconSize.Height) \ 2
-                If isDimmed Then
-                    ' Draw dimmed icon using semi-transparent ImageAttributes
-                    Dim ia As New System.Drawing.Imaging.ImageAttributes()
-                    Dim cm As New System.Drawing.Imaging.ColorMatrix() With {.Matrix33 = 0.35F}
-                    ia.SetColorMatrix(cm)
-                    g.DrawImage(icon, New Rectangle(x, iy, LeftIconSize.Width, LeftIconSize.Height),
-                                0, 0, icon.Width, icon.Height,
-                                GraphicsUnit.Pixel, ia)
-                Else
-                    g.DrawImage(icon, x, iy, LeftIconSize.Width, LeftIconSize.Height)
-                End If
-                x += LeftIconSize.Width + PADDING_ICON_GAP
-            End If
-        End If
-
-        ' ── Text boundaries ──────────────────────────────────────────
-        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
-        Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
-        If it.RightIcon IsNot Nothing AndAlso Not isDimmed Then
-            maxRightX -= RightIconSize.Width + PADDING_RIGHT_ICON_GAP
-        End If
-        Dim availW As Integer = Math.Max(0, maxRightX - x)
-
-        ' ── Caption ──────────────────────────────────────────────────
-        Dim baseColor As Color = If(isDimmed,
-            Color.FromArgb(150, 150, 150),
-            If(it.NodeForeColor <> Color.Empty, it.NodeForeColor,
-               If(Me.ForeColor <> Color.Empty, Me.ForeColor, Color.Black)))
-
-        Dim style As FontStyle = Me.TreeFont.Style
-        If Not isDimmed Then
-            If it.Bold Then style = style Or FontStyle.Bold
-            If it.Italic Then style = style Or FontStyle.Italic
-        End If
-        Dim nodeFont As Font = If(style <> Me.Font.Style, New Font(Me.Font, style), Me.TreeFont)
-
-        Dim oldClip = g.Clip.Clone()
-        g.SetClip(New Rectangle(x, y, availW, ItemHeight))
-        DrawRichText(g, it.Caption, x, y, nodeFont, baseColor, availW)
-        g.Clip = oldClip
-
-        ' ── Right icon (non-dimmed only) ─────────────────────────────
-        If it.RightIcon IsNot Nothing AndAlso Not isDimmed Then
-            Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
-            Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
-            g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
+    Private Sub OnSearchTextBoxLostFocus(sender As Object, e As EventArgs)
+        If _searchTextBox IsNot Nothing AndAlso _searchTextBox.Text = "" Then
+            ApplySearchPlaceholder()
         End If
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
-    ' SEARCH — OVERLAY HIT TESTING
+    ' SEARCH — KEYBOARD NAVIGATION
     ' ══════════════════════════════════════════════════════════════════
 
-    ' Returns the result index under the point, or -1 if not in results area
-    Private Function OverlayResultIndexAt(p As Point) As Integer
-        If Not _isSearchMode Then Return -1
-        If p.Y < SearchResultsTop Then Return -1
-        If p.Y >= _headerHeight + _searchDropdownHeight Then Return -1
-        Dim idx = (p.Y - SearchResultsTop) \ ItemHeight
-        Return If(idx >= 0 AndAlso idx < _searchResults.Count, idx, -1)
-    End Function
+    Private Sub OnSearchTextBoxKeyDown(sender As Object, e As KeyEventArgs)
+        If e.KeyCode <> Keys.Down AndAlso e.KeyCode <> Keys.Up Then Return
+
+        Dim visible = GetVisibleItems()
+        If visible.Count = 0 Then Return
+
+        pSelectedItem = If(e.KeyCode = Keys.Down, visible.First(), visible.Last())
+
+        e.Handled = True
+        Me.Focus()
+        Dim itemY = GetItemY(pSelectedItem)
+        If itemY >= 0 Then
+            Me.AutoScrollPosition = New Point(0, itemY - _headerHeight - _searchBarHeight)
+        End If
+        Me.Invalidate()
+    End Sub
 
 End Class

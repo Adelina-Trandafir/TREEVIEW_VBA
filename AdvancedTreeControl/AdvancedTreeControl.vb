@@ -161,9 +161,10 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     Private Function HitTestItem(p As Point) As TreeItem
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
-        ' Ignore clicks in header area
-        If _headerVisible AndAlso p.Y < _headerHeight Then Return Nothing
+        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + searchBarOff
+        ' Ignore clicks in header + search bar area
+        If _headerVisible AndAlso p.Y < _headerHeight + searchBarOff Then Return Nothing
         Dim yRel = p.Y - Me.AutoScrollPosition.Y - PADDING_TREE_TOP - headerOff
         Dim idx As Integer = yRel \ ItemHeight
         Dim visible = GetVisibleItems()
@@ -211,7 +212,8 @@ Partial Public Class AdvancedTreeControl
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
+        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + searchBarOff
         Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff + idx * ItemHeight
     End Function
 
@@ -247,12 +249,21 @@ Partial Public Class AdvancedTreeControl
         Return result
     End Function
 
-    Private Shared Sub AddVisible(it As TreeItem, list As List(Of TreeItem))
-        list.Add(it)
-        If it.Expanded Then
+    Private Sub AddVisible(it As TreeItem, list As List(Of TreeItem))
+        If _filterActive Then
+            If Not _filterSet.Contains(it) Then Return
+            list.Add(it)
+            ' Force-expand all matching ancestors to reveal relevant children
             For Each c In it.Children
                 AddVisible(c, list)
             Next
+        Else
+            list.Add(it)
+            If it.Expanded Then
+                For Each c In it.Children
+                    AddVisible(c, list)
+                Next
+            End If
         End If
     End Sub
 

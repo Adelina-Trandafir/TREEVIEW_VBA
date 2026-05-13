@@ -13,12 +13,12 @@ Partial Public Class AdvancedTreeControl
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
         ' ── Header (drawn first, fixed — not scrollable) ─────────────────
-        If _headerVisible Then
-            DrawHeader(e.Graphics)
-        End If
+        Dim shouldDrawHeader As Boolean = _headerVisible OrElse _isSearchMode
+        If shouldDrawHeader Then DrawHeader(e.Graphics)
 
-        ' ── Tree nodes (clipped below header) ─────────────────────────────
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0)
+        ' ── Tree nodes (clipped below header + search bar) ────────────────
+        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
+        Dim headerOff As Integer = If(shouldDrawHeader, _headerHeight, 0) + searchBarOff
         Dim oldClip = e.Graphics.Clip.Clone()
         e.Graphics.SetClip(New Rectangle(0, headerOff, Me.Width, Me.Height - headerOff))
 
@@ -35,11 +35,6 @@ Partial Public Class AdvancedTreeControl
         Next
 
         e.Graphics.Clip = oldClip
-
-        ' ── Search overlay (drawn on top of tree, below header) ───────────
-        If _isSearchMode Then
-            DrawSearchOverlay(e.Graphics)
-        End If
 
         ' --- MASCĂ PENTRU STAREA DISABLED ---
         If Not Me.Enabled Then
@@ -74,20 +69,6 @@ Partial Public Class AdvancedTreeControl
                 RaiseEvent HeaderRightIconClicked(e)
             End If
             Return
-        End If
-
-        ' ── Search overlay area clicks ────────────────────────────────────────
-        If _isSearchMode Then
-            Dim idx = OverlayResultIndexAt(e.Location)
-            If idx >= 0 Then
-                Dim result = _searchResults(idx)
-                If Not result.IsDimmed Then
-                    pSelectedItem = result.Item
-                    RaiseEvent NodeMouseDown(result.Item, e)
-                    CloseSearchMode()
-                End If
-            End If
-            Return  ' consume all clicks while overlay is open
         End If
 
         Dim it = HitTestItem(e.Location)
@@ -368,16 +349,6 @@ Partial Public Class AdvancedTreeControl
     Protected Overrides Sub OnMouseMove(e As MouseEventArgs)
         MyBase.OnMouseMove(e)
 
-        ' ── Overlay hover ────────────────────────────────────────────────────
-        If _isSearchMode Then
-            Dim newIdx = OverlayResultIndexAt(e.Location)
-            If newIdx <> _searchResultHoveredIdx Then
-                _searchResultHoveredIdx = newIdx
-                Me.Invalidate()
-            End If
-            Return
-        End If
-
         Dim it = HitTestItem(e.Location)
 
         ' --- Logică Zonă Moartă ---
@@ -406,15 +377,6 @@ Partial Public Class AdvancedTreeControl
 
     Protected Overrides Sub OnMouseLeave(e As EventArgs)
         MyBase.OnMouseLeave(e)
-
-        If _isSearchMode Then
-            If _searchResultHoveredIdx <> -1 Then
-                _searchResultHoveredIdx = -1
-                Me.Invalidate()
-            End If
-            Return
-        End If
-
         pHoveredItem = Nothing
         HideAllTooltips()
         pTooltipTimer.Stop()

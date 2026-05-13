@@ -431,7 +431,7 @@
         End Set
     End Property
 
-    Private _headerBackColor As Color = Color.FromArgb(240, 240, 245)
+    Private _headerBackColor As Color = Color.FromArgb(222, 222, 222)
     Public Property HeaderBackColor As Color
         Get
             Return _headerBackColor
@@ -455,6 +455,29 @@
     ' SEARCH PROPERTIES
     ' ══════════════════════════════════════════════════
 
+    Private _searchPropertiesConfigured As Boolean = False
+
+    Private _searchShow As Boolean = False
+    Public Property SearchShow As Boolean
+        Get
+            Return _searchShow
+        End Get
+        Set(value As Boolean)
+            _searchShow = value
+        End Set
+    End Property
+
+    Private _searchDefaultText As String = ""
+    Public Property SearchDefaultText As String
+        Get
+            Return _searchDefaultText
+        End Get
+        Set(value As String)
+            _searchDefaultText = value
+            ApplySearchPlaceholder()
+        End Set
+    End Property
+
     Private _searchType As en_Tree_SearchType = en_Tree_SearchType.SearchType_Contains
     Public Property SearchType As en_Tree_SearchType
         Get
@@ -462,6 +485,7 @@
         End Get
         Set(value As en_Tree_SearchType)
             _searchType = value
+            _searchPropertiesConfigured = True
         End Set
     End Property
 
@@ -472,6 +496,7 @@
         End Get
         Set(value As en_Tree_SearchIn)
             _searchIn = value
+            _searchPropertiesConfigured = True
         End Set
     End Property
 
@@ -482,17 +507,105 @@
         End Get
         Set(value As en_Tree_SearchMode)
             _searchMode = value
+            _searchPropertiesConfigured = True
         End Set
     End Property
 
-    Private _searchDropdownHeight As Integer = 220
-    Public Property SearchDropdownHeight As Integer
+    ' ── Search bar label (visible below header when HeaderCaption <> "") ──────
+    Private _searchBarLabelText As String = "Cautare: "
+    Public Property SearchBarLabelText As String
         Get
-            Return _searchDropdownHeight
+            Return _searchBarLabelText
         End Get
-        Set(value As Integer)
-            _searchDropdownHeight = Math.Max(60, value)
+        Set(value As String)
+            _searchBarLabelText = value
+            _searchPropertiesConfigured = True
+            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Text = value
             Me.Invalidate()
         End Set
     End Property
+
+    Private _searchBarLabelForeColor As Color = Color.Empty
+    Public Property SearchBarLabelForeColor As Color
+        Get
+            Return _searchBarLabelForeColor
+        End Get
+        Set(value As Color)
+            _searchBarLabelForeColor = value
+            _searchPropertiesConfigured = True
+            If _searchBarLabel IsNot Nothing Then _searchBarLabel.ForeColor = If(value = Color.Empty, _headerForeColor, value)
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private _searchBarLabelBold As Boolean = False
+    Public Property SearchBarLabelBold As Boolean
+        Get
+            Return _searchBarLabelBold
+        End Get
+        Set(value As Boolean)
+            _searchBarLabelBold = value
+            _searchPropertiesConfigured = True
+            UpdateSearchBarLabelFont()
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private _searchBarLabelItalic As Boolean = False
+    Public Property SearchBarLabelItalic As Boolean
+        Get
+            Return _searchBarLabelItalic
+        End Get
+        Set(value As Boolean)
+            _searchBarLabelItalic = value
+            _searchPropertiesConfigured = True
+            UpdateSearchBarLabelFont()
+            Me.Invalidate()
+        End Set
+    End Property
+
+    Private Sub UpdateSearchBarLabelFont()
+        If _searchBarLabel Is Nothing Then Return
+        Dim style As FontStyle = FontStyle.Regular
+        If _searchBarLabelBold Then style = style Or FontStyle.Bold
+        If _searchBarLabelItalic Then style = style Or FontStyle.Italic
+        _searchBarLabel.Font = New Font(Me.Font, style)
+    End Sub
+
+    Friend Sub MarkSearchConfigured()
+        _searchPropertiesConfigured = True
+    End Sub
+
+    ' ── Search TextBox font ───────────────────────────────────────────────────
+    Private _searchBarFontName As String = "Calibri"
+    Public Property SearchBarFontName As String
+        Get
+            Return _searchBarFontName
+        End Get
+        Set(value As String)
+            _searchBarFontName = value
+            _searchPropertiesConfigured = True
+            UpdateSearchTextBoxFont()
+        End Set
+    End Property
+
+    Private _searchBarFontSize As Single = 10
+    Public Property SearchBarFontSize As Single
+        Get
+            Return _searchBarFontSize
+        End Get
+        Set(value As Single)
+            _searchBarFontSize = value
+            _searchPropertiesConfigured = True
+            UpdateSearchTextBoxFont()
+        End Set
+    End Property
+
+    Friend Sub UpdateSearchTextBoxFont()
+        If _searchTextBox Is Nothing Then Return
+        Dim name As String = If(String.IsNullOrEmpty(_searchBarFontName), Me.Font.Name, _searchBarFontName)
+        Dim size As Single = If(_searchBarFontSize <= 0, Me.Font.Size, _searchBarFontSize)
+        _searchTextBox.Font = New Font(name, size)
+    End Sub
+
 End Class

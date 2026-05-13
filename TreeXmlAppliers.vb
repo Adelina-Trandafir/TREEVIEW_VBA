@@ -466,8 +466,25 @@ Friend NotInheritable Class TreeXmlAppliers
     ' SEARCH
     ' -------------------------------------------------------
 
+    Friend Shared Sub Apply_SearchShow(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchShow") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchShow").Value
+        Dim nv As Boolean = (xmlVal = "1")
+        If tree.SearchShow <> nv Then tree.SearchShow = nv
+        TreeLogger.Debug(Space(5) & $"SearchShow xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_SearchDefaultText(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchDefaultText") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchDefaultText").Value
+        TreeLogger.Debug(Space(5) & $"SearchDefaultText xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
     Friend Shared Sub Apply_SearchType(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("SearchType") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
         Dim xmlVal As String = cfg.Attributes("SearchType").Value
         Dim v As Integer = CInt(tree.SearchType)
         If Integer.TryParse(xmlVal, v) Then
@@ -479,6 +496,7 @@ Friend NotInheritable Class TreeXmlAppliers
 
     Friend Shared Sub Apply_SearchIn(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("SearchIn") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
         Dim xmlVal As String = cfg.Attributes("SearchIn").Value
         Dim v As Integer = CInt(tree.SearchIn)
         If Integer.TryParse(xmlVal, v) Then
@@ -490,6 +508,7 @@ Friend NotInheritable Class TreeXmlAppliers
 
     Friend Shared Sub Apply_SearchMode(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("SearchMode") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
         Dim xmlVal As String = cfg.Attributes("SearchMode").Value
         Dim v As Integer = CInt(tree.SearchMode)
         If Integer.TryParse(xmlVal, v) Then
@@ -499,13 +518,63 @@ Friend NotInheritable Class TreeXmlAppliers
         End If
     End Sub
 
-    Friend Shared Sub Apply_SearchDropdownHeight(cfg As XmlNode, tree As AdvancedTreeControl)
-        If cfg.Attributes("SearchDropdownHeight") Is Nothing Then Exit Sub
-        Dim xmlVal As String = cfg.Attributes("SearchDropdownHeight").Value
-        Dim v As Integer = tree.SearchDropdownHeight
-        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
-            If tree.SearchDropdownHeight <> v Then tree.SearchDropdownHeight = v
-            TreeLogger.Debug(Space(5) & $"SearchDropdownHeight xml='{xmlVal}'", "AplicareConfigurare")
+    Friend Shared Sub Apply_SearchBarLabelText(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarLabelText") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarLabelText").Value
+        If tree.SearchBarLabelText <> xmlVal Then tree.SearchBarLabelText = xmlVal
+        TreeLogger.Debug(Space(5) & $"SearchBarLabelText xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_SearchBarLabelForeColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarLabelForeColor") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarLabelForeColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.SearchBarLabelForeColor)
+        If tree.SearchBarLabelForeColor <> c Then tree.SearchBarLabelForeColor = c
+        TreeLogger.Debug(Space(5) & $"SearchBarLabelForeColor xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_SearchBarLabelBold(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarLabelBold") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarLabelBold").Value
+        Dim v As Integer = If(tree.SearchBarLabelBold, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.SearchBarLabelBold <> nv Then tree.SearchBarLabelBold = nv
+            TreeLogger.Debug(Space(5) & $"SearchBarLabelBold xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchBarLabelItalic(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarLabelItalic") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarLabelItalic").Value
+        Dim v As Integer = If(tree.SearchBarLabelItalic, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.SearchBarLabelItalic <> nv Then tree.SearchBarLabelItalic = nv
+            TreeLogger.Debug(Space(5) & $"SearchBarLabelItalic xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchBarFontName(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarFontName") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarFontName").Value
+        If tree.SearchBarFontName <> xmlVal Then tree.SearchBarFontName = xmlVal
+        TreeLogger.Debug(Space(5) & $"SearchBarFontName xml='{xmlVal}'", "AplicareConfigurare")
+    End Sub
+
+    Friend Shared Sub Apply_SearchBarFontSize(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBarFontSize") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchBarFontSize").Value
+        Dim v As Single = tree.SearchBarFontSize
+        If Single.TryParse(xmlVal, Globalization.NumberStyles.Any, Globalization.CultureInfo.InvariantCulture, v) AndAlso v > 0 Then
+            If tree.SearchBarFontSize <> v Then tree.SearchBarFontSize = v
+            TreeLogger.Debug(Space(5) & $"SearchBarFontSize xml='{xmlVal}'", "AplicareConfigurare")
         End If
     End Sub
 
