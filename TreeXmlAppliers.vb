@@ -609,4 +609,49 @@ Friend NotInheritable Class TreeXmlAppliers
             TreeLogger.Debug(Space(5) & $"ScrollBarTheme xml='{xmlVal}'", "AplicareConfigurare")
         End If
     End Sub
+
+    ''' <summary>
+    ''' Citeste blocul &lt;Columns&gt; din XML si populeaza lista de definitii de coloane.
+    ''' Seteaza treeListView = True daca exista cel putin o coloana.
+    ''' </summary>
+    Friend Shared Sub Apply_Columns(xmlDoc As XmlDocument,
+                                    ByRef columns As List(Of ColumnDef),
+                                    ByRef treeListView As Boolean)
+        Try
+            columns.Clear()
+            treeListView = False
+            Dim colNodes As XmlNodeList = xmlDoc.SelectNodes("//Columns/Column")
+            If colNodes Is Nothing OrElse colNodes.Count = 0 Then Return
+            For Each cn As XmlNode In colNodes
+                Try
+                    Dim cd As New ColumnDef
+                    cd.Name = If(cn.Attributes("Name")?.Value, "")
+                    cd.Header = If(cn.Attributes("Header")?.Value, cd.Name)
+                    Dim wVal As Integer = 100
+                    If Integer.TryParse(cn.Attributes("Width")?.Value, wVal) Then cd.Width = wVal Else cd.Width = 100
+                    cd.ColType = If(cn.Attributes("Type")?.Value, "Text")
+                    cd.Format = If(cn.Attributes("Format")?.Value, "")
+                    cd.Align = ParseColumnAlign(cn.Attributes("Align")?.Value)
+                    If Not String.IsNullOrEmpty(cd.Name) Then columns.Add(cd)
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "Apply_Columns/Column")
+                End Try
+            Next
+            treeListView = (columns.Count > 0)
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "Apply_Columns")
+        End Try
+    End Sub
+
+    Private Shared Function ParseColumnAlign(val As String) As HorizontalAlignment
+        Try
+            Select Case val?.Trim().ToLower()
+                Case "center" : Return HorizontalAlignment.Center
+                Case "right" : Return HorizontalAlignment.Right
+                Case Else : Return HorizontalAlignment.Left
+            End Select
+        Catch
+            Return HorizontalAlignment.Left
+        End Try
+    End Function
 End Class

@@ -218,6 +218,72 @@ Partial Public Class AdvancedTreeControl
         g.SetClip(New Rectangle(textX, y, availableTextWidth, ItemHeight))
         DrawRichText(g, it.Caption, textX, y, nodeFont, baseTextColor, availableTextWidth)
         g.Clip = oldClip
+
+        ' ── TreeListView: deseneaza celulele coloanelor ──────────────────────────
+        If _treeListView AndAlso _columns.Count > 0 Then
+            Try
+                Dim totalColsW As Integer = 0
+                For Each cd In _columns
+                    totalColsW += cd.Width
+                Next
+                Dim colStartX As Integer = Me.Width - ScrollBarWidth - PADDING_TREE_END - totalColsW
+                _captionColumnEndX = colStartX
+
+                Dim cx As Integer = colStartX
+                Dim colFmt As New StringFormat()
+                colFmt.LineAlignment = StringAlignment.Center
+                colFmt.Trimming = StringTrimming.EllipsisCharacter
+
+                Try
+                    Using sepPen As New Pen(Color.FromArgb(COLUMN_SEPARATOR_COLOR_ALPHA, LineColor), 1)
+                        g.DrawLine(sepPen, cx, y, cx, y + ItemHeight)
+                    End Using
+
+                    For i As Integer = 0 To _columns.Count - 1
+                        Try
+                            Dim cd = _columns(i)
+                            Dim cellRect As New Rectangle(cx, y, cd.Width, ItemHeight)
+
+                            Dim cellData As TreeItem.CellData = Nothing
+                            it.Cells.TryGetValue(cd.Name, cellData)
+
+                            If cellData IsNot Nothing AndAlso cellData.BackColor <> Color.Empty AndAlso it IsNot pSelectedItem Then
+                                Using bgBrush As New SolidBrush(cellData.BackColor)
+                                    g.FillRectangle(bgBrush, cellRect)
+                                End Using
+                            End If
+
+                            Using sepPen As New Pen(Color.FromArgb(COLUMN_SEPARATOR_COLOR_ALPHA, LineColor), 1)
+                                g.DrawLine(sepPen, cx + cd.Width - 1, y, cx + cd.Width - 1, y + ItemHeight)
+                            End Using
+
+                            Dim cellVal As String = If(cellData IsNot Nothing, cellData.Value, "")
+                            Dim cellFore As Color = If(cellData IsNot Nothing AndAlso cellData.ForeColor <> Color.Empty,
+                                                       cellData.ForeColor, baseTextColor)
+
+                            Select Case cd.Align
+                                Case HorizontalAlignment.Center : colFmt.Alignment = StringAlignment.Center
+                                Case HorizontalAlignment.Right : colFmt.Alignment = StringAlignment.Far
+                                Case Else : colFmt.Alignment = StringAlignment.Near
+                            End Select
+
+                            Dim textPaddedRect As New Rectangle(cellRect.X + 4, cellRect.Y, cellRect.Width - 8, cellRect.Height)
+                            Using fgBrush As New SolidBrush(cellFore)
+                                g.DrawString(cellVal, nodeFont, fgBrush, textPaddedRect, colFmt)
+                            End Using
+
+                            cx += cd.Width
+                        Catch
+                            cx += If(i < _columns.Count, _columns(i).Width, 0)
+                        End Try
+                    Next
+                Finally
+                    colFmt.Dispose()
+                End Try
+            Catch
+            End Try
+        End If
+        ' ── SFARSIT TreeListView cells ───────────────────────────────────────────
     End Sub
 
     Private Sub DrawRightIcon(g As Graphics, it As TreeItem, y As Integer)
@@ -634,4 +700,65 @@ Partial Public Class AdvancedTreeControl
             Return defaultColor
         End Try
     End Function
+
+    ''' <summary>
+    ''' Deseneaza randul de headere al coloanelor, fix sub header-ul principal si search bar.
+    ''' Apelata din OnPaint DUPA items, astfel incat acopera orice bleeding.
+    ''' </summary>
+    Private Sub DrawColumnHeaders(g As Graphics)
+        If Not _treeListView OrElse _columns.Count = 0 Then Return
+        Try
+            Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                                       If(_isSearchMode, _searchBarHeight, 0)
+            Dim hdrY As Integer = headerOff
+
+            Try
+                Using bgBrush As New SolidBrush(ControlPaint.Dark(Me.BackColor, 0.05F))
+                    g.FillRectangle(bgBrush, 0, hdrY, Me.Width, COLUMN_HEADER_HEIGHT)
+                End Using
+            Catch
+            End Try
+
+            Try
+                Using borderPen As New Pen(LineColor, 1)
+                    g.DrawLine(borderPen, 0, hdrY + COLUMN_HEADER_HEIGHT - 1,
+                                           Me.Width, hdrY + COLUMN_HEADER_HEIGHT - 1)
+                End Using
+            Catch
+            End Try
+
+            Dim cx As Integer = _captionColumnEndX
+            Dim fmt As New StringFormat()
+            fmt.LineAlignment = StringAlignment.Center
+            fmt.Trimming = StringTrimming.EllipsisCharacter
+
+            Try
+                For i As Integer = 0 To _columns.Count - 1
+                    Try
+                        Dim cd = _columns(i)
+                        Using sepPen As New Pen(Color.FromArgb(COLUMN_SEPARATOR_COLOR_ALPHA, LineColor), 1)
+                            g.DrawLine(sepPen, cx, hdrY, cx, hdrY + COLUMN_HEADER_HEIGHT)
+                        End Using
+
+                        Select Case cd.Align
+                            Case HorizontalAlignment.Center : fmt.Alignment = StringAlignment.Center
+                            Case HorizontalAlignment.Right : fmt.Alignment = StringAlignment.Far
+                            Case Else : fmt.Alignment = StringAlignment.Near
+                        End Select
+
+                        Dim cellRect As New Rectangle(cx + 4, hdrY, cd.Width - 8, COLUMN_HEADER_HEIGHT)
+                        Using fgBrush As New SolidBrush(Me.ForeColor)
+                            g.DrawString(cd.Header, Me.Font, fgBrush, cellRect, fmt)
+                        End Using
+                        cx += cd.Width
+                    Catch
+                        cx += If(i < _columns.Count, _columns(i).Width, 0)
+                    End Try
+                Next
+            Finally
+                fmt.Dispose()
+            End Try
+        Catch
+        End Try
+    End Sub
 End Class

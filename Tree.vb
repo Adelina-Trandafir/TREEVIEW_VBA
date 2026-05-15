@@ -227,6 +227,16 @@ Partial Public Class Tree
     Private Sub MyTree_NodeMouseUp(pItem As AdvancedTreeControl.TreeItem, e As MouseEventArgs) Handles MyTree.NodeMouseUp
         If e.Button = MouseButtons.Left Then
             TrimiteMesajAccess("Click", pItem)
+            ' ── TreeListView: ridica si CELLCLICK daca s-a dat click pe o coloana ──
+            Try
+                If _treeListView AndAlso pItem.LastClickedColumnIndex >= 0 Then
+                    Dim extraInfo As String = $"{pItem.LastClickedColumnIndex}||{pItem.LastClickedColumnName}"
+                    TrimiteMesajAccess("CellClick", pItem, extraInfo)
+                End If
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "MyTree_NodeMouseUp/CellClick")
+            End Try
+            ' ──────────────────────────────────────────────────────────────────────
 
         ElseIf e.Button = MouseButtons.Right Then
             If MyTree.RaiseLeftClickOnRightClick OrElse pItem IsNot MyTree.OldSelectedNode Then

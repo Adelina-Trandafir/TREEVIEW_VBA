@@ -159,4 +159,36 @@ Friend NotInheritable Class NodeXmlAppliers
         End Try
     End Sub
 
+    ''' <summary>
+    ''' Citeste sub-elementele &lt;Cells&gt;&lt;Cell Col="..." Val="..." /&gt; ale unui nod XML
+    ''' si le aplica pe TreeItem.Cells. Suporta BackColor si ForeColor per celula.
+    ''' </summary>
+    Friend Shared Sub Apply_NodeCells(xNode As XmlNode, newItem As AdvancedTreeControl.TreeItem)
+        Try
+            Dim cellsNode As XmlNode = xNode.SelectSingleNode("Cells")
+            If cellsNode Is Nothing Then Return
+            For Each cellEl As XmlNode In cellsNode.SelectNodes("Cell")
+                Try
+                    Dim colName As String = cellEl.Attributes("Col")?.Value
+                    If String.IsNullOrEmpty(colName) Then Continue For
+                    Dim cd As New AdvancedTreeControl.TreeItem.CellData()
+                    cd.Value = If(cellEl.Attributes("Val")?.Value, "")
+                    Dim bgStr As String = If(cellEl.Attributes("BackColor")?.Value, "")
+                    If Not String.IsNullOrEmpty(bgStr) Then
+                        cd.BackColor = AdvancedTreeControl.ParseColor(bgStr, Color.Empty)
+                    End If
+                    Dim fgStr As String = If(cellEl.Attributes("ForeColor")?.Value, "")
+                    If Not String.IsNullOrEmpty(fgStr) Then
+                        cd.ForeColor = AdvancedTreeControl.ParseColor(fgStr, Color.Empty)
+                    End If
+                    newItem.Cells(colName) = cd
+                Catch ex As Exception
+                    TreeLogger.Ex(ex, "Apply_NodeCells/Cell")
+                End Try
+            Next
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "Apply_NodeCells")
+        End Try
+    End Sub
+
 End Class

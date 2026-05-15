@@ -31,6 +31,14 @@ Partial Public Class Tree
 
             MyTree.ResolveHeaderIcons(_imageCache)
 
+            ' ── TreeListView: citeste definitiile de coloane (daca exista) ───────────────
+            Try
+                TreeXmlAppliers.Apply_Columns(xDoc, _columns, _treeListView)
+                MyTree.SetTreeListView(_treeListView, _columns)
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "ReLoadXmlData/Apply_Columns")
+            End Try
+
             ' 3. POPULARE NODURI
             Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
 
@@ -78,6 +86,14 @@ Partial Public Class Tree
             End If
 
             MyTree.ResolveHeaderIcons(_imageCache)
+
+            ' ── TreeListView: citeste definitiile de coloane (daca exista) ───────────────
+            Try
+                TreeXmlAppliers.Apply_Columns(xDoc, _columns, _treeListView)
+                MyTree.SetTreeListView(_treeListView, _columns)
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "ReLoadXmlData/Apply_Columns")
+            End Try
 
             ' 3. POPULARE NODURI
             Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
@@ -246,6 +262,11 @@ Partial Public Class Tree
             NodeXmlAppliers.Apply_NodeCheckState(xNode, newItem)
             NodeXmlAppliers.Apply_NodeForeColor(xNode, newItem)
             NodeXmlAppliers.Apply_NodeBackColor(xNode, newItem)
+            Try
+                NodeXmlAppliers.Apply_NodeCells(xNode, newItem)
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "AddXmlNodeToTree/Apply_NodeCells")
+            End Try
 
             For Each childNode As XmlNode In xNode.SelectNodes("Node")
                 AddXmlNodeToTree(childNode, newItem)

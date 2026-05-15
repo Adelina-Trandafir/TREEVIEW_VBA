@@ -731,6 +731,30 @@ Partial Public Class Tree
             Catch : End Try
         End If
 
+        ' ── TreeListView: aplica celulele (conditional formatting inclus) ────────────
+        If _treeListView AndAlso dto.Cells IsNot Nothing Then
+            Try
+                For Each kv In dto.Cells
+                    Try
+                        Dim cd As New AdvancedTreeControl.TreeItem.CellData()
+                        cd.Value = If(kv.Value?.Val, "")
+                        If Not String.IsNullOrEmpty(kv.Value?.BackColor) Then
+                            cd.BackColor = AdvancedTreeControl.ParseColor(kv.Value.BackColor, Color.Empty)
+                        End If
+                        If Not String.IsNullOrEmpty(kv.Value?.ForeColor) Then
+                            cd.ForeColor = AdvancedTreeControl.ParseColor(kv.Value.ForeColor, Color.Empty)
+                        End If
+                        newItem.Cells(kv.Key) = cd
+                    Catch ex As Exception
+                        TreeLogger.Ex(ex, "AddNodeDtoToTree/Cell")
+                    End Try
+                Next
+            Catch ex As Exception
+                TreeLogger.Ex(ex, "AddNodeDtoToTree/Cells")
+            End Try
+        End If
+        ' ─────────────────────────────────────────────────────────────────────────────
+
         If parentItem Is Nothing Then
             newItem.Level = 0
             MyTree.Items.Add(newItem)

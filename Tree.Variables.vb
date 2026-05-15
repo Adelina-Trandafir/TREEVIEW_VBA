@@ -1,4 +1,14 @@
-﻿Partial Public Class Tree
+﻿''' <summary>Definitia unei coloane in modul TreeListView. Populata din &lt;Columns&gt; XML.</summary>
+Friend Structure ColumnDef
+    Dim Name As String
+    Dim Header As String
+    Dim Width As Integer
+    Dim ColType As String       ' "Text" | "Number" | "Date" | "Boolean"
+    Dim Align As HorizontalAlignment
+    Dim Format As String
+End Structure
+
+Partial Public Class Tree
     Private WithEvents _MonitorTimer As System.Windows.Forms.Timer
 
     Private WithEvents MyTree As AdvancedTreeControl
@@ -45,6 +55,10 @@
 
     Private _pendingSelectedNodeId As String = String.Empty
 
+    ' ── TreeListView ────────────────────────────────────────────────────────────
+    Private _treeListView As Boolean = False
+    Private _columns As New List(Of ColumnDef)
+
     Public Class NodeDto
         Public Property Key As String
         Public Property Caption As String
@@ -59,5 +73,13 @@
         Public Property Italic As Object
         Public Property ForeColor As String = ""
         Public Property BackColor As String = ""
+        ''' <summary>Dictionar coloana → date celula trimis prin ADD_BATCH_JSON. Nothing = nicio celula.</summary>
+        Public Property Cells As Dictionary(Of String, CellDataDto) = Nothing
+
+        Public Class CellDataDto
+            Public Property Val As String = ""
+            Public Property BackColor As String = ""   ' "#RRGGBB" sau "" = Color.Empty
+            Public Property ForeColor As String = ""   ' "#RRGGBB" sau "" = Color.Empty
+        End Class
     End Class
 End Class

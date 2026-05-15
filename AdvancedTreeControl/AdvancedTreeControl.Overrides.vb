@@ -12,8 +12,10 @@ Partial Public Class AdvancedTreeControl
         e.Graphics.SmoothingMode = SmoothingMode.None
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
+        Dim columnHdrH As Integer = If(_treeListView AndAlso _columns.Count > 0, COLUMN_HEADER_HEIGHT, 0)
         Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
-                               If(_isSearchMode, _searchBarHeight, 0)
+                               If(_isSearchMode, _searchBarHeight, 0) +
+                               columnHdrH
 
         ' ── 1. Items (cu clip) — se desenează PRIMII ──────────────────────
         Dim visibleItems = GetVisibleItems()
@@ -35,6 +37,8 @@ Partial Public Class AdvancedTreeControl
         ' ── 2. Header + SearchBar desenate DUPĂ items — acoperă orice bleeding ──
         If _headerVisible Then DrawHeader(e.Graphics)
         If _isSearchMode Then DrawSearchBar(e.Graphics)
+        ' ── 2b. Column headers (TreeListView) — deseneaza DUPA items, DUPA header ──
+        If _treeListView Then DrawColumnHeaders(e.Graphics)
 
         ' ── 3. Scrollbar visibility (BeginInvoke — nu din interiorul OnPaint) ──
         Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
@@ -87,6 +91,14 @@ Partial Public Class AdvancedTreeControl
             Me.Invalidate()
             Return
         End If
+
+        Try
+            If it IsNot Nothing Then
+                it.LastClickedColumnIndex = -1
+                it.LastClickedColumnName = ""
+            End If
+        Catch
+        End Try
 
         ' --- 1. LOGICĂ ZONĂ MOARTĂ (Folosind constantele din AdvancedTreeControl.vb) ---
         If it IsNot Nothing Then
@@ -309,6 +321,20 @@ Partial Public Class AdvancedTreeControl
         'End If
 
         If it IsNot Nothing Then
+            ' ── TreeListView: detecteaza daca click-ul a cazut pe o coloana ─────────
+            If _treeListView Then
+                Try
+                    Dim clickedColIdx As Integer = GetColumnAtX(e.X)
+                    it.LastClickedColumnIndex = clickedColIdx
+                    it.LastClickedColumnName = If(clickedColIdx >= 0 AndAlso clickedColIdx < _columns.Count,
+                                                   _columns(clickedColIdx).Name, "")
+                Catch
+                    it.LastClickedColumnIndex = -1
+                    it.LastClickedColumnName = ""
+                End Try
+            End If
+            ' ─────────────────────────────────────────────────────────────────────────
+
             _pendingClickItem = it
             _pendingMouseArgs = e
             ClickDelayTimer.Start()

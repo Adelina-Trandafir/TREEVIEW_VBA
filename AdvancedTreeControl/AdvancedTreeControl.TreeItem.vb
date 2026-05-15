@@ -24,6 +24,22 @@
         ' indiferent de setarea globală ShowRightIconOnHover de pe control.
         Public ShowRightIconOnHover As Boolean = False
 
+        ''' <summary>Dictionar coloana → date celula. Populat din XML sau JSON.</summary>
+        Public Property Cells As New Dictionary(Of String, CellData)
+
+        ' Populat in OnMouseUp; citit in MyTree_NodeMouseUp pentru CELLCLICK dispatch.
+        ' Reset la -1/"" la fiecare MouseDown.
+        Friend LastClickedColumnIndex As Integer = -1
+        Friend LastClickedColumnName As String = ""
+
+        Public Class CellData
+            Public Property Value As String = ""
+            ''' <summary>Color.Empty = transparent (se foloseste fundalul nodului sau al controlului).</summary>
+            Public Property BackColor As Color = Color.Empty
+            ''' <summary>Color.Empty = mosteneste ForeColor-ul nodului sau al controlului.</summary>
+            Public Property ForeColor As Color = Color.Empty
+        End Class
+
         Private _tag As Object
 
         ' Cache pentru lățimea textului (performanță la desenare)

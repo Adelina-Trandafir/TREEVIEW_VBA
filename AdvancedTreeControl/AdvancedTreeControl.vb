@@ -75,6 +75,13 @@
     Private _headerSearchIconRect As Rectangle = Rectangle.Empty
     Private _headerRightIconRect As Rectangle = Rectangle.Empty
 
+    ' ══════════════ TREE LIST VIEW ══════════════
+    Private _treeListView As Boolean = False
+    Private _columns As New List(Of ColumnDef)
+    Private Const COLUMN_HEADER_HEIGHT As Integer = 24
+    Private Const COLUMN_SEPARATOR_COLOR_ALPHA As Integer = 60
+    Private _captionColumnEndX As Integer = 0   ' X unde se termina zona caption; actualizat in DrawContent
+
     ' ══════════════ SEARCH ══════════════
     Private _isSearchMode As Boolean = False
     Private _searchResults As New List(Of SearchResultItem)()
@@ -233,6 +240,36 @@
         Dim cy As Integer = y + (ItemHeight \ 2)
 
         Return New Rectangle(cx - (ExpanderSize \ 2), cy - (ExpanderSize \ 2), ExpanderSize, ExpanderSize)
+    End Function
+
+    ''' <summary>Configureaza modul TreeListView. Apelata din Tree.Builder dupa parsarea XML.</summary>
+    Friend Sub SetTreeListView(active As Boolean, cols As List(Of ColumnDef))
+        Try
+            _treeListView = active
+            _columns = cols
+            Me.Invalidate()
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "SetTreeListView")
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Returneaza indexul 0-based al coloanei la coordonata X data.
+    ''' Returneaza -1 daca X este in zona caption sau in afara.
+    ''' </summary>
+    Private Function GetColumnAtX(x As Integer) As Integer
+        Try
+            If Not _treeListView OrElse _columns.Count = 0 Then Return -1
+            Dim cx As Integer = _captionColumnEndX
+            For i As Integer = 0 To _columns.Count - 1
+                Dim right As Integer = cx + _columns(i).Width
+                If x >= cx AndAlso x < right Then Return i
+                cx = right
+            Next
+            Return -1
+        Catch
+            Return -1
+        End Try
     End Function
 
     Private Function GetItemY(it As TreeItem) As Integer
