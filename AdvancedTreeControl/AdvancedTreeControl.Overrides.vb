@@ -12,10 +12,7 @@ Partial Public Class AdvancedTreeControl
         e.Graphics.SmoothingMode = SmoothingMode.None
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
-        Dim columnHdrH As Integer = If(_treeListView AndAlso _columns.Count > 0, COLUMN_HEADER_HEIGHT, 0)
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
-                               If(_isSearchMode, _searchBarHeight, 0) +
-                               columnHdrH
+        Dim headerOff As Integer = TotalHeaderOffset
 
         ' ── 1. Items (cu clip) — se desenează PRIMII ──────────────────────
         Dim visibleItems = GetVisibleItems()

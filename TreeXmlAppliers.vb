@@ -615,43 +615,77 @@ Friend NotInheritable Class TreeXmlAppliers
     ''' Seteaza treeListView = True daca exista cel putin o coloana.
     ''' </summary>
     Friend Shared Sub Apply_Columns(xmlDoc As XmlDocument,
-                                    ByRef columns As List(Of ColumnDef),
-                                    ByRef treeListView As Boolean)
+                                 ByRef columns As List(Of ColumnDef),
+                                 ByRef treeListView As Boolean)
         Try
             columns.Clear()
             treeListView = False
+
             Dim colNodes As XmlNodeList = xmlDoc.SelectNodes("//Columns/Column")
             If colNodes Is Nothing OrElse colNodes.Count = 0 Then Return
+
             For Each cn As XmlNode In colNodes
                 Try
                     Dim cd As New ColumnDef
+
                     cd.Name = If(cn.Attributes("Name")?.Value, "")
                     cd.Header = If(cn.Attributes("Header")?.Value, cd.Name)
+
                     Dim wVal As Integer = 100
-                    If Integer.TryParse(cn.Attributes("Width")?.Value, wVal) Then cd.Width = wVal Else cd.Width = 100
-                    cd.ColType = If(cn.Attributes("Type")?.Value, "Text")
+                    If Integer.TryParse(cn.Attributes("Width")?.Value, wVal) Then
+                        cd.Width = wVal
+                    End If
+
+                    ' ── ColType (integer) ─────────────────────────────────────────
+                    Dim tVal As Integer = 0
+                    If Integer.TryParse(cn.Attributes("Type")?.Value, tVal) Then
+                        cd.ColType = CType(tVal, en_ColType)
+                    End If
+
+                    ' ── Align (integer) ───────────────────────────────────────────
+                    Dim aVal As Integer = 0
+                    If Integer.TryParse(cn.Attributes("Align")?.Value, aVal) Then
+                        cd.Align = CType(aVal, en_ColAlign)
+                    End If
+
                     cd.Format = If(cn.Attributes("Format")?.Value, "")
-                    cd.Align = ParseColumnAlign(cn.Attributes("Align")?.Value)
+
+                    ' ── header styling ────────────────────────────────────────────
+                    Dim bgStr As String = If(cn.Attributes("HdrBackColor")?.Value, "")
+                    If Not String.IsNullOrEmpty(bgStr) Then
+                        cd.HeaderBackColor = AdvancedTreeControl.ParseColor(bgStr, Color.Empty)
+                    End If
+
+                    Dim fgStr As String = If(cn.Attributes("HdrForeColor")?.Value, "")
+                    If Not String.IsNullOrEmpty(fgStr) Then
+                        cd.HeaderForeColor = AdvancedTreeControl.ParseColor(fgStr, Color.Empty)
+                    End If
+
+                    Dim bv As Integer = 0
+                    If Integer.TryParse(cn.Attributes("HdrBold")?.Value, bv) Then cd.HeaderBold = (bv = 1)
+                    If Integer.TryParse(cn.Attributes("HdrItalic")?.Value, bv) Then cd.HeaderItalic = (bv = 1)
+                    If Integer.TryParse(cn.Attributes("HdrUnderline")?.Value, bv) Then cd.HeaderUnderline = (bv = 1)
+
+                    ' HeaderAlign: absent din XML → Inherit (-1)
+                    Dim haVal As Integer = CInt(en_ColAlign.ColAlign_Inherit)
+                    If Integer.TryParse(cn.Attributes("HdrAlign")?.Value, haVal) Then
+                        cd.HeaderAlign = CType(haVal, en_ColAlign)
+                    Else
+                        cd.HeaderAlign = en_ColAlign.ColAlign_Inherit
+                    End If
+
                     If Not String.IsNullOrEmpty(cd.Name) Then columns.Add(cd)
+
+                    TreeLogger.Debug(Space(5) & $"Column: Name='{cd.Name}' Header='{cd.Header}' Width={cd.Width} Type={cd.ColType} Align={cd.Align} Format='{cd.Format}' BackColor={cd.HeaderBackColor} ForeColor={cd.HeaderForeColor} Bold={cd.HeaderBold} Italic={cd.HeaderItalic} Underline={cd.HeaderUnderline} HeaderAlign={cd.HeaderAlign}", "Apply_Columns/Column")
+
                 Catch ex As Exception
                     TreeLogger.Ex(ex, "Apply_Columns/Column")
                 End Try
             Next
+
             treeListView = (columns.Count > 0)
         Catch ex As Exception
             TreeLogger.Ex(ex, "Apply_Columns")
         End Try
     End Sub
-
-    Private Shared Function ParseColumnAlign(val As String) As HorizontalAlignment
-        Try
-            Select Case val?.Trim().ToLower()
-                Case "center" : Return HorizontalAlignment.Center
-                Case "right" : Return HorizontalAlignment.Right
-                Case Else : Return HorizontalAlignment.Left
-            End Select
-        Catch
-            Return HorizontalAlignment.Left
-        End Try
-    End Function
 End Class

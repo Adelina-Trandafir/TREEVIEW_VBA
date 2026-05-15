@@ -192,9 +192,7 @@
     End Sub
 
     Private Function HitTestItem(p As Point) As TreeItem
-        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
-        Dim shouldDrawHeader As Boolean = _headerVisible OrElse _isSearchMode   '  Fix Bug 5
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + If(_isSearchMode, _searchBarHeight, 0)
+        Dim headerOff As Integer = TotalHeaderOffset
 
         If p.Y < headerOff Then Return Nothing
 
@@ -242,6 +240,20 @@
         Return New Rectangle(cx - (ExpanderSize \ 2), cy - (ExpanderSize \ 2), ExpanderSize, ExpanderSize)
     End Function
 
+    ''' <summary>
+    ''' Offset vertical total al zonei de noduri fata de top-ul controlului.
+    ''' Include: header principal + search bar + header coloane (TreeListView).
+    ''' Apelat din HitTestItem, GetItemY, OnPaint.
+    ''' </summary>
+    Private ReadOnly Property TotalHeaderOffset As Integer
+        Get
+            Dim columnHdrH As Integer = If(_treeListView AndAlso _columns.Count > 0, COLUMN_HEADER_HEIGHT, 0)
+            Return If(_headerVisible, _headerHeight, 0) +
+                   If(_isSearchMode, _searchBarHeight, 0) +
+                   columnHdrH
+        End Get
+    End Property
+
     ''' <summary>Configureaza modul TreeListView. Apelata din Tree.Builder dupa parsarea XML.</summary>
     Friend Sub SetTreeListView(active As Boolean, cols As List(Of ColumnDef))
         Try
@@ -275,9 +287,7 @@
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
-                               If(_isSearchMode, _searchBarHeight, 0)
-        Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff + idx * ItemHeight
+        Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + TotalHeaderOffset + idx * ItemHeight
     End Function
 
     ' Găsește ancestorul de pe RadioButtonLevel al unui nod

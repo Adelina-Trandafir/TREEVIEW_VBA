@@ -261,11 +261,7 @@ Partial Public Class AdvancedTreeControl
                             Dim cellFore As Color = If(cellData IsNot Nothing AndAlso cellData.ForeColor <> Color.Empty,
                                                        cellData.ForeColor, baseTextColor)
 
-                            Select Case cd.Align
-                                Case HorizontalAlignment.Center : colFmt.Alignment = StringAlignment.Center
-                                Case HorizontalAlignment.Right : colFmt.Alignment = StringAlignment.Far
-                                Case Else : colFmt.Alignment = StringAlignment.Near
-                            End Select
+                            colFmt.Alignment = ColAlignToStringAlign(cd.Align)
 
                             Dim textPaddedRect As New Rectangle(cellRect.X + 4, cellRect.Y, cellRect.Width - 8, cellRect.Height)
                             Using fgBrush As New SolidBrush(cellFore)
@@ -736,20 +732,52 @@ Partial Public Class AdvancedTreeControl
                 For i As Integer = 0 To _columns.Count - 1
                     Try
                         Dim cd = _columns(i)
+                        Dim colRect As New Rectangle(cx, hdrY, cd.Width, COLUMN_HEADER_HEIGHT)
+
+                        ' ── 1. BackColor per-coloana ─────────────────────────────────────────
+                        ' LIPSEA COMPLET
+                        If cd.HeaderBackColor <> Color.Empty Then
+                            Using hdrBg As New SolidBrush(cd.HeaderBackColor)
+                                g.FillRectangle(hdrBg, colRect)
+                            End Using
+                        End If
+
+                        ' ── 2. Separator vertical ────────────────────────────────────────────
                         Using sepPen As New Pen(Color.FromArgb(COLUMN_SEPARATOR_COLOR_ALPHA, LineColor), 1)
                             g.DrawLine(sepPen, cx, hdrY, cx, hdrY + COLUMN_HEADER_HEIGHT)
                         End Using
 
-                        Select Case cd.Align
-                            Case HorizontalAlignment.Center : fmt.Alignment = StringAlignment.Center
-                            Case HorizontalAlignment.Right : fmt.Alignment = StringAlignment.Far
-                            Case Else : fmt.Alignment = StringAlignment.Near
-                        End Select
+                        ' ── 3. Aliniere efectiva ─────────────────────────────────────────────
+                        ' Select Case cd.Align cu HorizontalAlignment era mort (suprascris imediat)
+                        ' → eliminat complet
+                        Dim effAlign As en_ColAlign = If(cd.HeaderAlign = en_ColAlign.ColAlign_Inherit, cd.Align, cd.HeaderAlign)
+                        fmt.Alignment = ColAlignToStringAlign(effAlign)
 
+                        ' ── 4. Font dinamic: Bold / Italic / Underline ───────────────────────
+                        ' LIPSEA COMPLET — intotdeauna Me.Font
+                        Dim hdrStyle As FontStyle = FontStyle.Regular
+                        If cd.HeaderBold Then hdrStyle = hdrStyle Or FontStyle.Bold
+                        If cd.HeaderItalic Then hdrStyle = hdrStyle Or FontStyle.Italic
+                        If cd.HeaderUnderline Then hdrStyle = hdrStyle Or FontStyle.Underline
+                        Dim hdrFont As Font = If(hdrStyle = FontStyle.Regular,
+                                 Me.Font,
+                                 New Font(Me.Font, hdrStyle))
+
+                        ' ── 5. ForeColor per-coloana ─────────────────────────────────────────
+                        ' LIPSEA COMPLET — intotdeauna Me.ForeColor
+                        Dim hdrFore As Color = If(cd.HeaderForeColor <> Color.Empty,
+                                  cd.HeaderForeColor,
+                                  Me.ForeColor)
+
+                        ' ── 6. Desenare text ─────────────────────────────────────────────────
                         Dim cellRect As New Rectangle(cx + 4, hdrY, cd.Width - 8, COLUMN_HEADER_HEIGHT)
-                        Using fgBrush As New SolidBrush(Me.ForeColor)
-                            g.DrawString(cd.Header, Me.Font, fgBrush, cellRect, fmt)
+                        Using fgBrush As New SolidBrush(hdrFore)
+                            g.DrawString(cd.Header, hdrFont, fgBrush, cellRect, fmt)
                         End Using
+
+                        ' ── 7. Dispose font creat dinamic ────────────────────────────────────
+                        If hdrStyle <> FontStyle.Regular Then hdrFont.Dispose()
+
                         cx += cd.Width
                     Catch
                         cx += If(i < _columns.Count, _columns(i).Width, 0)
@@ -761,4 +789,16 @@ Partial Public Class AdvancedTreeControl
         Catch
         End Try
     End Sub
+
+    ''' <summary>
+    ''' Converteste en_ColAlign la StringAlignment pentru GDI+.
+    ''' ColAlign_Inherit se trateaza ca Left (nu ar trebui sa ajunga aici).
+    ''' </summary>
+    Private Shared Function ColAlignToStringAlign(a As en_ColAlign) As StringAlignment
+        Select Case a
+            Case en_ColAlign.ColAlign_Center : Return StringAlignment.Center
+            Case en_ColAlign.ColAlign_Right : Return StringAlignment.Far
+            Case Else : Return StringAlignment.Near
+        End Select
+    End Function
 End Class
