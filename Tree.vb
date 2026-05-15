@@ -97,9 +97,9 @@ Partial Public Class Tree
             If _formHwnd = IntPtr.Zero Or _mainAccessHwnd = IntPtr.Zero Then
                 _manual_params = True
                 '################################################
-                _formHwnd = New IntPtr(1378598) '################
+                _formHwnd = New IntPtr(592672) '################
                 '################################################
-                _mainAccessHwnd = New IntPtr(656888)
+                _mainAccessHwnd = New IntPtr(591810)
                 _idTree = "Clasificatii" '"EFACTURA_2025" '"Clasificatii" '"frmFX_MAIN"
                 _fisier = "C:\AVACONT\RES\tree_Clasificatii.xml" 'tree_EFACTURA_2025.xml" 'tree_Clasificatii.xml" 'tree_frmFX_MAIN.xml"
             End If

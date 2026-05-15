@@ -511,7 +511,31 @@
         End Set
     End Property
 
-    ' ── Search bar label (visible below header when HeaderCaption <> "") ──────
+
+    Private _searchBackColor As Color = Color.FromArgb(222, 222, 222)
+    Public Property SearchBackColor As Color
+        Get
+            Return _searchBackColor
+        End Get
+        Set(value As Color)
+            _searchBackColor = value : Me.Invalidate()
+        End Set
+    End Property
+
+    Private _searchBoxBackColor As Color = Color.Empty
+    Public Property SearchBoxBackColor As Color
+        Get
+            Return _searchBoxBackColor
+        End Get
+        Set(value As Color)
+            _searchBoxBackColor = value
+            If _searchTextBox IsNot Nothing Then
+                _searchTextBox.BackColor = If(value = Color.Empty, Me.BackColor, value)
+            End If
+            Me.Invalidate()
+        End Set
+    End Property
+
     Private _searchBarLabelText As String = "Cautare: "
     Public Property SearchBarLabelText As String
         Get
@@ -601,6 +625,27 @@
         End Set
     End Property
 
+    Private _searchClearButton As Boolean = False
+    Public Property SearchClearButton As Boolean
+        Get
+            Return _searchClearButton
+        End Get
+        Set(value As Boolean)
+            _searchClearButton = value
+        End Set
+    End Property
+
+    Private _scrollBarTheme As en_ScrollBarTheme = en_ScrollBarTheme.Explorer
+    Public Property ScrollBarTheme As en_ScrollBarTheme
+        Get
+            Return _scrollBarTheme
+        End Get
+        Set(value As en_ScrollBarTheme)
+            _scrollBarTheme = value
+            ApplyScrollBarTheme()
+        End Set
+    End Property
+
     Friend Sub UpdateSearchTextBoxFont()
         If _searchTextBox Is Nothing Then Return
         Dim name As String = If(String.IsNullOrEmpty(_searchBarFontName), Me.Font.Name, _searchBarFontName)
@@ -608,4 +653,9 @@
         _searchTextBox.Font = New Font(name, size)
     End Sub
 
+    Private ReadOnly Property ScrollBarWidth As Integer
+        Get
+            Return If(_vScroll IsNot Nothing AndAlso _vScroll.Visible, _vScroll.Width, 0)
+        End Get
+    End Property
 End Class

@@ -135,14 +135,18 @@
 
         Select Case e.KeyCode
             Case Keys.Up, Keys.Down, Keys.Left, Keys.Right,
-                 Keys.PageUp, Keys.PageDown, Keys.Home, Keys.End
-
-                If _keyNavPending AndAlso pSelectedItem IsNot Nothing Then
+             Keys.PageUp, Keys.PageDown, Keys.Home, Keys.End
+                ' Navigare vizuală — NU ridicăm NodeMouseUp; utilizatorul confirmă cu Enter
+                If _keyNavPending Then
                     _keyNavPending = False
-                    ' Simulăm NodeMouseUp cu Left click
-                    ' Tree.vb îl convertește în TrimiteMesajAccess("CLICK",...) → VBA primește Click
+                    Me.Invalidate()
+                End If
+
+            Case Keys.Enter
+                ' Enter = confirmare selecție → un singur NodeMouseUp
+                If pSelectedItem IsNot Nothing Then
                     RaiseEvent NodeMouseUp(pSelectedItem,
-                        New MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0))
+                    New MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0))
                     pOldSelectedItem = pSelectedItem
                 End If
         End Select
@@ -156,17 +160,18 @@
         Dim idx As Integer = visible.IndexOf(node)
         If idx < 0 Then Return
 
-        ' AutoScrollPosition.Y e negativ în WinForms — clasicul quirk
-        Dim scrollY As Integer = -Me.AutoScrollPosition.Y
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                                   If(_isSearchMode, _searchBarHeight, 0)
+        Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
+        Dim scrollY As Integer = _vScroll.Value
         Dim nodeTop As Integer = PADDING_TREE_TOP + idx * ItemHeight
         Dim nodeBot As Integer = nodeTop + ItemHeight
 
         If nodeTop < scrollY Then
-            Me.AutoScrollPosition = New Point(0, nodeTop)
-        ElseIf nodeBot > scrollY + Me.Height Then
-            Me.AutoScrollPosition = New Point(0, nodeBot - Me.Height)
+            _vScroll.Value = nodeTop
+        ElseIf nodeBot > scrollY + viewport Then
+            _vScroll.Value = Math.Max(0, nodeBot - viewport)
         End If
         ' Dacă e deja în viewport → nu mișcăm nimic
     End Sub
-
 End Class

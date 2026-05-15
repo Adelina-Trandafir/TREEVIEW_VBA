@@ -1,5 +1,6 @@
 ﻿Imports System.Globalization
 Imports System.Xml
+Imports TREEVIEW_VBA.AdvancedTreeControl
 
 Friend NotInheritable Class TreeXmlAppliers
 
@@ -479,6 +480,7 @@ Friend NotInheritable Class TreeXmlAppliers
         If cfg.Attributes("SearchDefaultText") Is Nothing Then Exit Sub
         tree.MarkSearchConfigured()
         Dim xmlVal As String = cfg.Attributes("SearchDefaultText").Value
+        If xmlVal <> "" Then tree.SearchDefaultText = xmlVal
         TreeLogger.Debug(Space(5) & $"SearchDefaultText xml='{xmlVal}'", "AplicareConfigurare")
     End Sub
 
@@ -516,6 +518,13 @@ Friend NotInheritable Class TreeXmlAppliers
             If tree.SearchMode <> nv Then tree.SearchMode = nv
             TreeLogger.Debug(Space(5) & $"SearchMode xml='{xmlVal}'", "AplicareConfigurare")
         End If
+    End Sub
+
+    Friend Shared Sub Apply_SearchBackColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchBackColor") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("SearchBackColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.SearchBackColor)
+        If tree.SearchBackColor <> c Then tree.SearchBackColor = c
     End Sub
 
     Friend Shared Sub Apply_SearchBarLabelText(cfg As XmlNode, tree As AdvancedTreeControl)
@@ -578,4 +587,26 @@ Friend NotInheritable Class TreeXmlAppliers
         End If
     End Sub
 
+    Friend Shared Sub Apply_SearchClearButton(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("SearchClearButton") Is Nothing Then Exit Sub
+        tree.MarkSearchConfigured()
+        Dim xmlVal As String = cfg.Attributes("SearchClearButton").Value
+        Dim v As Integer = If(tree.SearchClearButton, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.SearchClearButton <> nv Then tree.SearchClearButton = nv
+            TreeLogger.Debug(Space(5) & $"SearchClearButton xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_ScrollBarTheme(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("ScrollBarTheme") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("ScrollBarTheme").Value
+        Dim v As Integer = 0
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As en_ScrollBarTheme = CType(v, en_ScrollBarTheme)
+            If tree.ScrollBarTheme <> nv Then tree.ScrollBarTheme = nv
+            TreeLogger.Debug(Space(5) & $"ScrollBarTheme xml='{xmlVal}'", "AplicareConfigurare")
+        End If
+    End Sub
 End Class

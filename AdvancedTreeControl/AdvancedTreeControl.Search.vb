@@ -13,6 +13,35 @@ Partial Public Class AdvancedTreeControl
     Private _searchBarLabel As Label = Nothing
     Private _searchPlaceholderActive As Boolean = False
 
+    Private _searchClearBtn As Label = Nothing
+    Private Const CLEAR_BTN_WIDTH As Integer = 18
+
+    ' ── Win32 CueBanner — placeholder nativ, fără race conditions ────────────
+    Private Const EM_SETCUEBANNER As Integer = &H1501
+
+    <System.Runtime.InteropServices.DllImport("user32.dll", CharSet:=System.Runtime.InteropServices.CharSet.Unicode)>
+    Private Shared Function SendMessage(hWnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As String) As IntPtr
+    End Function
+
+    Private Sub SetSearchCueBanner()
+        If _searchTextBox Is Nothing OrElse String.IsNullOrEmpty(_searchDefaultText) Then Return
+        If _searchTextBox.IsHandleCreated Then
+            ' wParam=0: banner dispare când textbox-ul primește focus (comportament standard)
+            SendMessage(_searchTextBox.Handle, EM_SETCUEBANNER,
+                    New IntPtr(0), _searchDefaultText)
+        Else
+            ' Handle nu e creat încă — aplicăm la HandleCreated
+            AddHandler _searchTextBox.HandleCreated, AddressOf OnSearchTextBoxHandleCreated
+        End If
+    End Sub
+
+    Private Sub OnSearchTextBoxHandleCreated(sender As Object, e As EventArgs)
+        RemoveHandler _searchTextBox.HandleCreated, AddressOf OnSearchTextBoxHandleCreated
+        If Not String.IsNullOrEmpty(_searchDefaultText) Then
+            SendMessage(_searchTextBox.Handle, EM_SETCUEBANNER,
+                    New IntPtr(0), _searchDefaultText)
+        End If
+    End Sub
     ' ══════════════════════════════════════════════════════════════════
     ' HEADER — DRAWING
     ' ══════════════════════════════════════════════════════════════════
@@ -34,7 +63,7 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' ── Right side: RightIcon then SearchIcon (built right-to-left) ──
-        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+        Dim scrollW As Integer = ScrollBarWidth 'If(_vScroll.Visible, _vScroll.Width, 0)
         Dim rx As Integer = Me.Width - PADDING_TREE_END - scrollW
 
         _headerRightIconRect = Rectangle.Empty
@@ -86,17 +115,6 @@ Partial Public Class AdvancedTreeControl
         Using sep As New Pen(Color.FromArgb(60, _headerForeColor))
             g.DrawLine(sep, 0, _headerHeight - 1, Me.Width, _headerHeight - 1)
         End Using
-
-        ' ── Search bar row (below header, when search is active and no caption) ──
-        If _isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption) AndAlso _searchBarHeight > 0 Then
-            Using bg As New SolidBrush(_headerBackColor)
-                g.FillRectangle(bg, 0, _headerHeight, Me.Width, _searchBarHeight)
-            End Using
-            Using sep As New Pen(Color.FromArgb(60, _headerForeColor))
-                g.DrawLine(sep, 0, _headerHeight + _searchBarHeight - 1,
-                           Me.Width, _headerHeight + _searchBarHeight - 1)
-            End Using
-        End If
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
@@ -124,54 +142,83 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' ══════════════════════════════════════════════════════════════════
-    ' SEARCH — OPEN / CLOSE
+    ' SEARCH 
     ' ══════════════════════════════════════════════════════════════════
+    Friend Sub DrawSearchBar(g As Graphics)
+        Dim barTop As Integer = If(_headerVisible, _headerHeight, 0)
+
+        ' Background cu culoarea proprie a benzii de search
+        Using bg As New SolidBrush(_searchBackColor)
+            g.FillRectangle(bg, 0, barTop, Me.Width, _searchBarHeight)
+        End Using
+
+        ' Separator inferior
+        Using sep As New Pen(Color.FromArgb(80, Color.Black))
+            g.DrawLine(sep, 0, barTop + _searchBarHeight - 1,
+                   Me.Width, barTop + _searchBarHeight - 1)
+        End Using
+    End Sub
 
     Private Sub OpenSearchMode()
         If _searchTextBox Is Nothing Then
             _searchTextBox = New TextBox() With {
-                .BorderStyle = BorderStyle.None,
-                .Font = Me.Font
-            }
+            .BorderStyle = BorderStyle.None,
+            .Font = Me.Font,
+            .TabStop = False,
+            .TextAlign = HorizontalAlignment.Center
+        }
             AddHandler _searchTextBox.TextChanged, AddressOf OnSearchTextChanged
-            AddHandler _searchTextBox.GotFocus, AddressOf OnSearchTextBoxGotFocus
-            AddHandler _searchTextBox.LostFocus, AddressOf OnSearchTextBoxLostFocus
             AddHandler _searchTextBox.KeyDown, AddressOf OnSearchTextBoxKeyDown
             Me.Controls.Add(_searchTextBox)
         End If
         UpdateSearchTextBoxFont()
 
-        _searchTextBox.BackColor = Me.BackColor
+        _searchTextBox.BackColor = If(_searchBoxBackColor = Color.Empty, Me.BackColor, _searchBoxBackColor)
         _searchTextBox.ForeColor = Me.ForeColor
         _searchTextBox.Text = ""
 
-        If String.IsNullOrEmpty(_headerCaption) Then
-            ' ── Ramura fără caption: label + textbox în rândul de sub header ──
+        ' ── Search bar este ÎNTOTDEAUNA o bandă separată ──────────────────
+        _searchBarHeight = Math.Max(ItemHeight + 8, Me.Font.Height + 10)
+
+        If Not String.IsNullOrEmpty(_searchBarLabelText) Then
             If _searchBarLabel Is Nothing Then
                 _searchBarLabel = New Label() With {
-                    .AutoSize = True,
-                    .Text = _searchBarLabelText,
-                    .ForeColor = If(_searchBarLabelForeColor <> Color.Empty, _searchBarLabelForeColor, _headerForeColor),
-                    .BackColor = _headerBackColor
-                }
+                .AutoSize = True,
+                .Text = _searchBarLabelText,
+                .ForeColor = If(_searchBarLabelForeColor <> Color.Empty,
+                                _searchBarLabelForeColor, _headerForeColor),
+                .BackColor = _searchBackColor,
+                .TabStop = False
+            }
                 UpdateSearchBarLabelFont()
                 Me.Controls.Add(_searchBarLabel)
+            Else
+                _searchBarLabel.BackColor = _searchBackColor
             End If
-            _searchBarHeight = Math.Max(ItemHeight + 8, Me.Font.Height + 10)
-            If _searchBarHeight > _headerHeight Then _headerHeight = _searchBarHeight
-
-            _searchBarLabel.Left = PADDING_TREE_START
-            _searchBarLabel.Top = _headerHeight + (_searchBarHeight - _searchBarLabel.Height) \ 2
             _searchBarLabel.Visible = True
             _searchBarLabel.BringToFront()
+        End If
 
-            _searchTextBox.Top = _headerHeight + (_searchBarHeight - _searchTextBox.PreferredHeight) \ 2
-            _searchTextBox.Left = _searchBarLabel.Right + 4
-            _searchTextBox.Width = Math.Max(40, Me.Width - _searchBarLabel.Right - 4 - PADDING_TREE_END)
-            _searchTextBox.Height = _searchTextBox.PreferredHeight
-        Else
-            ' ── Ramura cu caption: textbox în header row, dreapta, 1/4 lățime ──
-            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        ' ── Clear button (✕) — opțional, vizual în interiorul textbox-ului ────
+        If _searchClearButton Then
+            If _searchClearBtn Is Nothing Then
+                _searchClearBtn = New Label() With {
+            .Text = "✕",
+            .AutoSize = False,
+            .Width = CLEAR_BTN_WIDTH,
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Cursor = Cursors.Hand,
+            .Visible = False,
+            .TabStop = False
+        }
+                AddHandler _searchClearBtn.Click, AddressOf OnSearchClearBtnClick
+                Me.Controls.Add(_searchClearBtn)
+            End If
+            Dim btnBack As Color = If(_searchBoxBackColor = Color.Empty, Me.BackColor, _searchBoxBackColor)
+            _searchClearBtn.BackColor = btnBack
+            _searchClearBtn.ForeColor = Me.ForeColor
+            _searchClearBtn.Font = Me.Font
+            _searchClearBtn.BringToFront()
         End If
 
         PositionSearchTextBox()
@@ -180,15 +227,15 @@ Partial Public Class AdvancedTreeControl
 
         _isSearchMode = True
         _searchResults.Clear()
+        _searchPlaceholderActive = False
         ApplySearchPlaceholder()
         Me.Invalidate()
-        _searchTextBox.Focus()
+        Me.Focus()
     End Sub
 
     Friend Sub CloseSearchMode()
-        ' Guard: persistent dacă SearchShow = True și nu există iconiță toggle
         If _searchShow AndAlso _headerSearchIcon Is Nothing Then Return
-
+        If _searchClearBtn IsNot Nothing Then _searchClearBtn.Visible = False
         If _searchTextBox IsNot Nothing Then _searchTextBox.Visible = False
         If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
         _filterActive = False
@@ -196,49 +243,45 @@ Partial Public Class AdvancedTreeControl
         _isSearchMode = False
         _searchPlaceholderActive = False
         _searchResults.Clear()
+        _searchBarHeight = 0    ' ← reset explicit — headerOff din OnPaint/GetItemY devine corect imediat
         Me.Invalidate()
     End Sub
 
     Private Sub PositionSearchTextBox()
         If _searchTextBox Is Nothing Then Return
-        Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+        'Dim scrollW As Integer = ScrollBarWidth 'If(_vScroll.Visible, _vScroll.Width, 0)
+        ' barTop vizual REAL = poziție fixă + compensare scroll
+        Dim barTop As Integer = If(_headerVisible, _headerHeight, 0) - Me.AutoScrollPosition.Y
+        Dim tbTop As Integer = barTop + (_searchBarHeight - _searchTextBox.PreferredHeight) \ 2
 
-        If String.IsNullOrEmpty(_headerCaption) Then
-            ' ── Ramura 1: fără caption — textbox în header, lățime maximă disponibilă ──
-            Dim left As Integer = PADDING_TREE_START
-            If _headerLeftIcon IsNot Nothing Then left += _headerIconSize.Width + PADDING_ICON_GAP
+        ' Spațiu rezervat pentru ✕ — DOAR când butonul e vizibil
+        Dim clearW As Integer = If(_searchClearButton AndAlso
+                                _searchClearBtn IsNot Nothing AndAlso
+                                _searchClearBtn.Visible, CLEAR_BTN_WIDTH, 0)
 
-            Dim right As Integer = Me.Width - PADDING_TREE_END - scrollW
-            If _headerRightIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
-            If _headerSearchIcon IsNot Nothing Then right -= _headerIconSize.Width + PADDING_ICON_GAP
+        Dim tbLeft As Integer
+        Dim tbWidth As Integer
 
-            _searchTextBox.Left = left - Me.AutoScrollPosition.X
-            _searchTextBox.Top = (_headerHeight - _searchTextBox.PreferredHeight) \ 2
-            _searchTextBox.Width = Math.Max(40, right - left)
-            _searchTextBox.Height = _searchTextBox.PreferredHeight
-
-            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        If _searchBarLabel IsNot Nothing AndAlso _searchBarLabel.Visible Then
+            _searchBarLabel.Left = PADDING_TREE_START
+            _searchBarLabel.Top = barTop + (_searchBarHeight - _searchBarLabel.Height) \ 2
+            tbLeft = _searchBarLabel.Right + 4
+            tbWidth = Math.Max(40, Me.Width - tbLeft - PADDING_TREE_END - clearW)
         Else
-            ' ── Ramura 2: cu caption — textbox în header, dreapta, 1/4 lățime ──
-            Dim total As Integer = Me.Width - PADDING_TREE_END - scrollW
-            Dim tbWidth As Integer
+            tbLeft = PADDING_TREE_START
+            tbWidth = Math.Max(40, Me.Width - PADDING_TREE_START - PADDING_TREE_END - clearW)
+        End If
 
-            If _headerRightIcon IsNot Nothing Then
-                Dim available As Integer = total - _headerIconSize.Width - PADDING_ICON_GAP
-                tbWidth = available \ 3
-            Else
-                tbWidth = total \ 4
-            End If
+        _searchTextBox.Left = tbLeft
+        _searchTextBox.Top = tbTop
+        _searchTextBox.Width = tbWidth
+        _searchTextBox.Height = _searchTextBox.PreferredHeight
 
-            Dim tbLeft As Integer = Me.Width - PADDING_TREE_END - scrollW - tbWidth
-            If _headerRightIcon IsNot Nothing Then tbLeft -= _headerIconSize.Width + PADDING_ICON_GAP
-
-            _searchTextBox.Left = tbLeft
-            _searchTextBox.Top = (_headerHeight - _searchTextBox.PreferredHeight) \ 2
-            _searchTextBox.Width = tbWidth
-            _searchTextBox.Height = _searchTextBox.PreferredHeight
-
-            If _searchBarLabel IsNot Nothing Then _searchBarLabel.Visible = False
+        ' ── Poziționare ✕ imediat la dreapta textbox-ului, aceeași înălțime ──
+        If _searchClearButton AndAlso _searchClearBtn IsNot Nothing AndAlso _searchClearBtn.Visible Then
+            _searchClearBtn.Left = _searchTextBox.Right
+            _searchClearBtn.Top = _searchTextBox.Top
+            _searchClearBtn.Height = _searchTextBox.Height
         End If
     End Sub
 
@@ -251,6 +294,7 @@ Partial Public Class AdvancedTreeControl
         _searchDebounceTimer.Stop()
         If _searchTextBox Is Nothing Then Return
         Dim txt = _searchTextBox.Text
+        UpdateClearBtnVisibility()      ' ← adăugat
         If txt.Length < 3 Then
             _filterActive = False
             _filterSet.Clear()
@@ -278,15 +322,14 @@ Partial Public Class AdvancedTreeControl
 
         If String.IsNullOrEmpty(searchText) OrElse searchText.Length < 3 Then
             _filterActive = False
+            _vScroll.Value = 0                    ' ← reset
             Me.Invalidate()
             Return
         End If
 
-        ' 1. Găsește nodurile care se potrivesc direct
         Dim matchSet As New HashSet(Of TreeItem)()
         CollectMatchingNodes(Items, searchText, matchSet)
 
-        ' 2. filterSet = matches + toți ancestorii lor
         For Each node In matchSet
             _filterSet.Add(node)
             Dim p = node.Parent
@@ -296,15 +339,12 @@ Partial Public Class AdvancedTreeControl
             End While
         Next
 
-        ' 3. Populează _searchResults pentru date suplimentare
         BuildTreeSearchResults(searchText)
-
-        ' 4. Activează filtrul
         _filterActive = (_filterSet.Count > 0)
-
-        ' 5. Ridică evenimentul
         RaiseEvent SearchFinished(matchSet.ToList(), searchText)
 
+        _vScroll.Value = 0                        ' ← reset după filter nou
+        Me.BeginInvoke(New Action(AddressOf RefreshScrollVisibility))
         Me.Invalidate()
     End Sub
 
@@ -396,27 +436,42 @@ Partial Public Class AdvancedTreeControl
     ' ══════════════════════════════════════════════════════════════════
 
     Friend Sub ApplySearchPlaceholder()
-        If _searchTextBox Is Nothing OrElse String.IsNullOrEmpty(_searchDefaultText) Then Return
-        If _searchTextBox.Focused Then Return
-        _searchTextBox.Text = _searchDefaultText
-        _searchTextBox.ForeColor = Color.Gray
-        _searchPlaceholderActive = True
+        SetSearchCueBanner()
     End Sub
 
     Private Sub RemoveSearchPlaceholder()
-        If Not _searchPlaceholderActive Then Return
-        _searchTextBox.Text = ""
-        _searchTextBox.ForeColor = Me.ForeColor
         _searchPlaceholderActive = False
     End Sub
 
-    Private Sub OnSearchTextBoxGotFocus(sender As Object, e As EventArgs)
-        RemoveSearchPlaceholder()
+    Private Sub UpdateClearBtnVisibility()
+        If Not _searchClearButton OrElse _searchClearBtn Is Nothing Then Return
+        Dim shouldShow As Boolean = _searchTextBox IsNot Nothing AndAlso
+                                Not _searchPlaceholderActive AndAlso
+                                _searchTextBox.Text.Length > 0
+        If _searchClearBtn.Visible = shouldShow Then Return
+        _searchClearBtn.Visible = shouldShow
+
+        ' Poziționare doar a butonului × — TextBox rămâne neatins
+        If shouldShow AndAlso _searchTextBox IsNot Nothing Then
+            _searchClearBtn.Left = _searchTextBox.Right - CLEAR_BTN_WIDTH
+            _searchClearBtn.Top = _searchTextBox.Top
+            _searchClearBtn.Height = _searchTextBox.Height
+            _searchClearBtn.BackColor = _searchTextBox.BackColor
+            _searchClearBtn.BringToFront()
+        End If
     End Sub
 
-    Private Sub OnSearchTextBoxLostFocus(sender As Object, e As EventArgs)
-        If _searchTextBox IsNot Nothing AndAlso _searchTextBox.Text = "" Then
-            ApplySearchPlaceholder()
+    Private Sub OnSearchClearBtnClick(sender As Object, e As EventArgs)
+        If _headerSearchIcon IsNot Nothing Then
+            ' Se comportă identic cu click pe icona de search (toggle)
+            CloseSearchMode()
+        Else
+            ' Curăță textul — OnSearchTextChanged resetează filtrul automat
+            ' UpdateClearBtnVisibility ascunde × și relărgește textbox-ul
+            If _searchTextBox IsNot Nothing Then
+                _searchTextBox.Text = ""
+                _searchTextBox.Focus()
+            End If
         End If
     End Sub
 

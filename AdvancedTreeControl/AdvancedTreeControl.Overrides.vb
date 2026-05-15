@@ -12,23 +12,19 @@ Partial Public Class AdvancedTreeControl
         e.Graphics.SmoothingMode = SmoothingMode.None
         e.Graphics.PixelOffsetMode = PixelOffsetMode.Half
 
-        ' ── Header (drawn first, fixed — not scrollable) ─────────────────
-        Dim shouldDrawHeader As Boolean = _headerVisible OrElse _isSearchMode
-        If shouldDrawHeader Then DrawHeader(e.Graphics)
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                               If(_isSearchMode, _searchBarHeight, 0)
 
-        ' ── Tree nodes (clipped below header + search bar) ────────────────
-        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
-        Dim headerOff As Integer = If(shouldDrawHeader, _headerHeight, 0) + searchBarOff
+        ' ── 1. Items (cu clip) — se desenează PRIMII ──────────────────────
+        Dim visibleItems = GetVisibleItems()
+        Dim contentH As Integer = visibleItems.Count * ItemHeight + PADDING_TREE_TOP
+
         Dim oldClip = e.Graphics.Clip.Clone()
         e.Graphics.SetClip(New Rectangle(0, headerOff, Me.Width, Me.Height - headerOff))
 
-        Dim y As Integer = Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff
-        Dim visibleItems = GetVisibleItems()
-        Me.AutoScrollMinSize = New Size(0, visibleItems.Count * ItemHeight + PADDING_TREE_TOP)
-
+        Dim y As Integer = -_vScroll.Value + PADDING_TREE_TOP + headerOff
         For Each it In visibleItems
-            ' Desenăm doar ce este vizibil pe ecran (Clipping manual pentru performanță)
-            If y + ItemHeight > 0 AndAlso y < Me.Height Then
+            If y + ItemHeight > headerOff AndAlso y < Me.Height Then
                 DrawItem(e.Graphics, it, y)
             End If
             y += ItemHeight
@@ -36,17 +32,31 @@ Partial Public Class AdvancedTreeControl
 
         e.Graphics.Clip = oldClip
 
-        ' --- MASCĂ PENTRU STAREA DISABLED ---
+        ' ── 2. Header + SearchBar desenate DUPĂ items — acoperă orice bleeding ──
+        If _headerVisible Then DrawHeader(e.Graphics)
+        If _isSearchMode Then DrawSearchBar(e.Graphics)
+
+        ' ── 3. Scrollbar visibility (BeginInvoke — nu din interiorul OnPaint) ──
+        Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
+        Dim needsScroll As Boolean = contentH > viewport
+        If _vScroll.Visible <> needsScroll Then
+            Me.BeginInvoke(New Action(AddressOf RefreshScrollVisibility))
+        ElseIf needsScroll Then
+            ' Actualizează Maximum și Value fără să schimbe Visible
+            _vScroll.LargeChange = viewport
+            _vScroll.Maximum = Math.Max(viewport, contentH - 1)   ' ← FIX bug 3
+            Dim maxVal As Integer = Math.Max(0, contentH - viewport)
+            If _vScroll.Value > maxVal Then _vScroll.Value = maxVal
+        End If
+
+        ' ── 4. Disabled mask ──────────────────────────────────────────────
         If Not Me.Enabled Then
-            ' Folosim un gri semi-transparent (Alpha 100-120 din 255)
-            ' Color.LightGray sau Color.FromArgb(120, Color.Gray) funcționează bine
             Using brush As New SolidBrush(Color.FromArgb(120, Color.WhiteSmoke))
-                ' ClientRectangle asigură acoperirea întregii zone vizibile a controlului
                 e.Graphics.FillRectangle(brush, Me.ClientRectangle)
             End Using
         End If
 
-        ' --- DESENARE BORDER COPAC (Dacă e cazul) ---
+        ' ── 5. Border ─────────────────────────────────────────────────────
         If Me.BorderColor <> Color.Transparent Then
             Using pen As New Pen(Me.BorderColor, 1)
                 e.Graphics.DrawRectangle(pen, 1, 1, Me.Width - 1, Me.Height - 1)
@@ -242,7 +252,7 @@ Partial Public Class AdvancedTreeControl
         ' 5. PRIORITATE: RIGHT ICON CLICK
         ' =================================================================
         If it.RightIcon IsNot Nothing Then
-            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
             ' Reconstituim dreptunghiul iconiței exact ca în Painting.vb
             Dim rIconRect As New Rectangle(Me.Width - RightIconSize.Width - 6 - scrollW,
                                            (it.Level * Indent) + Me.AutoScrollPosition.Y + (ItemHeight - RightIconSize.Height) \ 2, ' Aici trebuie calculat Y-ul vizual, nu logic
@@ -385,7 +395,32 @@ Partial Public Class AdvancedTreeControl
 
     Protected Overrides Sub OnScroll(se As ScrollEventArgs)
         MyBase.OnScroll(se)
-        PositionSearchTextBox()
+        If _isSearchMode Then PositionSearchTextBox()
+    End Sub
+
+    Protected Overrides Sub OnResize(e As EventArgs)
+        MyBase.OnResize(e)
+        _vScroll.Width = SystemInformation.VerticalScrollBarWidth
+        _vScroll.Left = Math.Max(0, Me.Width - _vScroll.Width)
+        _vScroll.Top = 0
+        _vScroll.Height = Me.Height
+        RefreshScrollVisibility()
+        If _isSearchMode Then PositionSearchTextBox()
+        Me.Invalidate()
+    End Sub
+
+    Protected Overrides Sub OnMouseWheel(e As MouseEventArgs)
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                               If(_isSearchMode, _searchBarHeight, 0)
+        Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
+        Dim contentH As Integer = GetVisibleItems().Count * ItemHeight + PADDING_TREE_TOP
+        If contentH <= viewport Then Return
+
+        Dim lines As Integer = SystemInformation.MouseWheelScrollLines
+        Dim delta As Integer = -(e.Delta \ 120) * lines * ItemHeight
+        Dim maxVal As Integer = Math.Max(0, contentH - viewport)
+        _vScroll.Value = Math.Max(0, Math.Min(_vScroll.Value + delta, maxVal))
+        Me.Invalidate()
     End Sub
 
 End Class

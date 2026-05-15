@@ -177,6 +177,7 @@ Partial Public Class Tree
             TreeXmlAppliers.Apply_HeaderSearchIcon(cfg, MyTree)
 
             TreeXmlAppliers.Apply_SearchShow(cfg, MyTree)
+            TreeXmlAppliers.Apply_SearchClearButton(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchDefaultText(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchType(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchIn(cfg, MyTree)
@@ -187,6 +188,7 @@ Partial Public Class Tree
             TreeXmlAppliers.Apply_SearchBarLabelItalic(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchBarFontName(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchBarFontSize(cfg, MyTree)
+            TreeXmlAppliers.Apply_ScrollBarTheme(cfg, MyTree)
 
             TreeLogger.Info($"Configurare aplicată cu succes în {sw.ElapsedMilliseconds}ms", "AplicareConfigurare")
             Return True

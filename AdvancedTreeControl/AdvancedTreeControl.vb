@@ -1,7 +1,4 @@
-﻿Imports System.Drawing.Drawing2D
-Imports System.Reflection
-
-Partial Public Class AdvancedTreeControl
+﻿Partial Public Class AdvancedTreeControl
     Inherits ScrollableControl
 
     ' STARE INTERNĂ (STATE)
@@ -58,6 +55,12 @@ Partial Public Class AdvancedTreeControl
     ' Padding între zona de text și iconița din dreapta
     Private Const PADDING_RIGHT_ICON_GAP As Integer = 8
 
+    Private _vScroll As New VScrollBar()
+
+    <System.Runtime.InteropServices.DllImport("uxtheme.dll", CharSet:=System.Runtime.InteropServices.CharSet.Unicode)>
+    Private Shared Function SetWindowTheme(hWnd As IntPtr, pszSubAppName As String, pszSubIdList As String) As Integer
+    End Function
+
     ' Proprietate publică - folosită de Tree.vb pentru whitelist în MonitorTimer
     Public ReadOnly Property TooltipPopupHandle As IntPtr
         Get
@@ -112,15 +115,36 @@ Partial Public Class AdvancedTreeControl
         SearchMode_List = 1
     End Enum
 
+    Public Enum en_ScrollBarTheme
+        [Default] = 0
+        Explorer = 1
+        DarkMode = 2
+    End Enum
+
     ' INIȚIALIZARE
     Public Sub New()
         Me.DoubleBuffered = True
-        Me.AutoScroll = True
+        Me.AutoScroll = False
         Me.BackColor = Color.White
         Me.Cursor = Cursors.Default
         Me.Font = New Font("Segoe UI", 9)
         Me.Enabled = True
-        'Me._rightIconSize = Me._rightIconSize * CInt(Me.DeviceDpi) / 96
+
+        ' ── VScrollBar manual — imun la layout engine ─────────────────────
+        _vScroll.Minimum = 0
+        _vScroll.Maximum = 0
+        _vScroll.SmallChange = ItemHeight
+        _vScroll.LargeChange = 1
+        _vScroll.Visible = False
+        _vScroll.Width = SystemInformation.VerticalScrollBarWidth
+        _vScroll.Left = Math.Max(0, Me.Width - _vScroll.Width)
+        _vScroll.Top = 0
+        _vScroll.Height = Me.Height
+        AddHandler _vScroll.Scroll, AddressOf OnVScrollScroll
+        Me.Controls.Add(_vScroll)
+
+        AddHandler _vScroll.HandleCreated, Sub(s, e) ApplyScrollBarTheme()
+
         pTooltipTimer.Interval = TooltipDelayMs
         AddHandler pTooltipTimer.Tick, AddressOf TooltipTimerTick
 
@@ -162,9 +186,11 @@ Partial Public Class AdvancedTreeControl
 
     Private Function HitTestItem(p As Point) As TreeItem
         Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + searchBarOff
-        ' Ignore clicks in header + search bar area
-        If _headerVisible AndAlso p.Y < _headerHeight + searchBarOff Then Return Nothing
+        Dim shouldDrawHeader As Boolean = _headerVisible OrElse _isSearchMode   '  Fix Bug 5
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + If(_isSearchMode, _searchBarHeight, 0)
+
+        If p.Y < headerOff Then Return Nothing
+
         Dim yRel = p.Y - Me.AutoScrollPosition.Y - PADDING_TREE_TOP - headerOff
         Dim idx As Integer = yRel \ ItemHeight
         Dim visible = GetVisibleItems()
@@ -212,8 +238,8 @@ Partial Public Class AdvancedTreeControl
     Private Function GetItemY(it As TreeItem) As Integer
         Dim idx = GetVisibleItems().IndexOf(it)
         If idx < 0 Then Return -1
-        Dim searchBarOff As Integer = If(_isSearchMode AndAlso String.IsNullOrEmpty(_headerCaption), _searchBarHeight, 0)
-        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) + searchBarOff
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                               If(_isSearchMode, _searchBarHeight, 0)
         Return Me.AutoScrollPosition.Y + PADDING_TREE_TOP + headerOff + idx * ItemHeight
     End Function
 
@@ -285,7 +311,7 @@ Partial Public Class AdvancedTreeControl
 
         ' Nu afișăm tooltip dacă mouse-ul e pe zona RightIcon
         If it.RightIcon IsNot Nothing AndAlso mouseX >= 0 Then
-            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
             Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - scrollW
             If mouseX >= rightIconMinX Then Return
         End If
@@ -306,7 +332,7 @@ Partial Public Class AdvancedTreeControl
 
         ' Verificare suplimentară: dacă cursorul s-a mutat pe RightIcon între timp
         If pTooltipItem.RightIcon IsNot Nothing Then
-            Dim scrollW As Integer = If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
+            Dim scrollW As Integer = ScrollBarWidth 'If(_vScroll.Visible, _vScroll.Width, 0)
             Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
             If _lastMouseX >= rightIconMinX Then Return
         End If
@@ -481,6 +507,107 @@ Partial Public Class AdvancedTreeControl
             child.CheckState = TreeCheckState.Checked
             CheckChildrenRecursive(child)
         Next
+    End Sub
+
+    ' ══════════════════════════════════════════════════════════════════
+    ' VSCROLL — shadow properties pentru compatibilitate Keyboard.vb + Tree.Helpers.vb
+    ' ══════════════════════════════════════════════════════════════════
+
+    ' WinForms convention: getter returnează Y negativ, setter primește Y pozitiv
+    Public Shadows Property AutoScrollPosition As Point
+        Get
+            Return New Point(0, -_vScroll.Value)
+        End Get
+        Set(value As Point)
+            Dim clamped As Integer = Math.Max(0,
+            Math.Min(value.Y, Math.Max(0, _vScroll.Maximum - _vScroll.LargeChange + 1)))
+            If _vScroll.Value <> clamped Then
+                _vScroll.Value = clamped
+                Me.Invalidate()
+            End If
+        End Set
+    End Property
+
+    Public Shadows Property AutoScrollMinSize As Size
+        Get
+            Return New Size(0, _vScroll.Maximum)
+        End Get
+        Set(value As Size)
+            UpdateVScrollMaximum(value.Height)
+        End Set
+    End Property
+
+    Private Sub UpdateVScrollMaximum(contentHeight As Integer)
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                               If(_isSearchMode, _searchBarHeight, 0)
+        Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
+        _vScroll.LargeChange = viewport
+        _vScroll.SmallChange = ItemHeight
+
+        If contentHeight <= viewport Then
+            If _vScroll.Visible Then
+                _vScroll.Value = 0
+                _vScroll.Visible = False
+                If _isSearchMode Then PositionSearchTextBox()
+            End If
+        Else
+            _vScroll.Maximum = contentHeight + viewport - 1   ' WinForms: Value max = Maximum - LargeChange + 1 = contentHeight
+            If _vScroll.Value > contentHeight - viewport Then
+                _vScroll.Value = Math.Max(0, contentHeight - viewport)
+            End If
+            If Not _vScroll.Visible Then
+                _vScroll.Visible = True
+                If _isSearchMode Then PositionSearchTextBox()
+            End If
+        End If
+
+        ' Poziție fizică scrollbar — manual, fără Dock
+        _vScroll.Left = Me.Width - SystemInformation.VerticalScrollBarWidth
+        _vScroll.Top = 0
+        _vScroll.Width = SystemInformation.VerticalScrollBarWidth
+        _vScroll.Height = Me.Height
+    End Sub
+
+    ' Apelat din OnResize și din API (ClearTree, după rebuild)
+    Friend Sub RefreshScrollVisibility()
+        Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                               If(_isSearchMode, _searchBarHeight, 0)
+        Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
+        Dim contentH As Integer = GetVisibleItems().Count * ItemHeight + PADDING_TREE_TOP
+
+        _vScroll.Width = SystemInformation.VerticalScrollBarWidth
+        _vScroll.Left = Math.Max(0, Me.Width - _vScroll.Width)
+        _vScroll.Top = headerOff
+        _vScroll.Height = Math.Max(1, Me.Height - headerOff)
+        _vScroll.SmallChange = ItemHeight
+        _vScroll.LargeChange = viewport
+
+        If contentH > viewport Then
+            _vScroll.Maximum = Math.Max(viewport, contentH - 1)
+            Dim maxVal As Integer = Math.Max(0, contentH - viewport)
+            If _vScroll.Value > maxVal Then _vScroll.Value = maxVal
+            _vScroll.Visible = True
+        Else
+            _vScroll.Value = 0
+            _vScroll.Visible = False
+        End If
+
+        Me.Invalidate()                           ' ← garantează repaint curat după orice schimbare
+    End Sub
+    Private Sub ApplyScrollBarTheme()
+        If _vScroll Is Nothing OrElse Not _vScroll.IsHandleCreated Then Return
+        Select Case _scrollBarTheme
+            Case en_ScrollBarTheme.Explorer
+                SetWindowTheme(_vScroll.Handle, "Explorer", Nothing)
+            Case en_ScrollBarTheme.DarkMode
+                SetWindowTheme(_vScroll.Handle, "DarkMode_Explorer", Nothing)
+            Case en_ScrollBarTheme.Default
+                SetWindowTheme(_vScroll.Handle, "", Nothing)
+        End Select
+    End Sub
+
+    Private Sub OnVScrollScroll(sender As Object, e As ScrollEventArgs)
+        Me.Invalidate()
     End Sub
 
     Private Sub LoadingTimer_Tick(sender As Object, e As EventArgs) Handles LoadingTimer.Tick
