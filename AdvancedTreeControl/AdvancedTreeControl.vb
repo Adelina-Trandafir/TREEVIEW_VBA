@@ -1,4 +1,6 @@
-﻿Partial Public Class AdvancedTreeControl
+﻿Imports System.Linq
+
+Partial Public Class AdvancedTreeControl
     Inherits ScrollableControl
 
     ' STARE INTERNĂ (STATE)
@@ -81,6 +83,14 @@
     Private Const COLUMN_HEADER_HEIGHT As Integer = 24
     Private Const COLUMN_SEPARATOR_COLOR_ALPHA As Integer = 60
     Private _captionColumnEndX As Integer = 0   ' X unde se termina zona caption; actualizat in DrawContent
+
+    ' ── TreeListView master switch + dynamic columns + column filter ──────────
+    Private _treeListViewEnabled As Boolean = False          ' master switch
+    Private _baseColumns As New List(Of ColumnDef)           ' copie imutabilă din XML
+    Private _colFilterActive As Boolean = False
+    Private _colFilterSet As New HashSet(Of TreeItem)
+    Private _activeColFilters As New Dictionary(Of String, String)  ' colName → filterText
+    Private _activeColFilterPopup As Form = Nothing
 
     ' ══════════════ SEARCH ══════════════
     Private _isSearchMode As Boolean = False
@@ -247,7 +257,8 @@
     ''' </summary>
     Private ReadOnly Property TotalHeaderOffset As Integer
         Get
-            Dim columnHdrH As Integer = If(_treeListView AndAlso _columns.Count > 0, COLUMN_HEADER_HEIGHT, 0)
+            Dim columnHdrH As Integer = If(_treeListViewEnabled AndAlso _treeListView AndAlso _columns.Count > 0,
+                                           COLUMN_HEADER_HEIGHT, 0)
             Return If(_headerVisible, _headerHeight, 0) +
                    If(_isSearchMode, _searchBarHeight, 0) +
                    columnHdrH
@@ -259,6 +270,7 @@
         Try
             _treeListView = active
             _columns = cols
+            _baseColumns = New List(Of ColumnDef)(cols)   ' shallow copy — ColumnDef nu e mutat după creare
             Me.Invalidate()
         Catch ex As Exception
             TreeLogger.Ex(ex, "SetTreeListView")
@@ -271,7 +283,7 @@
     ''' </summary>
     Private Function GetColumnAtX(x As Integer) As Integer
         Try
-            If Not _treeListView OrElse _columns.Count = 0 Then Return -1
+            If Not _treeListViewEnabled OrElse Not _treeListView OrElse _columns.Count = 0 Then Return -1
             Dim cx As Integer = _captionColumnEndX
             For i As Integer = 0 To _columns.Count - 1
                 Dim right As Integer = cx + _columns(i).Width
@@ -323,15 +335,17 @@
     End Function
 
     Private Sub AddVisible(it As TreeItem, list As List(Of TreeItem))
-        If _filterActive Then
-            If Not _filterSet.Contains(it) Then Return
-            list.Add(it)
-            ' Force-expand all matching ancestors to reveal relevant children
+        ' AND logic: nodul trebuie să treacă AMBELE filtre (dacă sunt active)
+        Dim passSearch As Boolean = Not _filterActive OrElse _filterSet.Contains(it)
+        Dim passColFilter As Boolean = Not _colFilterActive OrElse _colFilterSet.Contains(it)
+        If Not passSearch OrElse Not passColFilter Then Return
+        list.Add(it)
+        If _filterActive OrElse _colFilterActive Then
+            ' Orice filtru activ → force-expand pentru a expune nodurile relevante
             For Each c In it.Children
                 AddVisible(c, list)
             Next
         Else
-            list.Add(it)
             If it.Expanded Then
                 For Each c In it.Children
                     AddVisible(c, list)
@@ -664,5 +678,199 @@
         ' Invalidăm doar zona vizibilă pentru a redesena animația
         ' Optimizare: Am putea invalida doar nodurile loader, dar Invalidate() e suficient pentru început
         Me.Invalidate()
+    End Sub
+
+    ' ════════════════════════════════════════════════════════════════════
+    ' PROPRIETATE PUBLICA TreeListView (master switch)
+    ' ════════════════════════════════════════════════════════════════════
+    Public Property TreeListView As Boolean
+        Get
+            Return _treeListViewEnabled
+        End Get
+        Set(value As Boolean)
+            _treeListViewEnabled = value
+            If Not value Then
+                _activeColFilters.Clear()
+                _colFilterActive = False
+                _colFilterSet.Clear()
+                _activeColFilterPopup?.Close()
+                _activeColFilterPopup = Nothing
+            End If
+            Me.Invalidate()
+        End Set
+    End Property
+
+    ' ════════════════════════════════════════════════════════════════════
+    ' COLUMN FILTER — CORE
+    ' ════════════════════════════════════════════════════════════════════
+    Friend Sub ApplyColumnFilters()
+        _colFilterSet.Clear()
+        _colFilterActive = _activeColFilters.Count > 0
+        If Not _colFilterActive Then
+            Me.Invalidate()
+            Return
+        End If
+        Dim matchSet As New HashSet(Of TreeItem)()
+        CollectColFilterMatches(Items, matchSet)
+        For Each node In matchSet
+            _colFilterSet.Add(node)
+            Dim p = node.Parent
+            While p IsNot Nothing
+                _colFilterSet.Add(p)
+                p = p.Parent
+            End While
+        Next
+        _vScroll.Value = 0
+        Me.BeginInvoke(New Action(AddressOf RefreshScrollVisibility))
+        Me.Invalidate()
+    End Sub
+
+    Private Sub CollectColFilterMatches(nodes As List(Of TreeItem), result As HashSet(Of TreeItem))
+        For Each it In nodes
+            If NodeMatchesColFilters(it) Then result.Add(it)
+            CollectColFilterMatches(it.Children, result)
+        Next
+    End Sub
+
+    Private Function NodeMatchesColFilters(it As TreeItem) As Boolean
+        For Each kvp In _activeColFilters
+            Dim cellData As TreeItem.CellData = Nothing
+            it.Cells.TryGetValue(kvp.Key, cellData)
+            Dim cellVal As String = If(cellData IsNot Nothing, cellData.Value, "").ToLowerInvariant()
+            If Not cellVal.Contains(kvp.Value.ToLowerInvariant()) Then Return False
+        Next
+        Return True
+    End Function
+
+    ' ════════════════════════════════════════════════════════════════════
+    ' COLUMN FILTER — GEOMETRY HELPERS
+    ' ════════════════════════════════════════════════════════════════════
+    Friend Function GetColumnRect(colIdx As Integer) As Rectangle
+        Try
+            If colIdx < 0 OrElse colIdx >= _columns.Count Then Return Rectangle.Empty
+            Dim hdrOff As Integer = If(_headerVisible, _headerHeight, 0) +
+                                    If(_isSearchMode, _searchBarHeight, 0)
+            Dim cx As Integer = _captionColumnEndX
+            For i As Integer = 0 To colIdx - 1
+                cx += _columns(i).Width
+            Next
+            Return New Rectangle(cx, hdrOff, _columns(colIdx).Width, COLUMN_HEADER_HEIGHT)
+        Catch
+            Return Rectangle.Empty
+        End Try
+    End Function
+
+    Friend Function GetColFilterIndicatorRect(colIdx As Integer) As Rectangle
+        Try
+            If colIdx < 0 OrElse colIdx >= _columns.Count Then Return Rectangle.Empty
+            If Not _activeColFilters.ContainsKey(_columns(colIdx).Name) Then Return Rectangle.Empty
+            Dim colRect = GetColumnRect(colIdx)
+            If colRect.IsEmpty Then Return Rectangle.Empty
+            Return New Rectangle(colRect.Right - 13,
+                                 colRect.Top + (COLUMN_HEADER_HEIGHT - 8) \ 2,
+                                 8, 8)
+        Catch
+            Return Rectangle.Empty
+        End Try
+    End Function
+
+    Friend Function GetDistinctColumnValues(colName As String) As List(Of String)
+        Dim result As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        CollectDistinctValues(Items, colName, result)
+        Return result.OrderBy(Function(s) s).ToList()
+    End Function
+
+    Private Sub CollectDistinctValues(nodes As List(Of TreeItem), colName As String,
+                                       result As HashSet(Of String))
+        For Each it In nodes
+            Dim cellData As TreeItem.CellData = Nothing
+            If it.Cells.TryGetValue(colName, cellData) AndAlso
+               cellData IsNot Nothing AndAlso
+               Not String.IsNullOrEmpty(cellData.Value) Then
+                result.Add(cellData.Value)
+            End If
+            CollectDistinctValues(it.Children, colName, result)
+        Next
+    End Sub
+
+    ' ════════════════════════════════════════════════════════════════════
+    ' DYNAMIC COLUMNS — ColHeaderText per nod
+    ' ════════════════════════════════════════════════════════════════════
+    Friend Sub ApplyDynamicColumns(it As TreeItem)
+        If Not _treeListViewEnabled Then Return
+        Try
+            _activeColFilters.Clear()
+            _colFilterActive = False
+            _colFilterSet.Clear()
+            _activeColFilterPopup?.Close()
+            _activeColFilterPopup = Nothing
+
+            Dim source As TreeItem = it
+            Dim colHeaderText As String = ""
+            While source IsNot Nothing
+                If Not String.IsNullOrEmpty(source.ColHeaderText) Then
+                    colHeaderText = source.ColHeaderText
+                    Exit While
+                End If
+                source = source.Parent
+            End While
+
+            If String.IsNullOrEmpty(colHeaderText) Then
+                _columns = New List(Of ColumnDef)(_baseColumns)
+                _treeListView = (_baseColumns.Count > 0)
+            Else
+                Dim labels() As String = colHeaderText.Split("|"c)
+                Dim newCols As New List(Of ColumnDef)()
+                For Each rawLbl In labels
+                    Dim lbl As String = rawLbl.Trim()
+                    If String.IsNullOrEmpty(lbl) Then Continue For
+                    Dim baseDef As ColumnDef = _baseColumns.FirstOrDefault(Function(c) c.Name = lbl)
+                    Dim cd As New ColumnDef()
+                    cd.Name   = lbl
+                    cd.Header = lbl
+                    If baseDef.Name IsNot Nothing AndAlso baseDef.Name <> "" Then
+                        cd.Width           = baseDef.Width
+                        cd.ColType         = baseDef.ColType
+                        cd.Align           = baseDef.Align
+                        cd.Format          = baseDef.Format
+                        cd.HeaderBackColor = baseDef.HeaderBackColor
+                        cd.HeaderForeColor = baseDef.HeaderForeColor
+                        cd.HeaderBold      = baseDef.HeaderBold
+                        cd.HeaderItalic    = baseDef.HeaderItalic
+                        cd.HeaderUnderline = baseDef.HeaderUnderline
+                        cd.HeaderAlign     = baseDef.HeaderAlign
+                    Else
+                        cd.Width           = 100
+                        cd.ColType         = en_ColType.ColType_Text
+                        cd.Align           = en_ColAlign.ColAlign_Left
+                        cd.HeaderBackColor = Color.Empty
+                        cd.HeaderForeColor = Color.Empty
+                        cd.HeaderAlign     = en_ColAlign.ColAlign_Inherit
+                    End If
+                    newCols.Add(cd)
+                Next
+                _columns     = newCols
+                _treeListView = (newCols.Count > 0)
+            End If
+            Me.Invalidate()
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ApplyDynamicColumns")
+        End Try
+    End Sub
+
+    ' ════════════════════════════════════════════════════════════════════
+    ' COLUMN FILTER — POPUP
+    ' ════════════════════════════════════════════════════════════════════
+    Friend Sub ShowColumnFilterPopup(colIdx As Integer, screenPos As Point)
+        Try
+            If colIdx < 0 OrElse colIdx >= _columns.Count Then Return
+            _activeColFilterPopup?.Close()
+            _activeColFilterPopup = Nothing
+            Dim popup As New ColFilterPopup(Me, _columns(colIdx).Name, screenPos)
+            _activeColFilterPopup = popup
+            popup.Show(Me.FindForm())
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ShowColumnFilterPopup")
+        End Try
     End Sub
 End Class

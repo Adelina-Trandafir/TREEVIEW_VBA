@@ -99,6 +99,12 @@ Friend NotInheritable Class NodeXmlAppliers
         If newItem.Tooltip <> xmlVal Then newItem.Tooltip = xmlVal
     End Sub
 
+    Friend Shared Sub Apply_NodeColHeaderText(xNode As XmlNode, newItem As AdvancedTreeControl.TreeItem)
+        If xNode.Attributes("ColHeaderText") Is Nothing Then Exit Sub
+        Dim xmlVal As String = xNode.Attributes("ColHeaderText").Value
+        If newItem.ColHeaderText <> xmlVal Then newItem.ColHeaderText = xmlVal
+    End Sub
+
     Friend Shared Sub Apply_NodeBold(xNode As XmlNode, newItem As AdvancedTreeControl.TreeItem)
         If xNode.Attributes("Bold") Is Nothing Then Exit Sub
         Dim valStr As String = xNode.Attributes("Bold").Value.Trim().ToLower()

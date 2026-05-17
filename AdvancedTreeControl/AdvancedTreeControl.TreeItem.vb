@@ -18,6 +18,7 @@
         Public IsLoader As Boolean = False
         Public IsRadioSelected As Boolean = False
         Public Tooltip As String = ""   ' ControlTipText din VBA - apare ÎNTOTDEAUNA dacă e setat
+        Public ColHeaderText As String = ""  ' pipe-separated column names for dynamic TreeListView columns
         Public HasCheckBox As Boolean = False
 
         ' Dacă True, iconița din dreapta e vizibilă DOAR la hover pe acest nod,

@@ -255,6 +255,7 @@ Partial Public Class Tree
             If newItem.Key <> nodeKey Then newItem.Key = nodeKey
 
             NodeXmlAppliers.Apply_NodeTooltip(xNode, newItem)
+            NodeXmlAppliers.Apply_NodeColHeaderText(xNode, newItem)    ' ← NOU
             NodeXmlAppliers.Apply_NodeBold(xNode, newItem)
             NodeXmlAppliers.Apply_NodeItalic(xNode, newItem)
             NodeXmlAppliers.Apply_NodeHasCheckbox(xNode, newItem)

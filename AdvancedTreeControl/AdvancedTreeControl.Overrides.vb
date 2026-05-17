@@ -35,7 +35,7 @@ Partial Public Class AdvancedTreeControl
         If _headerVisible Then DrawHeader(e.Graphics)
         If _isSearchMode Then DrawSearchBar(e.Graphics)
         ' ── 2b. Column headers (TreeListView) — deseneaza DUPA items, DUPA header ──
-        If _treeListView Then DrawColumnHeaders(e.Graphics)
+        If _treeListViewEnabled AndAlso _treeListView Then DrawColumnHeaders(e.Graphics)
 
         ' ── 3. Scrollbar visibility (BeginInvoke — nu din interiorul OnPaint) ──
         Dim viewport As Integer = Math.Max(1, Me.Height - headerOff)
@@ -82,6 +82,29 @@ Partial Public Class AdvancedTreeControl
             Return
         End If
 
+        ' ── Column header area clicks (TreeListView) ─────────────────────────────
+        If _treeListViewEnabled AndAlso _treeListView AndAlso _columns.Count > 0 Then
+            Dim colHdrTop As Integer = TotalHeaderOffset - COLUMN_HEADER_HEIGHT
+            If e.Y >= colHdrTop AndAlso e.Y < TotalHeaderOffset Then
+                Dim colIdx As Integer = GetColumnAtX(e.X)
+                If colIdx >= 0 Then
+                    ' Verifică dacă click-ul e pe indicatorul de filtru activ (●)
+                    Dim indRect As Rectangle = GetColFilterIndicatorRect(colIdx)
+                    If Not indRect.IsEmpty AndAlso indRect.Contains(e.Location) Then
+                        ' Click pe indicator → șterge filtrul acelei coloane
+                        _activeColFilters.Remove(_columns(colIdx).Name)
+                        ApplyColumnFilters()
+                    Else
+                        ' Click pe header → deschide popup de filtrare
+                        Dim colRect As Rectangle = GetColumnRect(colIdx)
+                        Dim screenPt As Point = PointToScreen(New Point(colRect.Left, TotalHeaderOffset))
+                        ShowColumnFilterPopup(colIdx, screenPt)
+                    End If
+                End If
+                Return
+            End If
+        End If
+
         Dim it = HitTestItem(e.Location)
         If it Is Nothing Then
             pSelectedItem = Nothing
@@ -96,6 +119,9 @@ Partial Public Class AdvancedTreeControl
             End If
         Catch
         End Try
+
+        ' Feature 2 — actualizează coloanele dinamice la click pe nod
+        If _treeListViewEnabled Then ApplyDynamicColumns(it)
 
         ' --- 1. LOGICĂ ZONĂ MOARTĂ (Folosind constantele din AdvancedTreeControl.vb) ---
         If it IsNot Nothing Then

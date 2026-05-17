@@ -220,7 +220,7 @@ Partial Public Class AdvancedTreeControl
         g.Clip = oldClip
 
         ' ── TreeListView: deseneaza celulele coloanelor ──────────────────────────
-        If _treeListView AndAlso _columns.Count > 0 Then
+        If _treeListViewEnabled AndAlso _treeListView AndAlso _columns.Count > 0 Then
             Try
                 Dim totalColsW As Integer = 0
                 For Each cd In _columns
@@ -702,7 +702,7 @@ Partial Public Class AdvancedTreeControl
     ''' Apelata din OnPaint DUPA items, astfel incat acopera orice bleeding.
     ''' </summary>
     Private Sub DrawColumnHeaders(g As Graphics)
-        If Not _treeListView OrElse _columns.Count = 0 Then Return
+        If Not _treeListViewEnabled OrElse Not _treeListView OrElse _columns.Count = 0 Then Return
         Try
             Dim headerOff As Integer = If(_headerVisible, _headerHeight, 0) +
                                        If(_isSearchMode, _searchBarHeight, 0)
@@ -777,6 +777,16 @@ Partial Public Class AdvancedTreeControl
 
                         ' ── 7. Dispose font creat dinamic ────────────────────────────────────
                         If hdrStyle <> FontStyle.Regular Then hdrFont.Dispose()
+
+                        ' ── Filter indicator ● ───────────────────────────────────────────────
+                        If _activeColFilters.ContainsKey(cd.Name) Then
+                            Using indicBrush As New SolidBrush(Color.FromArgb(210, 55, 55))
+                                g.FillEllipse(indicBrush,
+                                              colRect.Right - 13,
+                                              hdrY + (COLUMN_HEADER_HEIGHT - 8) \ 2,
+                                              8, 8)
+                            End Using
+                        End If
 
                         cx += cd.Width
                     Catch
