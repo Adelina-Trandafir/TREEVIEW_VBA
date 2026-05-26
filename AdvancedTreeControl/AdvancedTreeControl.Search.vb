@@ -291,7 +291,7 @@ Partial Public Class AdvancedTreeControl
 
     Private Sub OnSearchTextChanged(sender As Object, e As EventArgs)
         If _searchPlaceholderActive Then Return
-        _searchDebounceTimer.Stop()
+        SearchDebounceTimer.Stop()
         If _searchTextBox Is Nothing Then Return
         Dim txt = _searchTextBox.Text
         UpdateClearBtnVisibility()      ' ← adăugat
@@ -301,12 +301,12 @@ Partial Public Class AdvancedTreeControl
             _searchResults.Clear()
             Me.Invalidate()
         Else
-            _searchDebounceTimer.Start()
+            SearchDebounceTimer.Start()
         End If
     End Sub
 
-    Private Sub OnSearchDebounceTimerTick(sender As Object, e As EventArgs) Handles _searchDebounceTimer.Tick
-        _searchDebounceTimer.Stop()
+    Private Sub OnSearchDebounceTimerTick(sender As Object, e As EventArgs) Handles SearchDebounceTimer.Tick
+        SearchDebounceTimer.Stop()
         If _searchTextBox IsNot Nothing Then
             PerformSearch(_searchTextBox.Text)
         End If
@@ -360,12 +360,12 @@ Partial Public Class AdvancedTreeControl
 
         Dim toSearch As String
         Select Case _searchIn
-            Case en_Tree_SearchIn.SearchIn_Tag : toSearch = tagText
-            Case en_Tree_SearchIn.SearchIn_Both : toSearch = plainCaption & " " & tagText
+            Case En_Tree_SearchIn.SearchIn_Tag : toSearch = tagText
+            Case En_Tree_SearchIn.SearchIn_Both : toSearch = plainCaption & " " & tagText
             Case Else : toSearch = plainCaption
         End Select
 
-        Return If(_searchType = en_Tree_SearchType.SearchType_StartsWith,
+        Return If(_searchType = En_Tree_SearchType.SearchType_StartsWith,
                   toSearch.StartsWith(lower),
                   toSearch.Contains(lower))
     End Function

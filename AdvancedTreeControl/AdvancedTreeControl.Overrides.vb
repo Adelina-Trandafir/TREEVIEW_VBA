@@ -123,6 +123,15 @@ Partial Public Class AdvancedTreeControl
         ' Feature 2 — actualizează coloanele dinamice la click pe nod
         If _treeListViewEnabled Then ApplyDynamicColumns(it)
 
+        ' ── NODE INSPECTOR ──────────────────────────────────────────────
+        If e.Button = MouseButtons.Right Then
+            Dim _expR As Rectangle = GetExpanderRect(it)
+            If _expR <> Rectangle.Empty AndAlso _expR.Contains(e.Location) Then
+                ShowNodeInspector(it) : Return
+            End If
+        End If
+        ' ────────────────────────────────────────────────────────────────
+
         ' --- 1. LOGICĂ ZONĂ MOARTĂ (Folosind constantele din AdvancedTreeControl.vb) ---
         If it IsNot Nothing Then
             ' Calculăm punctul de start exact ca în Painting.vb
@@ -438,7 +447,7 @@ Partial Public Class AdvancedTreeControl
         MyBase.OnMouseLeave(e)
         pHoveredItem = Nothing
         HideAllTooltips()
-        pTooltipTimer.Stop()
+        TooltipTimer.Stop()
         Me.Invalidate()
     End Sub
 

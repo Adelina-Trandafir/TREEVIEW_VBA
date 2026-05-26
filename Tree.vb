@@ -48,18 +48,20 @@ Partial Public Class Tree
             Dim args As String() = Environment.GetCommandLineArgs()
 
             If args.Length <= 1 And Not DEBUG_MODE Then
-                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:?!", $"TreeView v{version}", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                MessageBox.Show("EROARE: Aplicatia poate fi pornita DOAR din AVACONT (/frm:? /acc:? /idt:!? /log:!?)", $"TreeView v{version}", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Environment.Exit(-1)
             End If
 
-            ' Parsăm treeId din argumente ÎNAINTE de Init logger
             Dim earlyTreeId As String = "startup"
             Dim debugSwitch As String = Nothing   ' Nothing = logging dezactivat
+            Dim earlyLogPath As String = ""
 
             For Each a As String In args
                 Dim aLow As String = a.ToLower()
                 If aLow.StartsWith("/idt:") Then
                     earlyTreeId = a.Substring(5)
+                ElseIf aLow.StartsWith("/log:") Then
+                    earlyLogPath = a.Substring(5)
                 ElseIf aLow = "/d" OrElse aLow = "/d2" Then
                     debugSwitch = "D2"
                 ElseIf aLow = "/d1" Then
@@ -74,7 +76,7 @@ Partial Public Class Tree
                 If debugSwitch = "D1" Then level = TreeLogger.LogLevel.WARN
                 If debugSwitch = "D3" Then level = TreeLogger.LogLevel.DEBUG_
 
-                TreeLogger.Init(earlyTreeId, level)
+                TreeLogger.Init(earlyTreeId, level, earlyLogPath)
                 TreeLogger.Info($"=== Aplicația pornește (v{version}) [logging={debugSwitch}] ===", "Tree_Load")
                 TreeLogger.Debug($"Args: {String.Join(" ", args)}", "Tree_Load")
             End If
@@ -170,8 +172,8 @@ Partial Public Class Tree
             TrimiteMesajAccess("HWND", Nothing, CStr(Me.Handle))
 
             ' Inițializare Timer monitorizare
-            _MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
-            _MonitorTimer.Start()
+            MonitorTimer = New Timer With {.Interval = 100, .Enabled = False}
+            MonitorTimer.Start()
 
 #If DEBUG Then
             Dim prop As IntPtr = GetProp(_formHwnd, "VBA_READY_" & _idTree)
@@ -266,20 +268,20 @@ Partial Public Class Tree
 
     Private Sub MyTree_SearchFinished(matchingItems As List(Of AdvancedTreeControl.TreeItem), searchText As String) Handles MyTree.SearchFinished
         Dim sb As New System.Text.StringBuilder()
-        sb.Append("[")
+        sb.Append("["c)
         For i As Integer = 0 To matchingItems.Count - 1
             Dim n = matchingItems(i)
             Dim parentKey As String = If(n.Parent IsNot Nothing, n.Parent.Key, "")
             Dim rootKey As String = GetNodeRootKey(n)
 
-            sb.Append("{")
+            sb.Append("{"c)
             sb.Append($"""Key"":""{EscapeJson(n.Key)}"",")
             sb.Append($"""ParentKey"":""{EscapeJson(parentKey)}"",")
             sb.Append($"""RootKey"":""{EscapeJson(rootKey)}""")
-            sb.Append("}")
-            If i < matchingItems.Count - 1 Then sb.Append(",")
+            sb.Append("}"c)
+            If i < matchingItems.Count - 1 Then sb.Append(","c)
         Next
-        sb.Append("]")
+        sb.Append("]"c)
 
         TrimiteMesajAccess("SearchFinished", Nothing, searchText & "||" & sb.ToString())
     End Sub
@@ -291,7 +293,7 @@ Partial Public Class Tree
     ' =============================================================
     ' TIMER MONITORIZARE RESIZE & FOCUS
     ' =============================================================
-    Private Sub MonitorTimer_Tick(sender As Object, e As EventArgs) Handles _MonitorTimer.Tick
+    Private Sub MonitorTimer_Tick(sender As Object, e As EventArgs) Handles MonitorTimer.Tick
         If _formHwnd = IntPtr.Zero Then Return
 
         ' === VERIFICARE VALIDITATE _formHwnd ===
@@ -299,7 +301,7 @@ Partial Public Class Tree
             ' 1. Părintele mai există?
             If _formParentHwnd = IntPtr.Zero OrElse Not IsWindow(_formParentHwnd) Then
                 TreeLogger.Warn("Nici _formParentHwnd nu mai e valid, închid aplicația", "MonitorTimer_Tick")
-                _MonitorTimer.Stop()
+                MonitorTimer.Stop()
                 CurataResurseSiIesi()
                 Application.Exit()
                 Return
@@ -322,7 +324,7 @@ Partial Public Class Tree
                 ReattachToNewHwnd(newHwnd)
             Else
                 TreeLogger.Info("VBA a confirmat: formularul nu mai există", "MonitorTimer_Tick")
-                _MonitorTimer.Stop()
+                MonitorTimer.Stop()
                 CurataResurseSiIesi()
                 Application.Exit()
             End If
@@ -341,29 +343,105 @@ Partial Public Class Tree
 
         ' === POPUP FOCUS MONITORING ===
         If MyTree.IsPopupTree Then
-            ' Nu verificăm focus în perioada de grație de la deschidere
             If _popupGraceActive Then Return
 
             Dim foregroundWnd As IntPtr = GetForegroundWindow()
             Dim tooltipHwnd As IntPtr = MyTree.TooltipPopupHandle
 
-            If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd AndAlso foregroundWnd <> tooltipHwnd Then
-                TreeLogger.Debug($">>> Focus pierdut: {GetWindowInfo(foregroundWnd)}", "MonitorTimer_Tick")
-                _MonitorTimer.Stop()
-                SendMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
+            ' === FIX: dacă foreground aparține propriului proces, NU e focus pierdut ===
+            Dim fgPid As Integer = 0
+            Dim v1 = GetWindowThreadProcessId(foregroundWnd, fgPid)
 
-                If Not IsWindow(_formParentHwnd) Then
-                    TreeLogger.Info(">>> Access a închis formularul", "MonitorTimer_Tick")
-                    Application.Exit()
-                    Return
-                Else
-                    TreeLogger.Info(">>> Access a anulat închiderea, repornesc timer", "MonitorTimer_Tick")
-                    SetFocus(_formHwnd)
-                    _MonitorTimer.Start()
-                End If
+            If fgPid = Environment.ProcessId Then Return
+            ' =========================================================================
+            If foregroundWnd <> _formHwnd AndAlso foregroundWnd <> _formParentHwnd AndAlso foregroundWnd <> tooltipHwnd Then
+                TreeLogger.Debug(GetWindowDump(foregroundWnd, "FG-LOST"), "MonitorTimer_Tick")
+                _MonitorTimer.Stop()
+                PostMessage(_formParentHwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)
             End If
         End If
     End Sub
+
+    Private Function GetWindowDump(hWnd As IntPtr, Optional label As String = "") As String
+        If hWnd = IntPtr.Zero Then Return $"{label}HWND: NULL"
+
+        Dim sb As New System.Text.StringBuilder()
+        Dim prefix = If(label <> "", $"[{label}] ", "")
+
+        ' --- titlu + clasă ---
+        Dim titleLen = GetWindowTextLength(hWnd)
+        Dim titleSb As New System.Text.StringBuilder(titleLen + 1)
+        Dim v = GetWindowText(hWnd, titleSb, titleSb.Capacity)
+        Dim title = If(titleLen = 0, "(fără titlu)", titleSb.ToString())
+
+        Dim classSb As New System.Text.StringBuilder(256)
+        Dim v4 = GetClassName(hWnd, classSb, 256)
+
+        ' --- PID + nume proces ---
+        Dim pid As Integer = 0
+        Dim v1 = GetWindowThreadProcessId(hWnd, pid)
+        Dim procName As String = "(unknown)"
+        Try
+            procName = System.Diagnostics.Process.GetProcessById(pid).ProcessName
+        Catch : End Try
+
+        sb.AppendLine($"{prefix}HWND:{hWnd:X}  Title:[{title}]  Class:[{classSb}]  PID:{pid} ({procName})")
+
+        ' --- parent + owner ---
+        Dim parentHwnd = GetParent(hWnd)
+        Dim ownerHwnd = GetWindow(hWnd, GW_OWNER)
+
+        If parentHwnd <> IntPtr.Zero Then
+            Dim pClass As New System.Text.StringBuilder(256)
+            Dim v5 = GetClassName(parentHwnd, pClass, 256)
+            Dim pTitleLen = GetWindowTextLength(parentHwnd)
+            Dim pTitle As New System.Text.StringBuilder(pTitleLen + 1)
+            Dim v2 = GetWindowText(parentHwnd, pTitle, pTitle.Capacity)
+            sb.AppendLine($"  Parent : HWND:{parentHwnd:X}  Class:[{pClass}]  Title:[{If(pTitleLen = 0, "(fără titlu)", pTitle.ToString())}]")
+        Else
+            sb.AppendLine($"  Parent : (none)")
+        End If
+
+        If ownerHwnd <> IntPtr.Zero Then
+            Dim oClass As New System.Text.StringBuilder(256)
+            Dim v6 = GetClassName(ownerHwnd, oClass, 256)
+            sb.AppendLine($"  Owner  : HWND:{ownerHwnd:X}  Class:[{oClass}]")
+        End If
+
+        ' --- root ancestor (top-level) ---
+        Dim rootHwnd = GetAncestor(hWnd, GA_ROOT)
+        If rootHwnd <> hWnd Then
+            Dim rClass As New System.Text.StringBuilder(256)
+            Dim v7 = GetClassName(rootHwnd, rClass, 256)
+            Dim rTitleLen = GetWindowTextLength(rootHwnd)
+            Dim rTitle As New System.Text.StringBuilder(rTitleLen + 1)
+            Dim v3 = GetWindowText(rootHwnd, rTitle, rTitle.Capacity)
+            sb.AppendLine($"  Root   : HWND:{rootHwnd:X}  Class:[{rClass}]  Title:[{If(rTitleLen = 0, "(fără titlu)", rTitle.ToString())}]")
+        End If
+
+        ' --- relație cu HWND-urile cunoscute ---
+        sb.AppendLine($"  == față de known HWNDs ==")
+        sb.AppendLine($"  _formHwnd       ({_formHwnd:X}) : {If(hWnd = _formHwnd, "MATCH", "diferit")}")
+        sb.AppendLine($"  _formParentHwnd ({_formParentHwnd:X}) : {If(hWnd = _formParentHwnd, "MATCH", "diferit")}")
+        sb.AppendLine($"  IsChild(_formParentHwnd, fg) : {IsChild(_formParentHwnd, hWnd)}")
+        sb.AppendLine($"  IsChild(_formHwnd, fg)       : {IsChild(_formHwnd, hWnd)}")
+
+        ' --- lanț complet de parents ---
+        sb.Append("  ParentChain: ")
+        Dim chain As New List(Of String)
+        Dim cur = GetParent(hWnd)
+        Dim depth = 0
+        While cur <> IntPtr.Zero AndAlso depth < 15
+            Dim cClass As New System.Text.StringBuilder(256)
+            Dim v8 = GetClassName(cur, cClass, 256)
+            chain.Add($"HWND:{cur:X}[{cClass}]")
+            cur = GetParent(cur)
+            depth += 1
+        End While
+        sb.AppendLine(If(chain.Count = 0, "(none)", String.Join(" → ", chain)))
+
+        Return sb.ToString().TrimEnd()
+    End Function
 
     Private Function GetAccessFormParent(childHwnd As IntPtr) As IntPtr
         Dim currentHwnd As IntPtr = GetParent(childHwnd)

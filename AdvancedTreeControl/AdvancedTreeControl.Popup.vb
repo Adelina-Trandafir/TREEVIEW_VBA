@@ -21,7 +21,7 @@ Partial Public Class AdvancedTreeControl
         ' ── Font tooltip ──────────────────────────────────────────
         Private Const TOOLTIP_FONT_NAME As String = "Segoe UI"
         Private Const TOOLTIP_FONT_SIZE As Single = 8.5F
-        Private Const TOOLTIP_FORE_COLOR As String = "#333333"
+        'Private Const TOOLTIP_FORE_COLOR As String = "#333333"
 
         Private _parts As List(Of AdvancedTreeControl.RichTextPart)
         Private _lines As List(Of List(Of AdvancedTreeControl.RichTextPart))
@@ -29,13 +29,35 @@ Partial Public Class AdvancedTreeControl
         Private _contentWidth As Integer
         Private _contentHeight As Integer
 
-        Private _autoHideTimer As New Timer() With {.Interval = 5000}
+        Private ReadOnly _autoHideTimer As New Timer() With {.Interval = 5000}
+
+        Private _BackColor As Color = Color.FromArgb(255, 255, 232) ' Galben tooltip clasic
+        Public Property TT_BackColor As Color
+            Get
+                Return _BackColor
+            End Get
+            Set(value As Color)
+                _BackColor = value
+                Me.Invalidate()
+            End Set
+        End Property
+
+        Private _ForeColor As Color = Color.FromArgb(51, 51, 51) ' Culoare text default
+        Public Property TT_ForeColor As Color
+            Get
+                Return _ForeColor
+            End Get
+            Set(value As Color)
+                _ForeColor = value
+                Me.Invalidate()
+            End Set
+        End Property
 
         Friend Sub New()
             Me.FormBorderStyle = FormBorderStyle.None
             Me.ShowInTaskbar = False
             Me.TopMost = True
-            Me.BackColor = Color.FromArgb(255, 255, 232)   ' Galben tooltip clasic
+            Me.BackColor = _BackColor   ' Galben tooltip clasic
             Me.Padding = New Padding(0)
             Me.DoubleBuffered = True
             Me.StartPosition = FormStartPosition.Manual
@@ -54,179 +76,201 @@ Partial Public Class AdvancedTreeControl
         ''' Afișează tooltip-ul cu RichText la poziția screen indicată.
         ''' text poate conține taguri: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;color=#hex&gt;, &lt;back=#hex&gt;
         ''' </summary>
-        Friend Sub ShowTooltip(text As String, baseFont As Font, baseColor As Color, screenPos As Point, autoHideMs As Integer)
-            _autoHideTimer.Stop()
-            _autoHideTimer.Interval = If(autoHideMs > 0, autoHideMs, 5000)
+        Friend Sub ShowTooltip(text As String, baseFont As Font, screenPos As Point, autoHideMs As Integer)
+            Try
+                _autoHideTimer.Stop()
+                _autoHideTimer.Interval = If(autoHideMs > 0, autoHideMs, 5000)
 
-            Dim tooltipFont As New Font(TOOLTIP_FONT_NAME, TOOLTIP_FONT_SIZE, FontStyle.Regular, GraphicsUnit.Point)
+                Dim tooltipFont As New Font(TOOLTIP_FONT_NAME, TOOLTIP_FONT_SIZE, FontStyle.Regular, GraphicsUnit.Point)
 
-            ' 1. Parsăm RichText-ul (reutilizăm exact logica din Painting.vb)
-            _parts = AdvancedTreeControl.ParseRichText(text, tooltipFont, baseColor)
+                ' 1. Parsăm RichText-ul 
+                _parts = AdvancedTreeControl.ParseRichText(text, tooltipFont, TT_ForeColor)
 
-            ' 2. Calculăm dimensiunile conținutului
-            MeasureContent(baseFont, ColorTranslator.FromHtml(TOOLTIP_FORE_COLOR))
+                ' 2. Calculăm dimensiunile conținutului
+                MeasureContent(baseFont, TT_ForeColor)
 
-            ' 3. Dimensionăm form-ul
-            Dim formW As Integer = _contentWidth + PADDING_H * 2
-            Dim formH As Integer = _contentHeight + PADDING_V * 2
+                ' 3. Dimensionăm form-ul
+                Dim formW As Integer = _contentWidth + PADDING_H * 2
+                Dim formH As Integer = _contentHeight + PADDING_V * 2
 
-            ' 4. Poziționare inteligentă (să nu iasă din ecran)
-            Dim screen As Screen = Screen.FromPoint(screenPos)
-            Dim posX As Integer = screenPos.X + 16
-            Dim posY As Integer = screenPos.Y + 20
+                ' 4. Poziționare inteligentă (să nu iasă din ecran)
+                Dim screen As Screen = Screen.FromPoint(screenPos)
+                Dim posX As Integer = screenPos.X + 16
+                Dim posY As Integer = screenPos.Y + 20
 
-            If posX + formW > screen.WorkingArea.Right Then
-                posX = screenPos.X - formW - 4
-            End If
-            If posY + formH > screen.WorkingArea.Bottom Then
-                posY = screenPos.Y - formH - 4
-            End If
+                If posX + formW > screen.WorkingArea.Right Then
+                    posX = screenPos.X - formW - 4
+                End If
+                If posY + formH > screen.WorkingArea.Bottom Then
+                    posY = screenPos.Y - formH - 4
+                End If
 
-            TreeLogger.Info($"Showing tooltip at ({posX}, {posY}), size ({formW}x{formH}) with text {text}", "TooltipPopup.ShowTooltip")
+                TreeLogger.Info($"Showing tooltip at ({posX}, {posY}), size ({formW}x{formH}) with text {text}", "TooltipPopup.ShowTooltip")
 
-            Me.Location = New Point(posX, posY)
-            Me.Size = New Size(formW, formH)
+                Me.Location = New Point(posX, posY)
+                Me.Size = New Size(formW, formH)
 
-            Me.ShowWithoutActivating()
-            'Me.Activate()
-            _autoHideTimer.Start()
-        End Sub
+                Try
+                    Me.BackColor = Color.FromArgb(255, TT_BackColor) ' Asigură opacitate completă chiar dacă se setează o culoare cu alpha < 255
 
-        Private Sub ShowWithoutActivating()
-            ' Folosește ShowWindow cu SW_SHOWNOACTIVATE (&H4)
-            ShowWindow(Me.Handle, SW_SHOWNOACTIVATE)
+                Catch ex As Exception
+                    TreeLogger.Err($"Error setting tooltip back color: {ex.Message} to {TT_BackColor}", "TooltipPopup.ShowTooltip")
+
+                End Try
+
+                Me.Visible = True
+                'Me.Activate()
+                _autoHideTimer.Start()
+
+            Catch ex As Exception
+                TreeLogger.Err($"Error showing tooltip: {ex.Message}", "TooltipPopup.ShowTooltip")
+            End Try
         End Sub
 
         Private Sub MeasureContent(baseFont As Font, baseColor As Color)
-            Dim fmt As StringFormat = StringFormat.GenericTypographic
-            fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
+            Try
+                Dim fmt As StringFormat = StringFormat.GenericTypographic
+                fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
 
-            _lineHeight = baseFont.Height + 2
+                _lineHeight = baseFont.Height + 2
 
-            Using g As Graphics = Me.CreateGraphics()
+                Using g As Graphics = Me.CreateGraphics()
 
-                ' ── Step 1: Split _parts în linii logice (după \n explicit) ──────────────
-                Dim logicalLines As New List(Of List(Of AdvancedTreeControl.RichTextPart))
-                Dim currentLine As New List(Of AdvancedTreeControl.RichTextPart)
+                    ' ── Step 1: Split _parts în linii logice (după \n explicit) ──────────────
+                    Dim logicalLines As New List(Of List(Of AdvancedTreeControl.RichTextPart))
+                    Dim currentLine As New List(Of AdvancedTreeControl.RichTextPart)
 
-                For Each part In _parts
-                    If part.Text.Contains(vbLf) OrElse part.Text.Contains(vbCrLf) Then
-                        Dim subLines() As String = part.Text.Replace(vbCrLf, vbLf).Split(vbLf)
-                        For i = 0 To subLines.Length - 1
-                            If subLines(i).Length > 0 Then
-                                Dim sub_part = part
-                                sub_part.Text = subLines(i)
-                                currentLine.Add(sub_part)
-                            End If
-                            If i < subLines.Length - 1 Then
-                                logicalLines.Add(currentLine)
-                                currentLine = New List(Of AdvancedTreeControl.RichTextPart)
-                            End If
+                    For Each part In _parts
+                        If part.Text.Contains(vbLf) OrElse part.Text.Contains(vbCrLf) Then
+                            Dim subLines() As String = part.Text.Replace(vbCrLf, vbLf).Split(vbLf)
+                            For i = 0 To subLines.Length - 1
+                                If subLines(i).Length > 0 Then
+                                    Dim sub_part = part
+                                    sub_part.Text = subLines(i)
+                                    currentLine.Add(sub_part)
+                                End If
+                                If i < subLines.Length - 1 Then
+                                    logicalLines.Add(currentLine)
+                                    currentLine = New List(Of AdvancedTreeControl.RichTextPart)
+                                End If
+                            Next
+                        Else
+                            currentLine.Add(part)
+                        End If
+                    Next
+                    If currentLine.Count > 0 Then logicalLines.Add(currentLine)
+                    If logicalLines.Count = 0 Then logicalLines.Add(New List(Of AdvancedTreeControl.RichTextPart))
+
+                    ' ── Step 2: Word-wrap fiecare linie logică → linii vizuale ───────────────
+                    Dim allVisualLines As New List(Of List(Of AdvancedTreeControl.RichTextPart))
+                    For Each logLine In logicalLines
+                        For Each vLine In WrapLogicalLine(logLine, MAX_WIDTH, g, fmt)
+                            allVisualLines.Add(vLine)
                         Next
-                    Else
-                        currentLine.Add(part)
-                    End If
-                Next
-                If currentLine.Count > 0 Then logicalLines.Add(currentLine)
-                If logicalLines.Count = 0 Then logicalLines.Add(New List(Of AdvancedTreeControl.RichTextPart))
-
-                ' ── Step 2: Word-wrap fiecare linie logică → linii vizuale ───────────────
-                Dim allVisualLines As New List(Of List(Of AdvancedTreeControl.RichTextPart))
-                For Each logLine In logicalLines
-                    For Each vLine In WrapLogicalLine(logLine, MAX_WIDTH, g, fmt)
-                        allVisualLines.Add(vLine)
                     Next
-                Next
 
-                ' ── Step 3: Aplică MAX_LINES — trunchează cu "…" dacă e nevoie ───────────
-                Dim truncated As Boolean = allVisualLines.Count > MAX_LINES
-                If truncated Then
-                    _lines = allVisualLines.GetRange(0, MAX_LINES)
-                    ' Adaugă "…" la ultimul part din ultima linie
-                    Dim lastLine = _lines(MAX_LINES - 1)
-                    If lastLine.Count > 0 Then
-                        Dim lp = lastLine(lastLine.Count - 1)
-                        lastLine(lastLine.Count - 1) = New AdvancedTreeControl.RichTextPart With {
-                    .Text = lp.Text.TrimEnd() & "…",
-                    .Font = lp.Font,
-                    .ForeColor = lp.ForeColor,
-                    .BackColor = lp.BackColor,
-                    .HasBackColor = lp.HasBackColor
-                }
+                    ' ── Step 3: Aplică MAX_LINES — trunchează cu "…" dacă e nevoie ───────────
+                    Dim truncated As Boolean = allVisualLines.Count > MAX_LINES
+                    If truncated Then
+                        _lines = allVisualLines.GetRange(0, MAX_LINES)
+                        ' Adaugă "…" la ultimul part din ultima linie
+                        Dim lastLine = _lines(MAX_LINES - 1)
+                        If lastLine.Count > 0 Then
+                            Dim lp = lastLine(lastLine.Count - 1)
+                            lastLine(lastLine.Count - 1) = New AdvancedTreeControl.RichTextPart With {
+                        .Text = lp.Text.TrimEnd() & "…",
+                        .Font = lp.Font,
+                        .ForeColor = lp.ForeColor,
+                        .BackColor = lp.BackColor,
+                        .HasBackColor = lp.HasBackColor
+                    }
+                        Else
+                            lastLine.Add(New AdvancedTreeControl.RichTextPart With {
+                        .Text = "…",
+                        .Font = baseFont,
+                        .ForeColor = baseColor,
+                        .HasBackColor = False
+                    })
+                        End If
                     Else
-                        lastLine.Add(New AdvancedTreeControl.RichTextPart With {
-                    .Text = "…",
-                    .Font = baseFont,
-                    .ForeColor = baseColor,
-                    .HasBackColor = False
-                })
+                        _lines = allVisualLines
                     End If
-                Else
-                    _lines = allVisualLines
-                End If
 
-                ' ── Step 4: Calculează dimensiunile finale ────────────────────────────────
-                Dim maxLineW As Single = 0
-                For Each line In _lines
-                    Dim lineW As Single = 0
-                    Dim lineH As Integer = baseFont.Height + 2
-                    For Each part In line
-                        Dim sz As SizeF = g.MeasureString(If(part.Text = "", " ", part.Text), part.Font, PointF.Empty, fmt)
-                        lineW += sz.Width
-                        If part.Font.Height + 2 > lineH Then lineH = part.Font.Height + 2
+                    ' ── Step 4: Calculează dimensiunile finale ────────────────────────────────
+                    Dim maxLineW As Single = 0
+                    For Each line In _lines
+                        Dim lineW As Single = 0
+                        Dim lineH As Integer = baseFont.Height + 2
+                        For Each part In line
+                            Dim sz As SizeF = g.MeasureString(If(part.Text = "", " ", part.Text), part.Font, PointF.Empty, fmt)
+                            lineW += sz.Width
+                            If part.Font.Height + 2 > lineH Then lineH = part.Font.Height + 2
+                        Next
+                        If lineW > maxLineW Then maxLineW = lineW
+                        If lineH > _lineHeight Then _lineHeight = lineH
                     Next
-                    If lineW > maxLineW Then maxLineW = lineW
-                    If lineH > _lineHeight Then _lineHeight = lineH
-                Next
 
-                _contentWidth = CInt(Math.Ceiling(maxLineW))
-                _contentHeight = _lines.Count * _lineHeight
-            End Using
+                    _contentWidth = CInt(Math.Ceiling(maxLineW))
+                    _contentHeight = _lines.Count * _lineHeight
+                End Using
+
+            Catch ex As Exception
+                TreeLogger.Err($"Error measuring tooltip content: {ex.Message}", "TooltipPopup.MeasureContent")
+            End Try
         End Sub
 
         Protected Overrides Sub OnPaint(e As PaintEventArgs)
-            Dim g As Graphics = e.Graphics
-            g.SmoothingMode = SmoothingMode.AntiAlias
-            g.TextRenderingHint = Drawing.Text.TextRenderingHint.ClearTypeGridFit
+            Try
+                Dim g As Graphics = e.Graphics
+                g.SmoothingMode = SmoothingMode.AntiAlias
+                g.TextRenderingHint = Drawing.Text.TextRenderingHint.ClearTypeGridFit
 
-            Dim rc As New Rectangle(0, 0, Me.Width - 1, Me.Height - 1)
+                Dim rc As New Rectangle(0, 0, Me.Width - 1, Me.Height - 1)
 
-            ' Fundal cu colțuri rotunde
-            Using path As GraphicsPath = GetRoundedRect(rc, CORNER_RADIUS)
-                Using bgBrush As New SolidBrush(Me.BackColor)
-                    g.FillPath(bgBrush, path)
-                End Using
-                Using borderPen As New Pen(Color.FromArgb(BORDER_COLOR_ARG, Color.DarkGoldenrod), 1)
-                    g.DrawPath(borderPen, path)
-                End Using
-            End Using
-
-            ' Desenare text linie cu linie
-            Dim fmt As StringFormat = StringFormat.GenericTypographic
-            fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
-
-            Dim y As Single = PADDING_V
-
-            For Each line In _lines
-                Dim x As Single = PADDING_H
-                For Each part In line
-                    Dim sz As SizeF = g.MeasureString(If(part.Text = "", " ", part.Text), part.Font, PointF.Empty, fmt)
-
-                    If part.HasBackColor Then
-                        Using bb As New SolidBrush(part.BackColor)
-                            g.FillRectangle(bb, x, y, sz.Width, _lineHeight)
-                        End Using
-                    End If
-
-                    Dim textY As Single = y + (_lineHeight - part.Font.Height) / 2.0F
-                    Using tb As New SolidBrush(part.ForeColor)
-                        g.DrawString(part.Text, part.Font, tb, x, textY, fmt)
+                ' Fundal cu colțuri rotunde
+                Using path As GraphicsPath = GetRoundedRect(rc, CORNER_RADIUS)
+                    Using bgBrush As New SolidBrush(Me.BackColor)
+                        g.FillPath(bgBrush, path)
                     End Using
+                    Dim bc As Color = TT_BackColor
+                    Dim borderDerived As Color = Color.FromArgb(
+                                                        CInt(bc.R * 0.6),
+                                                        CInt(bc.G * 0.6),
+                                                        CInt(bc.B * 0.6))
+                    Using borderPen As New Pen(Color.FromArgb(BORDER_COLOR_ARG, borderDerived), 1)
+                        g.DrawPath(borderPen, path)
+                    End Using
+                End Using
 
-                    x += sz.Width
+                ' Desenare text linie cu linie
+                Dim fmt As StringFormat = StringFormat.GenericTypographic
+                fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
+
+                Dim y As Single = PADDING_V
+
+                For Each line In _lines
+                    Dim x As Single = PADDING_H
+                    For Each part In line
+                        Dim sz As SizeF = g.MeasureString(If(part.Text = "", " ", part.Text), part.Font, PointF.Empty, fmt)
+
+                        If part.HasBackColor Then
+                            Using bb As New SolidBrush(part.BackColor)
+                                g.FillRectangle(bb, x, y, sz.Width, _lineHeight)
+                            End Using
+                        End If
+
+                        Dim textY As Single = y + (_lineHeight - part.Font.Height) / 2.0F
+                        Using tb As New SolidBrush(part.ForeColor)
+                            g.DrawString(part.Text, part.Font, tb, x, textY, fmt)
+                        End Using
+
+                        x += sz.Width
+                    Next
+                    y += _lineHeight
                 Next
-                y += _lineHeight
-            Next
+            Catch ex As Exception
+                TreeLogger.Err($"Error painting tooltip: {ex.Message}", "TooltipPopup.OnPaint")
+            End Try
         End Sub
 
         Protected Overrides Sub OnMouseLeave(e As EventArgs)
@@ -275,7 +319,8 @@ Partial Public Class AdvancedTreeControl
 
             MyBase.WndProc(m)
         End Sub
-        Private Function GetRoundedRect(rect As Rectangle, radius As Integer) As GraphicsPath
+
+        Private Shared Function GetRoundedRect(rect As Rectangle, radius As Integer) As GraphicsPath
             Dim path As New GraphicsPath()
             Dim d As Integer = radius * 2
             If d > rect.Width Then d = rect.Width
@@ -318,99 +363,101 @@ Partial Public Class AdvancedTreeControl
         ''' care se încadrează în maxWidth. Rupe la word boundary; dacă un cuvânt
         ''' singur depășește maxWidth, îl rupe forțat caracter cu caracter.
         ''' </summary>
-        Private Shared Function WrapLogicalLine(
-            parts As List(Of AdvancedTreeControl.RichTextPart),
-            maxWidth As Integer,
-            g As Graphics,
-            fmt As StringFormat) As List(Of List(Of AdvancedTreeControl.RichTextPart))
+        Private Shared Function WrapLogicalLine(parts As List(Of AdvancedTreeControl.RichTextPart), maxWidth As Integer, g As Graphics, fmt As StringFormat) As List(Of List(Of AdvancedTreeControl.RichTextPart))
+            Try
+                Dim result As New List(Of List(Of AdvancedTreeControl.RichTextPart))
+                Dim curLine As New List(Of AdvancedTreeControl.RichTextPart)
+                Dim curW As Single = 0
 
-            Dim result As New List(Of List(Of AdvancedTreeControl.RichTextPart))
-            Dim curLine As New List(Of AdvancedTreeControl.RichTextPart)
-            Dim curW As Single = 0
+                For Each part In parts
+                    Dim tokens As List(Of String) = SplitToWordTokens(part.Text)
 
-            For Each part In parts
-                Dim tokens As List(Of String) = SplitToWordTokens(part.Text)
+                    For Each token In tokens
+                        ' La începutul unui rând nou eliminăm spațiile de leading
+                        Dim word As String = If(curW = 0, token.TrimStart(" "c), token)
+                        If word.Length = 0 Then Continue For
 
-                For Each token In tokens
-                    ' La începutul unui rând nou eliminăm spațiile de leading
-                    Dim word As String = If(curW = 0, token.TrimStart(" "c), token)
-                    If word.Length = 0 Then Continue For
+                        Dim wordW As Single = g.MeasureString(word, part.Font, PointF.Empty, fmt).Width
 
-                    Dim wordW As Single = g.MeasureString(word, part.Font, PointF.Empty, fmt).Width
+                        If wordW > maxWidth Then
+                            ' ── Cuvânt prea lung: flush linie curentă, apoi rupe caracter cu caracter ──
+                            If curLine.Count > 0 Then
+                                result.Add(curLine)
+                                curLine = New List(Of AdvancedTreeControl.RichTextPart)
+                                curW = 0
+                            End If
+                            Dim remaining As String = word.TrimStart(" "c)
+                            While remaining.Length > 0
+                                Dim chunk As String = ""
+                                For c As Integer = 1 To remaining.Length
+                                    Dim test As String = remaining.Substring(0, c)
+                                    If g.MeasureString(test, part.Font, PointF.Empty, fmt).Width <= maxWidth Then
+                                        chunk = test
+                                    Else
+                                        Exit For
+                                    End If
+                                Next
+                                If chunk.Length = 0 Then chunk = remaining.Substring(0, 1) ' safety
 
-                    If wordW > maxWidth Then
-                        ' ── Cuvânt prea lung: flush linie curentă, apoi rupe caracter cu caracter ──
-                        If curLine.Count > 0 Then
-                            result.Add(curLine)
-                            curLine = New List(Of AdvancedTreeControl.RichTextPart)
-                            curW = 0
-                        End If
-                        Dim remaining As String = word.TrimStart(" "c)
-                        While remaining.Length > 0
-                            Dim chunk As String = ""
-                            For c As Integer = 1 To remaining.Length
-                                Dim test As String = remaining.Substring(0, c)
-                                If g.MeasureString(test, part.Font, PointF.Empty, fmt).Width <= maxWidth Then
-                                    chunk = test
-                                Else
-                                    Exit For
-                                End If
-                            Next
-                            If chunk.Length = 0 Then chunk = remaining.Substring(0, 1) ' safety
-
-                            curLine.Add(New AdvancedTreeControl.RichTextPart With {
+                                curLine.Add(New AdvancedTreeControl.RichTextPart With {
                                 .Text = chunk,
                                 .Font = part.Font,
                                 .ForeColor = part.ForeColor,
                                 .BackColor = part.BackColor,
                                 .HasBackColor = part.HasBackColor
                             })
-                            curW = g.MeasureString(chunk, part.Font, PointF.Empty, fmt).Width
-                            remaining = remaining.Substring(chunk.Length)
+                                curW = g.MeasureString(chunk, part.Font, PointF.Empty, fmt).Width
+                                remaining = remaining.Substring(chunk.Length)
 
-                            If remaining.Length > 0 Then
-                                result.Add(curLine)
-                                curLine = New List(Of AdvancedTreeControl.RichTextPart)
-                                curW = 0
-                            End If
-                        End While
+                                If remaining.Length > 0 Then
+                                    result.Add(curLine)
+                                    curLine = New List(Of AdvancedTreeControl.RichTextPart)
+                                    curW = 0
+                                End If
+                            End While
 
-                    ElseIf curW + wordW <= maxWidth Then
-                        ' ── Încape pe linia curentă ───────────────────────────────────────────
-                        curLine.Add(New AdvancedTreeControl.RichTextPart With {
+                        ElseIf curW + wordW <= maxWidth Then
+                            ' ── Încape pe linia curentă ───────────────────────────────────────────
+                            curLine.Add(New AdvancedTreeControl.RichTextPart With {
                             .Text = word,
                             .Font = part.Font,
                             .ForeColor = part.ForeColor,
                             .BackColor = part.BackColor,
                             .HasBackColor = part.HasBackColor
                         })
-                        curW += wordW
+                            curW += wordW
 
-                    Else
-                        ' ── Nu încape: rupe linia, pune cuvântul pe rândul următor ───────────
-                        If curLine.Count > 0 Then
-                            result.Add(curLine)
-                            curLine = New List(Of AdvancedTreeControl.RichTextPart)
-                            curW = 0
-                        End If
-                        Dim trimmed As String = token.TrimStart(" "c)
-                        If trimmed.Length > 0 Then
-                            curLine.Add(New AdvancedTreeControl.RichTextPart With {
+                        Else
+                            ' ── Nu încape: rupe linia, pune cuvântul pe rândul următor ───────────
+                            If curLine.Count > 0 Then
+                                result.Add(curLine)
+                                curLine = New List(Of AdvancedTreeControl.RichTextPart)
+                                curW = 0
+                            End If
+                            Dim trimmed As String = token.TrimStart(" "c)
+                            If trimmed.Length > 0 Then
+                                curLine.Add(New AdvancedTreeControl.RichTextPart With {
                                 .Text = trimmed,
                                 .Font = part.Font,
                                 .ForeColor = part.ForeColor,
                                 .BackColor = part.BackColor,
                                 .HasBackColor = part.HasBackColor
                             })
-                            curW = g.MeasureString(trimmed, part.Font, PointF.Empty, fmt).Width
+                                curW = g.MeasureString(trimmed, part.Font, PointF.Empty, fmt).Width
+                            End If
                         End If
-                    End If
+                    Next
                 Next
-            Next
 
-            If curLine.Count > 0 Then result.Add(curLine)
-            If result.Count = 0 Then result.Add(New List(Of AdvancedTreeControl.RichTextPart))
-            Return result
+                If curLine.Count > 0 Then result.Add(curLine)
+                If result.Count = 0 Then result.Add(New List(Of AdvancedTreeControl.RichTextPart))
+                Return result
+
+            Catch ex As Exception
+                TreeLogger.Err($"Error wrapping logical line: {ex.Message}", "TooltipPopup.WrapLogicalLine")
+                ' În caz de eroare, returnăm totul pe o singură linie (fără word-wrap)
+                Return New List(Of List(Of AdvancedTreeControl.RichTextPart)) From {parts}
+            End Try
         End Function
 
         ''' <summary>
@@ -436,5 +483,28 @@ Partial Public Class AdvancedTreeControl
             End While
             Return tokens
         End Function
+        Protected Overrides Sub SetVisibleCore(value As Boolean)
+            If value Then
+                If Not Me.IsHandleCreated Then CreateHandle()
+                ' Ocolim MyBase.SetVisibleCore(True) — acesta e vinovatul:
+                '   actualizează Application.ActiveForm, Application.OpenForms,
+                '   și destabilizează ActiveControl din alte forme ale aceleiași aplicații.
+                ' Afișăm fereastra direct Win32, fără niciun efect secundar WinForms.
+                ShowWindow(Me.Handle, SW_SHOWNOACTIVATE)
+                OnVisibleChanged(EventArgs.Empty)
+            Else
+                MyBase.SetVisibleCore(False)   ' Hide e ok — nu schimbă focus
+            End If
+        End Sub
+
+        Protected Overrides Sub OnActivated(e As EventArgs)
+            MyBase.OnActivated(e)
+            MessageBox.Show("OnActivated fired")
+        End Sub
+
+        Protected Overrides Sub OnGotFocus(e As EventArgs)
+            MyBase.OnGotFocus(e)
+            MessageBox.Show("OnGotFocus fired")
+        End Sub
     End Class
 End Class

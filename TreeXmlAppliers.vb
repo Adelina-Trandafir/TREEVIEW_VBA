@@ -229,7 +229,7 @@ Friend NotInheritable Class TreeXmlAppliers
     Friend Shared Sub Apply_LeftIconHeight(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("LeftIconHeight") Is Nothing Then Exit Sub
         Dim xmlVal As String = cfg.Attributes("LeftIconHeight").Value
-        Dim v As Integer = If(tree.LeftIconSize.Height > 0, tree.LeftIconSize.Height, 16)
+        Dim v As Integer = If(tree.LeftIconSize.Height > 0, tree.LeftIconSize.Height, 0)
         If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
             Dim ns As New Size(v, v)
             If tree.LeftIconSize <> ns Then tree.LeftIconSize = ns
@@ -240,7 +240,7 @@ Friend NotInheritable Class TreeXmlAppliers
     Friend Shared Sub Apply_RightIconHeight(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("RightIconHeight") Is Nothing Then Exit Sub
         Dim xmlVal As String = cfg.Attributes("RightIconHeight").Value
-        Dim v As Integer = If(tree.RightIconSize.Height > 0, tree.RightIconSize.Height, 16)
+        Dim v As Integer = If(tree.RightIconSize.Height > 0, tree.RightIconSize.Height, 0)
         If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
             Dim ns As New Size(v, v)
             If tree.RightIconSize <> ns Then tree.RightIconSize = ns
@@ -438,14 +438,20 @@ Friend NotInheritable Class TreeXmlAppliers
         If cfg.Attributes("HeaderBackColor") Is Nothing Then Exit Sub
         Dim xmlVal As String = cfg.Attributes("HeaderBackColor").Value
         Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.HeaderBackColor)
-        If tree.HeaderBackColor <> c Then tree.HeaderBackColor = c
+        If tree.HeaderBackColor <> c Then
+            tree.HeaderBackColor = c
+            TreeLogger.Debug(Space(5) & $"HeaderBackColor xml='{xmlVal}' control='{tree.HeaderBackColor}'", "AplicareConfigurare")
+        End If
     End Sub
 
     Friend Shared Sub Apply_HeaderForeColor(cfg As XmlNode, tree As AdvancedTreeControl)
         If cfg.Attributes("HeaderForeColor") Is Nothing Then Exit Sub
         Dim xmlVal As String = cfg.Attributes("HeaderForeColor").Value
         Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.HeaderForeColor)
-        If tree.HeaderForeColor <> c Then tree.HeaderForeColor = c
+        If tree.HeaderForeColor <> c Then
+            tree.HeaderForeColor = c
+            TreeLogger.Debug(Space(5) & $"HeaderForeColor xml='{xmlVal}' control='{tree.HeaderForeColor}'", "AplicareConfigurare")
+        End If
     End Sub
 
     Friend Shared Sub Apply_HeaderLeftIcon(cfg As XmlNode, tree As AdvancedTreeControl)
@@ -502,7 +508,7 @@ Friend NotInheritable Class TreeXmlAppliers
         Dim xmlVal As String = cfg.Attributes("SearchIn").Value
         Dim v As Integer = CInt(tree.SearchIn)
         If Integer.TryParse(xmlVal, v) Then
-            Dim nv = CType(v, AdvancedTreeControl.en_Tree_SearchIn)
+            Dim nv = CType(v, AdvancedTreeControl.En_Tree_SearchIn)
             If tree.SearchIn <> nv Then tree.SearchIn = nv
             TreeLogger.Debug(Space(5) & $"SearchIn xml='{xmlVal}'", "AplicareConfigurare")
         End If
@@ -514,7 +520,7 @@ Friend NotInheritable Class TreeXmlAppliers
         Dim xmlVal As String = cfg.Attributes("SearchMode").Value
         Dim v As Integer = CInt(tree.SearchMode)
         If Integer.TryParse(xmlVal, v) Then
-            Dim nv = CType(v, AdvancedTreeControl.en_Tree_SearchMode)
+            Dim nv = CType(v, AdvancedTreeControl.En_Tree_SearchMode)
             If tree.SearchMode <> nv Then tree.SearchMode = nv
             TreeLogger.Debug(Space(5) & $"SearchMode xml='{xmlVal}'", "AplicareConfigurare")
         End If
@@ -610,6 +616,37 @@ Friend NotInheritable Class TreeXmlAppliers
         End If
     End Sub
 
+    Friend Shared Sub Apply_TooltipShow(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("TooltipShow") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("TooltipShow").Value
+        Dim v As Integer = If(tree.TooltipShow, 1, 0)
+        If Integer.TryParse(xmlVal, v) Then
+            Dim nv As Boolean = (v = 1)
+            If tree.TooltipShow <> nv Then tree.TooltipShow = nv
+            TreeLogger.Debug(Space(5) & $"TooltipShow xml='{xmlVal}' control='{tree.TooltipShow}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_TooltipBackColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("TooltipBackColor") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("TooltipBackColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.TooltipBackColor)
+        If tree.TooltipBackColor <> c Then
+            tree.TooltipBackColor = c
+            TreeLogger.Debug(Space(5) & $"TooltipBackColor xml='{xmlVal}' control='{tree.TooltipBackColor}'", "AplicareConfigurare")
+        End If
+    End Sub
+
+    Friend Shared Sub Apply_TooltipForeColor(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("TooltipForeColor") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("TooltipForeColor").Value
+        Dim c As Color = AdvancedTreeControl.ParseColor(xmlVal, tree.TooltipForeColor)
+        If tree.TooltipForeColor <> c Then
+            tree.TooltipForeColor = c
+            TreeLogger.Debug(Space(5) & $"TooltipForeColor xml='{xmlVal}' control='{tree.TooltipForeColor}'", "AplicareConfigurare")
+        End If
+    End Sub
+
     ''' <summary>
     ''' Citeste blocul &lt;Columns&gt; din XML si populeaza lista de definitii de coloane.
     ''' Seteaza treeListView = True daca exista cel putin o coloana.
@@ -626,9 +663,9 @@ Friend NotInheritable Class TreeXmlAppliers
 
             For Each cn As XmlNode In colNodes
                 Try
-                    Dim cd As New ColumnDef
-
-                    cd.Name = If(cn.Attributes("Name")?.Value, "")
+                    Dim cd As New ColumnDef With {
+                        .Name = If(cn.Attributes("Name")?.Value, "")
+                    }
                     cd.Header = If(cn.Attributes("Header")?.Value, cd.Name)
 
                     Dim wVal As Integer = 100
@@ -639,13 +676,13 @@ Friend NotInheritable Class TreeXmlAppliers
                     ' ── ColType (integer) ─────────────────────────────────────────
                     Dim tVal As Integer = 0
                     If Integer.TryParse(cn.Attributes("Type")?.Value, tVal) Then
-                        cd.ColType = CType(tVal, en_ColType)
+                        cd.ColType = CType(tVal, En_ColType)
                     End If
 
                     ' ── Align (integer) ───────────────────────────────────────────
                     Dim aVal As Integer = 0
                     If Integer.TryParse(cn.Attributes("Align")?.Value, aVal) Then
-                        cd.Align = CType(aVal, en_ColAlign)
+                        cd.Align = CType(aVal, En_ColAlign)
                     End If
 
                     cd.Format = If(cn.Attributes("Format")?.Value, "")
@@ -667,11 +704,11 @@ Friend NotInheritable Class TreeXmlAppliers
                     If Integer.TryParse(cn.Attributes("HdrUnderline")?.Value, bv) Then cd.HeaderUnderline = (bv = 1)
 
                     ' HeaderAlign: absent din XML → Inherit (-1)
-                    Dim haVal As Integer = CInt(en_ColAlign.ColAlign_Inherit)
+                    Dim haVal As Integer = CInt(En_ColAlign.ColAlign_Inherit)
                     If Integer.TryParse(cn.Attributes("HdrAlign")?.Value, haVal) Then
-                        cd.HeaderAlign = CType(haVal, en_ColAlign)
+                        cd.HeaderAlign = CType(haVal, En_ColAlign)
                     Else
-                        cd.HeaderAlign = en_ColAlign.ColAlign_Inherit
+                        cd.HeaderAlign = En_ColAlign.ColAlign_Inherit
                     End If
 
                     If Not String.IsNullOrEmpty(cd.Name) Then columns.Add(cd)
@@ -687,5 +724,11 @@ Friend NotInheritable Class TreeXmlAppliers
         Catch ex As Exception
             TreeLogger.Ex(ex, "Apply_Columns")
         End Try
+    End Sub
+
+    Friend Shared Sub Apply_TreeListViewEnabled(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("TreeListViewEnabled") Is Nothing Then Exit Sub
+        tree.TreeListView = (cfg.Attributes("TreeListViewEnabled").Value = "1")
+        TreeLogger.Debug(Space(5) & $"TreeListViewEnabled={tree.TreeListView}", "AplicareConfigurare")
     End Sub
 End Class

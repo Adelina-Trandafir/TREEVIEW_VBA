@@ -48,16 +48,8 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     Private Sub DrawSelection(g As Graphics, it As TreeItem, y As Integer, gridLeft As Integer, xBase As Integer)
-        Dim selStartX As Integer
-        If it.Level = 0 AndAlso Not _RootExpander Then
-            selStartX = gridLeft
-        ElseIf Not _RootExpander Then
-            selStartX = xBase
-        Else
-            selStartX = gridLeft + ExpanderSize * 2 - 3
-        End If
-
-        Dim selWidth As Integer = Math.Max(0, Me.ClientSize.Width - selStartX - PADDING_TREE_END)
+        Dim selStartX As Integer = If(it.Level = 0 AndAlso Not _RootExpander, gridLeft, xBase - PADDING_SELECTION_LEFT)
+        Dim selWidth As Integer = Math.Max(0, Me.ClientSize.Width - selStartX - 1)
         Dim fullRowRect As New Rectangle(selStartX, y, selWidth, ItemHeight)
 
         Dim oldSmooth = g.SmoothingMode
@@ -384,8 +376,8 @@ Partial Public Class AdvancedTreeControl
         fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
 
         Dim rightEdgeX As Single = CSng(x) + CSng(availableWidth)
-        Dim hasLeftProp As Boolean = (m_LeftTextWidth > 0)
-        Dim hasRightProp As Boolean = (m_RightTextWidth > 0)
+        Dim hasLeftProp As Boolean = (m_leftTextWidth > 0)
+        Dim hasRightProp As Boolean = (m_rightTextWidth > 0)
 
         ' ── 2. Calcul zone stânga/dreapta ────────────────────────────────────────
         Dim leftBudget As Single = availableWidth
@@ -401,21 +393,21 @@ Partial Public Class AdvancedTreeControl
 
             ElseIf hasLeftProp AndAlso hasRightProp Then
                 ' Case B: ambele setate — stânga prioritate
-                leftBudget = Math.Min(CSng(m_LeftTextWidth), CSng(availableWidth))
-                Dim naturalRS = rightEdgeX - CSng(m_RightTextWidth)
+                leftBudget = Math.Min(CSng(m_leftTextWidth), CSng(availableWidth))
+                Dim naturalRS = rightEdgeX - CSng(m_rightTextWidth)
                 Dim forcedRS = CSng(x) + leftBudget + PADDING_SEPARATOR_GAP
                 rightZoneStart = Math.Max(naturalRS, forcedRS)
                 rightBudget = Math.Max(0, rightEdgeX - rightZoneStart)
 
             ElseIf hasRightProp Then
                 ' Case C: doar dreapta setată — rezervare fixă din dreapta
-                rightBudget = CSng(m_RightTextWidth)
+                rightBudget = CSng(m_rightTextWidth)
                 rightZoneStart = rightEdgeX - rightBudget
                 leftBudget = Math.Max(0, rightZoneStart - CSng(x) - PADDING_SEPARATOR_GAP)
 
             Else
                 ' Case D: doar stânga setată — stânga are budget fix
-                leftBudget = Math.Min(CSng(m_LeftTextWidth), CSng(availableWidth))
+                leftBudget = Math.Min(CSng(m_leftTextWidth), CSng(availableWidth))
                 rightZoneStart = CSng(x) + leftBudget + PADDING_SEPARATOR_GAP
                 rightBudget = Math.Max(0, rightEdgeX - rightZoneStart)
             End If
@@ -750,7 +742,7 @@ Partial Public Class AdvancedTreeControl
                         ' ── 3. Aliniere efectiva ─────────────────────────────────────────────
                         ' Select Case cd.Align cu HorizontalAlignment era mort (suprascris imediat)
                         ' → eliminat complet
-                        Dim effAlign As en_ColAlign = If(cd.HeaderAlign = en_ColAlign.ColAlign_Inherit, cd.Align, cd.HeaderAlign)
+                        Dim effAlign As En_ColAlign = If(cd.HeaderAlign = En_ColAlign.ColAlign_Inherit, cd.Align, cd.HeaderAlign)
                         fmt.Alignment = ColAlignToStringAlign(effAlign)
 
                         ' ── 4. Font dinamic: Bold / Italic / Underline ───────────────────────
@@ -804,10 +796,10 @@ Partial Public Class AdvancedTreeControl
     ''' Converteste en_ColAlign la StringAlignment pentru GDI+.
     ''' ColAlign_Inherit se trateaza ca Left (nu ar trebui sa ajunga aici).
     ''' </summary>
-    Private Shared Function ColAlignToStringAlign(a As en_ColAlign) As StringAlignment
+    Private Shared Function ColAlignToStringAlign(a As En_ColAlign) As StringAlignment
         Select Case a
-            Case en_ColAlign.ColAlign_Center : Return StringAlignment.Center
-            Case en_ColAlign.ColAlign_Right : Return StringAlignment.Far
+            Case En_ColAlign.ColAlign_Center : Return StringAlignment.Center
+            Case En_ColAlign.ColAlign_Right : Return StringAlignment.Far
             Case Else : Return StringAlignment.Near
         End Select
     End Function

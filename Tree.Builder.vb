@@ -6,72 +6,24 @@ Partial Public Class Tree
     ' =============================================================
     ' ÎNCĂRCARE XML + CONFIGURARE (CORECTAT)
     ' =============================================================
-    Private Function LoadXmlData(filePath As String) As Boolean
+    Private Function LoadXmlData(filePath As String, Optional isReload As Boolean = False) As Boolean
         If Not File.Exists(filePath) Then Return False
         Try
             Dim xDoc As New XmlDocument()
-            xDoc.Load(filePath)
-
-            TreeLogger.Info($"Încep încărcare XML din fișier: {filePath}", "LoadXmlData")
-            MyTree.SuspendLayout()
-            MyTree.Items.Clear()
-            _imageCache.Clear()
-
-            ' 1. CONFIGURARE 
-            Dim configNode As XmlNode = xDoc.SelectSingleNode("/Tree/Config")
-            If configNode IsNot Nothing Then
-                AddXmlConfigToTree(configNode)
-            End If
-
-            ' 2. INCARCARE IMAGINI
-            Dim imgListNode As XmlNode = xDoc.SelectSingleNode("/Tree/Images")
-            If imgListNode IsNot Nothing Then
-                LoadImagesToCache(imgListNode)
-            End If
-
-            MyTree.ResolveHeaderIcons(_imageCache)
-
-            ' ── TreeListView: citeste definitiile de coloane (daca exista) ───────────────
-            Try
-                TreeXmlAppliers.Apply_Columns(xDoc, _columns, _treeListView)
-                MyTree.SetTreeListView(_treeListView, _columns)
-            Catch ex As Exception
-                TreeLogger.Ex(ex, "ReLoadXmlData/Apply_Columns")
-            End Try
-
-            ' 3. POPULARE NODURI
-            Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
-
-            For Each xNode As XmlNode In nodesRoot
-                AddXmlNodeToTree(xNode, Nothing)
-            Next
-
-            ApplyPendingSelectedNode()
-
-            MyTree.Invalidate()
-            Return True
-
-        Catch ex As Exception
-            TreeLogger.Ex(ex, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
-            Return False
-
-        Finally
-            MyTree.ResumeLayout()
-        End Try
-    End Function
-
-    Private Function ReLoadXmlData(filePath As String) As Boolean
-        If Not File.Exists(filePath) Then Return False
-
-        Try
-            Dim xDoc As New XmlDocument()
-            Dim cNodeKey = MyTree.SelectedNode?.Key
+            Dim cNodeKey As String = If(isReload, MyTree.SelectedNode?.Key, Nothing)
 
             xDoc.Load(filePath)
+            If Not isReload Then
+                TreeLogger.Info($"Încep încărcare XML din fișier: {filePath}", "LoadXmlData")
+            End If
 
             MyTree.SuspendLayout()
 
-            ' 1. CONFIGURARE 
+            If Not isReload Then
+                MyTree.Items.Clear()
+            End If
+
+            ' 1. CONFIGURARE
             Dim configNode As XmlNode = xDoc.SelectSingleNode("/Tree/Config")
             If configNode IsNot Nothing Then
                 If Not AddXmlConfigToTree(configNode) Then
@@ -79,48 +31,46 @@ Partial Public Class Tree
                 End If
             End If
 
-            ' 2. INCARCARE IMAGINI
+            ' 2. IMAGINI
             Dim imgListNode As XmlNode = xDoc.SelectSingleNode("/Tree/Images")
             If imgListNode IsNot Nothing Then
                 LoadImagesToCache(imgListNode)
             End If
-
             MyTree.ResolveHeaderIcons(_imageCache)
 
-            ' ── TreeListView: citeste definitiile de coloane (daca exista) ───────────────
+            ' 3. COLOANE
             Try
                 TreeXmlAppliers.Apply_Columns(xDoc, _columns, _treeListView)
                 MyTree.SetTreeListView(_treeListView, _columns)
             Catch ex As Exception
-                TreeLogger.Ex(ex, "ReLoadXmlData/Apply_Columns")
+                TreeLogger.Ex(ex, "LoadXmlData/Apply_Columns")
             End Try
 
-            ' 3. POPULARE NODURI
+            ' 4. NODURI
             Dim nodesRoot = xDoc.SelectNodes("/Tree/Nodes/Node")
             If nodesRoot IsNot Nothing AndAlso nodesRoot.Count > 0 Then
-                MyTree.Items.Clear()
-
+                If isReload Then MyTree.Items.Clear()
                 For Each xNode As XmlNode In nodesRoot
                     AddXmlNodeToTree(xNode, Nothing)
                 Next
-            Else
+            ElseIf isReload Then
                 MyTree.Refresh()
             End If
 
-            'scroll la nodul activ dacă există
-            ' SelectedNodeId din XML are prioritate; altfel restaurăm selecția anterioară
-            If String.IsNullOrEmpty(_pendingSelectedNodeId) AndAlso Not String.IsNullOrEmpty(cNodeKey) Then
-                _pendingSelectedNodeId = cNodeKey
+            ' 5. RESTAURARE SELECȚIE
+            If isReload Then
+                If String.IsNullOrEmpty(_pendingSelectedNodeId) AndAlso Not String.IsNullOrEmpty(cNodeKey) Then
+                    _pendingSelectedNodeId = cNodeKey
+                End If
             End If
-            ApplyPendingSelectedNode()
 
+            ApplyPendingSelectedNode()
             MyTree.Invalidate()
             Return True
 
         Catch ex As Exception
-            TreeLogger.Ex(ex, "LoadXmlDataFromString", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            TreeLogger.Ex(ex, "LoadXmlData", MessageBoxButtons.OK, MessageBoxIcon.Error)
             Return False
-
         Finally
             MyTree.ResumeLayout()
         End Try
@@ -174,8 +124,11 @@ Partial Public Class Tree
             TreeXmlAppliers.Apply_ReRaiseClickOnSameNode(cfg, MyTree)
             TreeXmlAppliers.Apply_RaiseLeftClickOnRightClick(cfg, MyTree)
 
+            TreeXmlAppliers.Apply_TooltipShow(cfg, MyTree)
             TreeXmlAppliers.Apply_ToolTipDelayMs(cfg, MyTree)
             TreeXmlAppliers.Apply_TooltipAutoHideMs(cfg, MyTree)
+            TreeXmlAppliers.Apply_TooltipBackColor(cfg, MyTree)
+            TreeXmlAppliers.Apply_TooltipForeColor(cfg, MyTree)
 
             TreeXmlAppliers.Apply_SelectedNodeId(cfg, _pendingSelectedNodeId)
 
@@ -204,7 +157,11 @@ Partial Public Class Tree
             TreeXmlAppliers.Apply_SearchBarLabelItalic(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchBarFontName(cfg, MyTree)
             TreeXmlAppliers.Apply_SearchBarFontSize(cfg, MyTree)
+            TreeXmlAppliers.Apply_SearchBackColor(cfg, MyTree)
+
             TreeXmlAppliers.Apply_ScrollBarTheme(cfg, MyTree)
+
+            TreeXmlAppliers.Apply_TreeListViewEnabled(cfg, MyTree)
 
             TreeLogger.Info($"Configurare aplicată cu succes în {sw.ElapsedMilliseconds}ms", "AplicareConfigurare")
             Return True

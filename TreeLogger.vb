@@ -23,7 +23,7 @@ Public Class TreeLogger
     ''' Inițializează logger-ul. Apelat O SINGURĂ DATĂ la pornirea aplicației.
     ''' Suprascrie fișierul existent.
     ''' </summary>
-    Public Shared Sub Init(treeId As String, minLevel As LogLevel)
+    Public Shared Sub Init(treeId As String, minLevel As LogLevel, Optional logPath As String = "")
         _minLevel = minLevel
 
         SyncLock _lock
@@ -31,9 +31,13 @@ Public Class TreeLogger
 
             _startTime = DateTime.Now
 
-            ' Construim calea: folder exe + log_{treeId}.txt
-            Dim folder As String = AppDomain.CurrentDomain.BaseDirectory
             Dim safeName As String = If(String.IsNullOrEmpty(treeId), "unknown", SanitizeFileName(treeId))
+            Dim folder As String = AppDomain.CurrentDomain.BaseDirectory
+
+            If Not String.IsNullOrEmpty(logPath) Then
+                folder = logPath
+            End If
+
             _logPath = Path.Combine(folder, $"log_{safeName}.txt")
 
             Try

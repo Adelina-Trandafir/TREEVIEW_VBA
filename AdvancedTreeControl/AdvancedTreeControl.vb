@@ -8,7 +8,6 @@ Partial Public Class AdvancedTreeControl
     Private pSelectedItem As TreeItem = Nothing
     Private pOldSelectedItem As TreeItem = Nothing
 
-    Private ReadOnly pTooltipTimer As New Timer()
     Private pTooltipItem As TreeItem = Nothing
     Private pTooltipPopup As TooltipPopup = Nothing
     Private _lastMouseX As Integer = -1
@@ -21,6 +20,9 @@ Partial Public Class AdvancedTreeControl
     ' Marginea globală din stânga a întregului arbore (să nu fie lipit de margine)
     Private Const PADDING_TREE_START As Integer = 10
 
+    ' Marginea globală din stânga pentru zona de selecție (checkbox + text)
+    Private Const PADDING_SELECTION_LEFT As Integer = 4
+
     ' Marginea globală din VÂRFUL arborelui (spațiu înainte de primul nod)
     Private Const PADDING_TREE_TOP As Integer = 5
 
@@ -28,7 +30,7 @@ Partial Public Class AdvancedTreeControl
     Private Const PADDING_TREE_END As Integer = 5
 
     ' Raza colțurilor pentru selecție și hover
-    Private Const SELECTION_CORNER_RADIUS As Integer = 3
+    Private Const SELECTION_CORNER_RADIUS As Integer = 1
 
     ' SPAȚIUL DINTRE EXPANDER/LINIE ȘI CONȚINUT (Checkbox sau Icon)
     ' Mărește această valoare pentru a depărta bifa de liniile punctate!
@@ -59,6 +61,8 @@ Partial Public Class AdvancedTreeControl
 
     Private _vScroll As New VScrollBar()
 
+    Private ReadOnly TooltipTimer As New Timer()
+
     <System.Runtime.InteropServices.DllImport("uxtheme.dll", CharSet:=System.Runtime.InteropServices.CharSet.Unicode)>
     Private Shared Function SetWindowTheme(hWnd As IntPtr, pszSubAppName As String, pszSubIdList As String) As Integer
     End Function
@@ -85,7 +89,6 @@ Partial Public Class AdvancedTreeControl
     Private _captionColumnEndX As Integer = 0   ' X unde se termina zona caption; actualizat in DrawContent
 
     ' ── TreeListView master switch + dynamic columns + column filter ──────────
-    Private _treeListViewEnabled As Boolean = False          ' master switch
     Private _baseColumns As New List(Of ColumnDef)           ' copie imutabilă din XML
     Private _colFilterActive As Boolean = False
     Private _colFilterSet As New HashSet(Of TreeItem)
@@ -97,7 +100,7 @@ Partial Public Class AdvancedTreeControl
     Private _searchResults As New List(Of SearchResultItem)()
     Private _searchResultHoveredIdx As Integer = -1
     Private _searchTextBox As TextBox = Nothing
-    Private WithEvents _searchDebounceTimer As New Timer() With {.Interval = 300}
+    Private WithEvents SearchDebounceTimer As New Timer() With {.Interval = 300}
 
     Friend Structure SearchResultItem
         Public Item As TreeItem
@@ -116,23 +119,23 @@ Partial Public Class AdvancedTreeControl
         Public HasBackColor As Boolean
     End Structure
 
-    Public Enum en_Tree_SearchType
+    Public Enum En_Tree_SearchType
         SearchType_Contains = 0
         SearchType_StartsWith = 1
     End Enum
 
-    Public Enum en_Tree_SearchIn
+    Public Enum En_Tree_SearchIn
         SearchIn_Caption = 0
         SearchIn_Tag = 1
         SearchIn_Both = 2
     End Enum
 
-    Public Enum en_Tree_SearchMode
+    Public Enum En_Tree_SearchMode
         SearchMode_Tree = 0
         SearchMode_List = 1
     End Enum
 
-    Public Enum en_ScrollBarTheme
+    Public Enum En_ScrollBarTheme
         [Default] = 0
         Explorer = 1
         DarkMode = 2
@@ -162,12 +165,16 @@ Partial Public Class AdvancedTreeControl
 
         AddHandler _vScroll.HandleCreated, Sub(s, e) ApplyScrollBarTheme()
 
-        pTooltipTimer.Interval = TooltipDelayMs
-        AddHandler pTooltipTimer.Tick, AddressOf TooltipTimerTick
+        TooltipTimer.Interval = TooltipDelayMs
+        AddHandler TooltipTimer.Tick, AddressOf TooltipTimerTick
 
         RecalculateItemHeight()
 
         ClickDelayTimer.Interval = 50
+
+        pTooltipPopup = New TooltipPopup()
+        Dim _forceHandle = pTooltipPopup.Handle
+
     End Sub
 
     Private Sub OnClickDelayTimerTick(sender As Object, e As EventArgs) Handles ClickDelayTimer.Tick
@@ -365,9 +372,10 @@ Partial Public Class AdvancedTreeControl
 
     Private Sub ResetTooltip(it As TreeItem, Optional mouseX As Integer = -1)
         HideAllTooltips()
-        pTooltipTimer.Stop()
+        TooltipTimer.Stop()
         pTooltipItem = Nothing
 
+        If Not TooltipShow Then Return
         If it Is Nothing Then Return
 
         ' Nu afișăm tooltip dacă mouse-ul e pe zona RightIcon
@@ -384,11 +392,11 @@ Partial Public Class AdvancedTreeControl
         End If
 
         pTooltipItem = it
-        pTooltipTimer.Start()
+        TooltipTimer.Start()
     End Sub
 
     Private Sub TooltipTimerTick(sender As Object, e As EventArgs)
-        pTooltipTimer.Stop()
+        TooltipTimer.Stop()
         If pTooltipItem Is Nothing OrElse pTooltipItem IsNot pHoveredItem Then Return
 
         ' Verificare suplimentară: dacă cursorul s-a mutat pe RightIcon între timp
@@ -401,13 +409,14 @@ Partial Public Class AdvancedTreeControl
         Try
             Dim screenPt As Point = Cursor.Position
 
-            If pTooltipPopup Is Nothing OrElse pTooltipPopup.IsDisposed Then
+            If pTooltipPopup.IsDisposed Then
                 pTooltipPopup = New TooltipPopup()
+                Dim _forceHandle = pTooltipPopup.Handle
             End If
-            Dim tooltipText As String = If(Not String.IsNullOrEmpty(pTooltipItem.Tooltip),
-                               pTooltipItem.Tooltip,
-                               pTooltipItem.Caption)
-            pTooltipPopup.ShowTooltip(tooltipText, Me.Font, Me.ForeColor, screenPt, AutoHideTooltipMs)
+
+            pTooltipPopup.TT_BackColor = TooltipBackColor
+            pTooltipPopup.TT_ForeColor = TooltipForeColor
+            pTooltipPopup.ShowTooltip(pTooltipItem.Tooltip, Me.Font, screenPt, AutoHideTooltipMs)
 
         Catch ex As Exception
             TreeLogger.Ex(ex, "TooltipTimerTick")
@@ -658,12 +667,12 @@ Partial Public Class AdvancedTreeControl
     Private Sub ApplyScrollBarTheme()
         If _vScroll Is Nothing OrElse Not _vScroll.IsHandleCreated Then Return
         Select Case _scrollBarTheme
-            Case en_ScrollBarTheme.Explorer
-                SetWindowTheme(_vScroll.Handle, "Explorer", Nothing)
-            Case en_ScrollBarTheme.DarkMode
-                SetWindowTheme(_vScroll.Handle, "DarkMode_Explorer", Nothing)
-            Case en_ScrollBarTheme.Default
-                SetWindowTheme(_vScroll.Handle, "", Nothing)
+            Case En_ScrollBarTheme.Explorer
+                Dim v = SetWindowTheme(_vScroll.Handle, "Explorer", Nothing)
+            Case En_ScrollBarTheme.DarkMode
+                Dim unused = SetWindowTheme(_vScroll.Handle, "DarkMode_Explorer", Nothing)
+            Case En_ScrollBarTheme.Default
+                Dim unused1 = SetWindowTheme(_vScroll.Handle, "", Nothing)
         End Select
     End Sub
 
@@ -681,48 +690,33 @@ Partial Public Class AdvancedTreeControl
     End Sub
 
     ' ════════════════════════════════════════════════════════════════════
-    ' PROPRIETATE PUBLICA TreeListView (master switch)
-    ' ════════════════════════════════════════════════════════════════════
-    Public Property TreeListView As Boolean
-        Get
-            Return _treeListViewEnabled
-        End Get
-        Set(value As Boolean)
-            _treeListViewEnabled = value
-            If Not value Then
-                _activeColFilters.Clear()
-                _colFilterActive = False
-                _colFilterSet.Clear()
-                _activeColFilterPopup?.Close()
-                _activeColFilterPopup = Nothing
-            End If
-            Me.Invalidate()
-        End Set
-    End Property
-
-    ' ════════════════════════════════════════════════════════════════════
     ' COLUMN FILTER — CORE
     ' ════════════════════════════════════════════════════════════════════
     Friend Sub ApplyColumnFilters()
-        _colFilterSet.Clear()
-        _colFilterActive = _activeColFilters.Count > 0
-        If Not _colFilterActive Then
+        Try
+            _colFilterSet.Clear()
+            _colFilterActive = _activeColFilters.Count > 0
+            If Not _colFilterActive Then
+                Me.Invalidate()
+                Return
+            End If
+            Dim matchSet As New HashSet(Of TreeItem)()
+            CollectColFilterMatches(Items, matchSet)
+            For Each node In matchSet
+                _colFilterSet.Add(node)
+                Dim p = node.Parent
+                While p IsNot Nothing
+                    _colFilterSet.Add(p)
+                    p = p.Parent
+                End While
+            Next
+            _vScroll.Value = 0
+            Me.BeginInvoke(New Action(AddressOf RefreshScrollVisibility))
             Me.Invalidate()
-            Return
-        End If
-        Dim matchSet As New HashSet(Of TreeItem)()
-        CollectColFilterMatches(Items, matchSet)
-        For Each node In matchSet
-            _colFilterSet.Add(node)
-            Dim p = node.Parent
-            While p IsNot Nothing
-                _colFilterSet.Add(p)
-                p = p.Parent
-            End While
-        Next
-        _vScroll.Value = 0
-        Me.BeginInvoke(New Action(AddressOf RefreshScrollVisibility))
-        Me.Invalidate()
+
+        Catch ex As Exception
+            TreeLogger.Ex(ex, "ApplyColumnFilters")
+        End Try
     End Sub
 
     Private Sub CollectColFilterMatches(nodes As List(Of TreeItem), result As HashSet(Of TreeItem))
@@ -737,7 +731,7 @@ Partial Public Class AdvancedTreeControl
             Dim cellData As TreeItem.CellData = Nothing
             it.Cells.TryGetValue(kvp.Key, cellData)
             Dim cellVal As String = If(cellData IsNot Nothing, cellData.Value, "").ToLowerInvariant()
-            If Not cellVal.Contains(kvp.Value.ToLowerInvariant()) Then Return False
+            If Not cellVal.Contains(kvp.Value, StringComparison.InvariantCultureIgnoreCase) Then Return False
         Next
         Return True
     End Function
@@ -816,8 +810,10 @@ Partial Public Class AdvancedTreeControl
             End While
 
             If String.IsNullOrEmpty(colHeaderText) Then
-                _columns = New List(Of ColumnDef)(_baseColumns)
-                _treeListView = (_baseColumns.Count > 0)
+                '_columns = New List(Of ColumnDef)(_baseColumns)
+                '_treeListView = (_baseColumns.Count > 0)
+                _columns.Clear()
+                _treeListView = False
             Else
                 Dim labels() As String = colHeaderText.Split("|"c)
                 Dim newCols As New List(Of ColumnDef)()
@@ -825,27 +821,28 @@ Partial Public Class AdvancedTreeControl
                     Dim lbl As String = rawLbl.Trim()
                     If String.IsNullOrEmpty(lbl) Then Continue For
                     Dim baseDef As ColumnDef = _baseColumns.FirstOrDefault(Function(c) c.Name = lbl)
-                    Dim cd As New ColumnDef()
-                    cd.Name   = lbl
-                    cd.Header = lbl
+                    Dim cd As New ColumnDef With {
+                        .Name = lbl,
+                        .Header = lbl
+                    }
                     If baseDef.Name IsNot Nothing AndAlso baseDef.Name <> "" Then
-                        cd.Width           = baseDef.Width
-                        cd.ColType         = baseDef.ColType
-                        cd.Align           = baseDef.Align
-                        cd.Format          = baseDef.Format
+                        cd.Width = baseDef.Width
+                        cd.ColType = baseDef.ColType
+                        cd.Align = baseDef.Align
+                        cd.Format = baseDef.Format
                         cd.HeaderBackColor = baseDef.HeaderBackColor
                         cd.HeaderForeColor = baseDef.HeaderForeColor
-                        cd.HeaderBold      = baseDef.HeaderBold
-                        cd.HeaderItalic    = baseDef.HeaderItalic
+                        cd.HeaderBold = baseDef.HeaderBold
+                        cd.HeaderItalic = baseDef.HeaderItalic
                         cd.HeaderUnderline = baseDef.HeaderUnderline
-                        cd.HeaderAlign     = baseDef.HeaderAlign
+                        cd.HeaderAlign = baseDef.HeaderAlign
                     Else
                         cd.Width           = 100
-                        cd.ColType         = en_ColType.ColType_Text
-                        cd.Align           = en_ColAlign.ColAlign_Left
+                        cd.ColType         = En_ColType.ColType_Text
+                        cd.Align           = En_ColAlign.ColAlign_Left
                         cd.HeaderBackColor = Color.Empty
                         cd.HeaderForeColor = Color.Empty
-                        cd.HeaderAlign     = en_ColAlign.ColAlign_Inherit
+                        cd.HeaderAlign     = En_ColAlign.ColAlign_Inherit
                     End If
                     newCols.Add(cd)
                 Next

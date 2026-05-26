@@ -94,7 +94,7 @@ Partial Public Class Tree
         _readyPollTimer = Nothing
 
         ' 1. Oprire Timer
-        _MonitorTimer?.Stop()
+        MonitorTimer?.Stop()
 
         ' 2. Eliberare Access COM (foarte important cu Try/Catch)
         If _accessApp IsNot Nothing Then
@@ -243,7 +243,7 @@ Partial Public Class Tree
                 Case "ADD_BATCH_JSON"
                     ' Format: ADD_BATCH_JSON||ParentID||JsonString
                     If parts.Length >= 3 Then
-                        ExecuteAddBatchJson(parts(1), parts(2))
+                        ExecuteAddBatchJson(parts(1), parts(2), GetOptions())
                     End If
 
                 Case "ADD_BATCH_FILE"
@@ -264,7 +264,7 @@ Partial Public Class Tree
                     ' Format: "REFRES||xml_to_use_in_refresh_path"
                     If parts.Length >= 2 Then
                         'MyTree.Clear()
-                        If ReLoadXmlData(parts(1)) Then
+                        If LoadXmlData(parts(1), True) Then
                             TrimiteMesajAccess("Refreshed", Nothing)
                         End If
                     End If
@@ -596,7 +596,7 @@ Partial Public Class Tree
         If File.Exists(filePath) Then
             Try
                 Dim jsonContent As String = File.ReadAllText(filePath)
-                ExecuteAddBatchJson(parentID, jsonContent)
+                ExecuteAddBatchJson(parentID, jsonContent, GetOptions())
 
                 ' Opțional: curățăm fișierul temporar creat de VBA
                 ' File.Delete(filePath) 
@@ -606,7 +606,13 @@ Partial Public Class Tree
         End If
     End Sub
 
-    Private Sub ExecuteAddBatchJson(parentID As String, jsonString As String)
+    Private Function GetOptions() As JsonSerializerOptions
+        Return New JsonSerializerOptions With {
+                    .PropertyNameCaseInsensitive = True
+                }
+    End Function
+
+    Private Sub ExecuteAddBatchJson(parentID As String, jsonString As String, options As JsonSerializerOptions)
         Try
             ' 1. Găsim părintele
             Dim parentNode As AdvancedTreeControl.TreeItem = Nothing
@@ -625,11 +631,6 @@ Partial Public Class Tree
             End If
 
             Try
-                ' 2. Deserializare
-                ' Opțiuni pentru a fi permisivi cu JSON-ul (Case Insensitive)
-                Dim options As New JsonSerializerOptions With {
-                .PropertyNameCaseInsensitive = True
-            }
                 Dim newNodes As List(Of NodeDto) = JsonSerializer.Deserialize(Of List(Of NodeDto))(jsonString, options)
 
                 If newNodes Is Nothing OrElse newNodes.Count = 0 Then Return
@@ -736,8 +737,9 @@ Partial Public Class Tree
             Try
                 For Each kv In dto.Cells
                     Try
-                        Dim cd As New AdvancedTreeControl.TreeItem.CellData()
-                        cd.Value = If(kv.Value?.Val, "")
+                        Dim cd As New AdvancedTreeControl.TreeItem.CellData With {
+                            .Value = If(kv.Value?.Val, "")
+                        }
                         If Not String.IsNullOrEmpty(kv.Value?.BackColor) Then
                             cd.BackColor = AdvancedTreeControl.ParseColor(kv.Value.BackColor, Color.Empty)
                         End If

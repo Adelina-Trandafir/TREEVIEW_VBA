@@ -78,6 +78,10 @@ Partial Public Class Tree
     End Function
 
     <DllImport("user32.dll")>
+    Private Shared Function PostMessage(hWnd As IntPtr, msg As UInteger, wParam As IntPtr, lParam As IntPtr) As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
     Private Shared Function SetFocus(hWnd As IntPtr) As IntPtr
     End Function
 
@@ -90,6 +94,21 @@ Partial Public Class Tree
     End Function
 
     Private Delegate Function EnumChildProcDelegate(hWnd As IntPtr, lParam As IntPtr) As Boolean
+
+    Private Const GW_OWNER As UInteger = 4
+    Private Const GA_ROOT As UInteger = 2
+
+    <DllImport("user32.dll", SetLastError:=True)>
+    Private Shared Function GetAncestor(hWnd As IntPtr, gaFlags As UInteger) As IntPtr
+    End Function
+
+    <DllImport("user32.dll", SetLastError:=True)>
+    Private Shared Function GetWindow(hWnd As IntPtr, uCmd As UInteger) As IntPtr
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function IsChild(hWndParent As IntPtr, hWnd As IntPtr) As <MarshalAs(UnmanagedType.Bool)> Boolean
+    End Function
 
     <StructLayout(LayoutKind.Sequential)>
     Private Structure LOGBRUSH

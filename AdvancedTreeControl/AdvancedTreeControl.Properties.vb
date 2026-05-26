@@ -65,7 +65,7 @@
         End Set
     End Property
 
-    Private m_Indent As Integer = 20
+    Private m_Indent As Integer = 10
     Public Property Indent As Integer
         Get
             Return m_Indent
@@ -102,7 +102,7 @@
     End Property
 
     ' Iconițe - Setarea lor declanșează recalcularea înălțimii rândului
-    Private _leftIconSize As New Size(24, 24)
+    Private _leftIconSize As New Size(18, 18)
     Public Property LeftIconSize As Size
         Get
             Return _leftIconSize
@@ -113,7 +113,7 @@
         End Set
     End Property
 
-    Private _rightIconSize As New Size(14, 14)
+    Private _rightIconSize As New Size(18, 18)
     Public Property RightIconSize As Size
         Get
             Return _rightIconSize
@@ -275,7 +275,7 @@
         End Get
         Set(value As Integer)
             _tooltipDelayMs = value
-            pTooltipTimer.Interval = value
+            TooltipTimer.Interval = value
         End Set
     End Property
 
@@ -478,34 +478,34 @@
         End Set
     End Property
 
-    Private _searchType As en_Tree_SearchType = en_Tree_SearchType.SearchType_Contains
-    Public Property SearchType As en_Tree_SearchType
+    Private _searchType As En_Tree_SearchType = En_Tree_SearchType.SearchType_Contains
+    Public Property SearchType As En_Tree_SearchType
         Get
             Return _searchType
         End Get
-        Set(value As en_Tree_SearchType)
+        Set(value As En_Tree_SearchType)
             _searchType = value
             _searchPropertiesConfigured = True
         End Set
     End Property
 
-    Private _searchIn As en_Tree_SearchIn = en_Tree_SearchIn.SearchIn_Caption
-    Public Property SearchIn As en_Tree_SearchIn
+    Private _searchIn As En_Tree_SearchIn = En_Tree_SearchIn.SearchIn_Caption
+    Public Property SearchIn As En_Tree_SearchIn
         Get
             Return _searchIn
         End Get
-        Set(value As en_Tree_SearchIn)
+        Set(value As En_Tree_SearchIn)
             _searchIn = value
             _searchPropertiesConfigured = True
         End Set
     End Property
 
-    Private _searchMode As en_Tree_SearchMode = en_Tree_SearchMode.SearchMode_Tree
-    Public Property SearchMode As en_Tree_SearchMode
+    Private _searchMode As En_Tree_SearchMode = En_Tree_SearchMode.SearchMode_Tree
+    Public Property SearchMode As En_Tree_SearchMode
         Get
             Return _searchMode
         End Get
-        Set(value As en_Tree_SearchMode)
+        Set(value As En_Tree_SearchMode)
             _searchMode = value
             _searchPropertiesConfigured = True
         End Set
@@ -635,16 +635,65 @@
         End Set
     End Property
 
-    Private _scrollBarTheme As en_ScrollBarTheme = en_ScrollBarTheme.Explorer
-    Public Property ScrollBarTheme As en_ScrollBarTheme
+    Private _scrollBarTheme As En_ScrollBarTheme = En_ScrollBarTheme.Explorer
+    Public Property ScrollBarTheme As En_ScrollBarTheme
         Get
             Return _scrollBarTheme
         End Get
-        Set(value As en_ScrollBarTheme)
+        Set(value As En_ScrollBarTheme)
             _scrollBarTheme = value
             ApplyScrollBarTheme()
         End Set
     End Property
+
+    Private _tooltipShow As Boolean = True
+    Public Property TooltipShow As Boolean
+        Get
+            Return _tooltipShow
+        End Get
+        Set(value As Boolean)
+            _tooltipShow = value
+        End Set
+    End Property
+
+    Private _tooltipBackColor As Color = Color.FromArgb(255, 255, 232)
+    Public Property TooltipBackColor As Color
+        Get
+            Return _tooltipBackColor
+        End Get
+        Set(value As Color)
+            _tooltipBackColor = value
+        End Set
+    End Property
+
+    Private _tooltipForeColor As Color = Color.FromArgb(50, 50, 60)
+    Public Property TooltipForeColor As Color
+        Get
+            Return _tooltipForeColor
+        End Get
+        Set(value As Color)
+            _tooltipForeColor = value
+        End Set
+    End Property
+
+    Private _treeListViewEnabled As Boolean = False          ' master switch
+    Public Property TreeListView As Boolean
+        Get
+            Return _treeListViewEnabled
+        End Get
+        Set(value As Boolean)
+            _treeListViewEnabled = value
+            If Not value Then
+                _activeColFilters.Clear()
+                _colFilterActive = False
+                _colFilterSet.Clear()
+                _activeColFilterPopup?.Close()
+                _activeColFilterPopup = Nothing
+            End If
+            Me.Invalidate()
+        End Set
+    End Property
+
 
     Friend Sub UpdateSearchTextBoxFont()
         If _searchTextBox Is Nothing Then Return

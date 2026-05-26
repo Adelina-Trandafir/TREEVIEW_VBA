@@ -1,7 +1,8 @@
 {
   "profiles": {
     "TREEVIEW_VBA": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "/frm:4982466 /acc:787484 /idt:frmFX_MAIN /fis:\"C:\\Avacont\\XML\\TREE\\tree_frmFX_MAIN.xml\" /log:\"C:\\Avacont\\LOGS\\\" /D3"
     }
   }
 }

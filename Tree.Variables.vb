@@ -3,8 +3,8 @@ Friend Structure ColumnDef
     Dim Name As String
     Dim Header As String
     Dim Width As Integer
-    Dim ColType As en_ColType      ' era String, acum enum
-    Dim Align As en_ColAlign     ' era HorizontalAlignment, acum enum
+    Dim ColType As En_ColType      ' era String, acum enum
+    Dim Align As En_ColAlign     ' era HorizontalAlignment, acum enum
     Dim Format As String
     ' ── header styling ───────────────────────────────────────────────────────
     Dim HeaderBackColor As Color
@@ -12,11 +12,11 @@ Friend Structure ColumnDef
     Dim HeaderBold As Boolean
     Dim HeaderItalic As Boolean
     Dim HeaderUnderline As Boolean
-    Dim HeaderAlign As en_ColAlign   ' ColAlign_Inherit = mosteneste Align
+    Dim HeaderAlign As En_ColAlign   ' ColAlign_Inherit = mosteneste Align
 End Structure
 
 ''' <summary>Tipul de date al unei coloane TreeListView.</summary>
-Friend Enum en_ColType
+Friend Enum En_ColType
     ColType_Text = 0
     ColType_Number = 1
     ColType_Date = 2
@@ -28,7 +28,7 @@ End Enum
 ''' ColAlign_Inherit (-1) este valid doar pe ColumnDef.HeaderAlign:
 ''' inseamna "mosteneste Align (celule)".
 ''' </summary>
-Friend Enum en_ColAlign
+Friend Enum En_ColAlign
     ColAlign_Inherit = -1   ' sentinel: mosteneste Align celule (doar HeaderAlign)
     ColAlign_Left = 0
     ColAlign_Center = 1
@@ -36,7 +36,7 @@ Friend Enum en_ColAlign
 End Enum
 
 Partial Public Class Tree
-    Private WithEvents _MonitorTimer As System.Windows.Forms.Timer
+    Private WithEvents MonitorTimer As System.Windows.Forms.Timer
 
     Private WithEvents MyTree As AdvancedTreeControl
 
