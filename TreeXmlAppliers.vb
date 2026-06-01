@@ -727,8 +727,13 @@ Friend NotInheritable Class TreeXmlAppliers
     End Sub
 
     Friend Shared Sub Apply_TreeListViewEnabled(cfg As XmlNode, tree As AdvancedTreeControl)
-        If cfg.Attributes("TreeListViewEnabled") Is Nothing Then Exit Sub
-        tree.TreeListView = (cfg.Attributes("TreeListViewEnabled").Value = "1")
+        If cfg.Attributes("TreeListViewEnabled") Is Nothing Then
+            TreeLogger.Debug(Space(5) & "TreeListViewEnabled attribute not found in XML", "AplicareConfigurare")
+            Exit Sub
+        End If
+        Dim xmlVal As String = cfg.Attributes("TreeListViewEnabled").Value
+        Dim v As Integer = xmlVal
+        tree.TreeListView = v
         TreeLogger.Debug(Space(5) & $"TreeListViewEnabled={tree.TreeListView}", "AplicareConfigurare")
     End Sub
 End Class

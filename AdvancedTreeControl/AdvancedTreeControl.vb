@@ -27,7 +27,7 @@ Partial Public Class AdvancedTreeControl
     Private Const PADDING_TREE_TOP As Integer = 5
 
     ' Marginea globală din DREAPTA a întregului arbore
-    Private Const PADDING_TREE_END As Integer = 5
+    Private Const PADDING_TREE_END As Integer = 4
 
     ' Raza colțurilor pentru selecție și hover
     Private Const SELECTION_CORNER_RADIUS As Integer = 1
@@ -54,10 +54,10 @@ Partial Public Class AdvancedTreeControl
     Private loadingAngle As Single = 0
 
     ' Gap minim între capătul textului stâng și începutul textului drept (separator ~~~)
-    Private Const PADDING_SEPARATOR_GAP As Integer = 12
+    Private Const PADDING_SEPARATOR_GAP As Integer = 8
 
     ' Padding între zona de text și iconița din dreapta
-    Private Const PADDING_RIGHT_ICON_GAP As Integer = 8
+    Private Const PADDING_RIGHT_ICON_GAP As Integer = 4
 
     Private _vScroll As New VScrollBar()
 
