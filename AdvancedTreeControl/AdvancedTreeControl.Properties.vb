@@ -124,6 +124,17 @@
         End Set
     End Property
 
+    Private _rightIconRightPadding As Integer = 6
+    Public Property RightIconRightPadding As Integer
+        Get
+            Return _rightIconRightPadding
+        End Get
+        Set(value As Integer)
+            _rightIconRightPadding = Math.Max(0, value)
+            Me.Invalidate()
+        End Set
+    End Property
+
     Private _RootExpander As Boolean = True
     Public Property RootExpander As Boolean
         Get

@@ -298,7 +298,7 @@ Partial Public Class AdvancedTreeControl
         If it.RightIcon IsNot Nothing Then
             Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
             ' Reconstituim dreptunghiul iconiței exact ca în Painting.vb
-            Dim rIconRect As New Rectangle(Me.Width - RightIconSize.Width - 6 - scrollW,
+            Dim rIconRect As New Rectangle(Me.Width - RightIconSize.Width - _rightIconRightPadding - scrollW,
                                            (it.Level * Indent) + Me.AutoScrollPosition.Y + (ItemHeight - RightIconSize.Height) \ 2, ' Aici trebuie calculat Y-ul vizual, nu logic
                                            RightIconSize.Width,
                                            RightIconSize.Height)
@@ -460,7 +460,7 @@ Partial Public Class AdvancedTreeControl
         MyBase.OnResize(e)
         _vScroll.Width = SystemInformation.VerticalScrollBarWidth
         _vScroll.Left = Math.Max(0, Me.Width - _vScroll.Width)
-        _vScroll.Top = 0
+        '_vScroll.Top = 0
         _vScroll.Height = Me.Height
         RefreshScrollVisibility()
         If _isSearchMode Then PositionSearchTextBox()

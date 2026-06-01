@@ -251,7 +251,7 @@ Partial Public Class AdvancedTreeControl
         If _searchTextBox Is Nothing Then Return
         'Dim scrollW As Integer = ScrollBarWidth 'If(_vScroll.Visible, _vScroll.Width, 0)
         ' barTop vizual REAL = poziție fixă + compensare scroll
-        Dim barTop As Integer = If(_headerVisible, _headerHeight, 0) - Me.AutoScrollPosition.Y
+        Dim barTop As Integer = If(_headerVisible, _headerHeight, 0)
         Dim tbTop As Integer = barTop + (_searchBarHeight - _searchTextBox.PreferredHeight) \ 2
 
         ' Spațiu rezervat pentru ✕ — DOAR când butonul e vizibil

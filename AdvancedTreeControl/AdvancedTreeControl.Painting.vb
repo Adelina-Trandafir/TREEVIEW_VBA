@@ -186,7 +186,7 @@ Partial Public Class AdvancedTreeControl
                                  leftIconRect.Right + PADDING_ICON_GAP, xBase)
         Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
         Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
-        If it.RightIcon IsNot Nothing Then maxRightX -= (RightIconSize.Width + PADDING_RIGHT_ICON_GAP)
+        If it.RightIcon IsNot Nothing Then maxRightX -= (RightIconSize.Width + _rightIconRightPadding)
         Dim availableTextWidth As Integer = Math.Max(0, maxRightX - textX)
 
         ' ── Font & culoare ───────────────────────────────────────────────────────
@@ -284,7 +284,7 @@ Partial Public Class AdvancedTreeControl
         If hoverOnly AndAlso it IsNot pHoveredItem Then Return
 
         Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
-        Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
+        Dim rx As Integer = Me.Width - RightIconSize.Width - _rightIconRightPadding - scrollW
         Dim ry As Integer = y + (ItemHeight - RightIconSize.Height) \ 2
         g.DrawImage(it.RightIcon, rx, ry, RightIconSize.Width, RightIconSize.Height)
     End Sub

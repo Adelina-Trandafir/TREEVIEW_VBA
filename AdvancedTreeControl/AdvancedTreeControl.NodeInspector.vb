@@ -93,14 +93,14 @@ Partial Public Class AdvancedTreeControl
 
         Dim scrollW As Integer = ScrollBarWidth
         Dim maxRightX As Integer = Me.Width - scrollW - PADDING_TREE_END
-        If it.RightIcon IsNot Nothing Then maxRightX -= (RightIconSize.Width + PADDING_RIGHT_ICON_GAP)
+        If it.RightIcon IsNot Nothing Then maxRightX -= (RightIconSize.Width + _rightIconRightPadding)
         info.TextBounds = If(y = -1, Rectangle.Empty,
                              New Rectangle(textX, y, Math.Max(0, maxRightX - textX), ItemHeight))
 
         ' RightIconBounds — replica logica din DrawRightIcon
         Dim rightIconBounds As Rectangle = Rectangle.Empty
         If it.RightIcon IsNot Nothing Then
-            Dim rx As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - PADDING_TREE_END - scrollW
+            Dim rx As Integer = Me.Width - RightIconSize.Width - _rightIconRightPadding - PADDING_TREE_END - scrollW
             rightIconBounds = New Rectangle(rx, y + (ItemHeight - RightIconSize.Height) \ 2,
                                             RightIconSize.Width, RightIconSize.Height)
         End If

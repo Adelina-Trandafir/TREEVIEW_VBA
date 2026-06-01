@@ -56,9 +56,6 @@ Partial Public Class AdvancedTreeControl
     ' Gap minim între capătul textului stâng și începutul textului drept (separator ~~~)
     Private Const PADDING_SEPARATOR_GAP As Integer = 8
 
-    ' Padding între zona de text și iconița din dreapta
-    Private Const PADDING_RIGHT_ICON_GAP As Integer = 4
-
     Private _vScroll As New VScrollBar()
 
     Private ReadOnly TooltipTimer As New Timer()
@@ -381,7 +378,7 @@ Partial Public Class AdvancedTreeControl
         ' Nu afișăm tooltip dacă mouse-ul e pe zona RightIcon
         If it.RightIcon IsNot Nothing AndAlso mouseX >= 0 Then
             Dim scrollW As Integer = ScrollBarWidth 'If(Me.VerticalScroll.Visible, SystemInformation.VerticalScrollBarWidth, 0)
-            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - PADDING_RIGHT_ICON_GAP - scrollW
+            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - _rightIconRightPadding - scrollW
             If mouseX >= rightIconMinX Then Return
         End If
 
@@ -402,7 +399,7 @@ Partial Public Class AdvancedTreeControl
         ' Verificare suplimentară: dacă cursorul s-a mutat pe RightIcon între timp
         If pTooltipItem.RightIcon IsNot Nothing Then
             Dim scrollW As Integer = ScrollBarWidth 'If(_vScroll.Visible, _vScroll.Width, 0)
-            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - 6 - scrollW
+            Dim rightIconMinX As Integer = Me.Width - RightIconSize.Width - _rightIconRightPadding - scrollW
             If _lastMouseX >= rightIconMinX Then Return
         End If
 
@@ -632,10 +629,10 @@ Partial Public Class AdvancedTreeControl
         End If
 
         ' Poziție fizică scrollbar — manual, fără Dock
-        _vScroll.Left = Me.Width - SystemInformation.VerticalScrollBarWidth
-        _vScroll.Top = 0
-        _vScroll.Width = SystemInformation.VerticalScrollBarWidth
-        _vScroll.Height = Me.Height
+        '_vScroll.Left = Me.Width - SystemInformation.VerticalScrollBarWidth
+        '_vScroll.Top = 0
+        '_vScroll.Width = SystemInformation.VerticalScrollBarWidth
+        '_vScroll.Height = Me.Height
     End Sub
 
     ' Apelat din OnResize și din API (ClearTree, după rebuild)

@@ -268,6 +268,15 @@ Friend NotInheritable Class TreeXmlAppliers
         End If
     End Sub
 
+    Friend Shared Sub Apply_RightIconRightPadding(cfg As XmlNode, tree As AdvancedTreeControl)
+        If cfg.Attributes("RightIconRightPadding") Is Nothing Then Exit Sub
+        Dim xmlVal As String = cfg.Attributes("RightIconRightPadding").Value
+        Dim v As Integer = tree.RightIconRightPadding
+        If Integer.TryParse(xmlVal, v) AndAlso v > 0 Then
+            If tree.RightIconRightPadding <> v Then tree.RightIconRightPadding = v
+            TreeLogger.Debug(Space(5) & $"RightIconRightPadding xml='{xmlVal}' control='{tree.RightIconRightPadding}'", "AplicareConfigurare")
+        End If
+    End Sub
     ' -------------------------------------------------------
     ' COMPORTAMENT
     ' -------------------------------------------------------
