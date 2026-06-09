@@ -2,7 +2,7 @@
 Imports System.Runtime.InteropServices
 
 Partial Public Class AdvancedTreeControl
-    Private Class TooltipPopup
+    Partial Private Class TooltipPopup
         Inherits Form
 
         Private Const SW_SHOWNOACTIVATE As Integer = 4
@@ -73,7 +73,7 @@ Partial Public Class AdvancedTreeControl
         End Sub
 
         ''' <summary>
-        ''' Afișează tooltip-ul cu RichText la poziția screen indicată.
+        ''' Afișează tooltip-ul cu RichText la poziția vScreen indicată.
         ''' text poate conține taguri: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;color=#hex&gt;, &lt;back=#hex&gt;
         ''' </summary>
         Friend Sub ShowTooltip(text As String, baseFont As Font, screenPos As Point, autoHideMs As Integer)
@@ -81,45 +81,58 @@ Partial Public Class AdvancedTreeControl
                 _autoHideTimer.Stop()
                 _autoHideTimer.Interval = If(autoHideMs > 0, autoHideMs, 5000)
 
+                ' ── DETECȚIE MOD TABEL ──────────────────────────────────────────
+                _isTableMode = TooltipTableParser.IsTableXml(text)
+                If _isTableMode Then
+                    Dim errMsg As String = Nothing
+                    If TooltipTableParser.TryParse(text, _tableModel, errMsg) Then
+                        MeasureTable()
+
+                        Dim formWt As Integer = _tableWidth + PADDING_H * 2
+                        Dim formHnat As Integer = _tableHeight + PADDING_V * 2
+
+                        Dim scr As Screen = Screen.FromPoint(screenPos)
+                        Dim formHt As Integer = Math.Min(formHnat, scr.WorkingArea.Height)   ' clamp la ecran (surplus clipat, fără scroll)
+
+                        Dim px As Integer = screenPos.X + 16
+                        Dim py As Integer = screenPos.Y + 20
+                        If px + formWt > scr.WorkingArea.Right Then px = screenPos.X - formWt - 4
+                        If py + formHt > scr.WorkingArea.Bottom Then py = scr.WorkingArea.Bottom - formHt - 4
+                        If px < scr.WorkingArea.Left Then px = scr.WorkingArea.Left
+                        If py < scr.WorkingArea.Top Then py = scr.WorkingArea.Top
+
+                        Me.Location = New Point(px, py)
+                        Me.Size = New Size(formWt, formHt)
+                        ApplyOpaqueBackColor()
+                        Me.Invalidate()
+                        Me.Visible = True
+                        _autoHideTimer.Start()
+                        Return
+                    Else
+                        ' XML invalid → mesaj de eroare VIZIBIL pe calea RichText
+                        _isTableMode = False
+                        text = "<color=#CC0000><b>⚠ Tooltip XML invalid:</b></color>" & vbLf & errMsg
+                    End If
+                End If
+
+                ' ── CALEA RICHTEXT (existentă, neatinsă) ─────────────────────────
                 Dim tooltipFont As New Font(TOOLTIP_FONT_NAME, TOOLTIP_FONT_SIZE, FontStyle.Regular, GraphicsUnit.Point)
-
-                ' 1. Parsăm RichText-ul 
                 _parts = AdvancedTreeControl.ParseRichText(text, tooltipFont, TT_ForeColor)
-
-                ' 2. Calculăm dimensiunile conținutului
                 MeasureContent(baseFont, TT_ForeColor)
 
-                ' 3. Dimensionăm form-ul
                 Dim formW As Integer = _contentWidth + PADDING_H * 2
                 Dim formH As Integer = _contentHeight + PADDING_V * 2
 
-                ' 4. Poziționare inteligentă (să nu iasă din ecran)
-                Dim screen As Screen = Screen.FromPoint(screenPos)
+                Dim vScreen As Screen = Screen.FromPoint(screenPos)
                 Dim posX As Integer = screenPos.X + 16
                 Dim posY As Integer = screenPos.Y + 20
-
-                If posX + formW > screen.WorkingArea.Right Then
-                    posX = screenPos.X - formW - 4
-                End If
-                If posY + formH > screen.WorkingArea.Bottom Then
-                    posY = screenPos.Y - formH - 4
-                End If
-
-                TreeLogger.Info($"Showing tooltip at ({posX}, {posY}), size ({formW}x{formH}) with text {text}", "TooltipPopup.ShowTooltip")
+                If posX + formW > vScreen.WorkingArea.Right Then posX = screenPos.X - formW - 4
+                If posY + formH > vScreen.WorkingArea.Bottom Then posY = screenPos.Y - formH - 4
 
                 Me.Location = New Point(posX, posY)
                 Me.Size = New Size(formW, formH)
-
-                Try
-                    Me.BackColor = Color.FromArgb(255, TT_BackColor) ' Asigură opacitate completă chiar dacă se setează o culoare cu alpha < 255
-
-                Catch ex As Exception
-                    TreeLogger.Err($"Error setting tooltip back color: {ex.Message} to {TT_BackColor}", "TooltipPopup.ShowTooltip")
-
-                End Try
-
+                ApplyOpaqueBackColor()
                 Me.Visible = True
-                'Me.Activate()
                 _autoHideTimer.Start()
 
             Catch ex As Exception
@@ -225,49 +238,13 @@ Partial Public Class AdvancedTreeControl
                 g.SmoothingMode = SmoothingMode.AntiAlias
                 g.TextRenderingHint = Drawing.Text.TextRenderingHint.ClearTypeGridFit
 
-                Dim rc As New Rectangle(0, 0, Me.Width - 1, Me.Height - 1)
+                DrawBackground(g)
 
-                ' Fundal cu colțuri rotunde
-                Using path As GraphicsPath = GetRoundedRect(rc, CORNER_RADIUS)
-                    Using bgBrush As New SolidBrush(Me.BackColor)
-                        g.FillPath(bgBrush, path)
-                    End Using
-                    Dim bc As Color = TT_BackColor
-                    Dim borderDerived As Color = Color.FromArgb(
-                                                        CInt(bc.R * 0.6),
-                                                        CInt(bc.G * 0.6),
-                                                        CInt(bc.B * 0.6))
-                    Using borderPen As New Pen(Color.FromArgb(BORDER_COLOR_ARG, borderDerived), 1)
-                        g.DrawPath(borderPen, path)
-                    End Using
-                End Using
-
-                ' Desenare text linie cu linie
-                Dim fmt As StringFormat = StringFormat.GenericTypographic
-                fmt.FormatFlags = fmt.FormatFlags Or StringFormatFlags.MeasureTrailingSpaces
-
-                Dim y As Single = PADDING_V
-
-                For Each line In _lines
-                    Dim x As Single = PADDING_H
-                    For Each part In line
-                        Dim sz As SizeF = g.MeasureString(If(part.Text = "", " ", part.Text), part.Font, PointF.Empty, fmt)
-
-                        If part.HasBackColor Then
-                            Using bb As New SolidBrush(part.BackColor)
-                                g.FillRectangle(bb, x, y, sz.Width, _lineHeight)
-                            End Using
-                        End If
-
-                        Dim textY As Single = y + (_lineHeight - part.Font.Height) / 2.0F
-                        Using tb As New SolidBrush(part.ForeColor)
-                            g.DrawString(part.Text, part.Font, tb, x, textY, fmt)
-                        End Using
-
-                        x += sz.Width
-                    Next
-                    y += _lineHeight
-                Next
+                If _isTableMode Then
+                    PaintTable(g)
+                Else
+                    PaintRichText(g)
+                End If
             Catch ex As Exception
                 TreeLogger.Err($"Error painting tooltip: {ex.Message}", "TooltipPopup.OnPaint")
             End Try

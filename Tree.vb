@@ -13,6 +13,7 @@ Partial Public Class Tree
         DEBUG_MODE = True
 #End If
         InitializeComponent()
+
         Try
             ' Configurare Formă Gazdă
             Me.FormBorderStyle = FormBorderStyle.None
